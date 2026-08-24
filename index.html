@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Oma Opa POS - Login</title>
+
+    <!-- =========================================================
+         TAMBAHAN 1: Firebase SDK (compat version, paling mudah
+         dipahami untuk pemula karena mirip cara lama)
+         Ganti versi angka "10.x.x" kalau ada versi lebih baru
+    ========================================================== -->
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            background: #fff8ed;
+            min-height: 100vh;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            color: #4b2b1d;
+        }
+
+        /* =========================
+           LOGIN CARD
+        ========================== */
+
+        .login-card {
+            width: 100%;
+            max-width: 390px;
+
+            background: #fffdf9;
+
+            border: 1px solid #eadfd2;
+            border-radius: 10px;
+
+            padding: 24px 22px 26px;
+
+            box-shadow: 0 2px 8px rgba(80, 50, 30, 0.05);
+        }
+
+        /* =========================
+           LOGO
+        ========================== */
+
+        .logo {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+
+            gap: 8px;
+
+            margin-bottom: 12px;
+        }
+
+        .logo-icon {
+            display: flex;
+            gap: 2px;
+        }
+
+        .bread {
+            width: 32px;
+            height: 32px;
+
+            background: #f7c66b;
+
+            border-radius: 50% 50% 45% 45%;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            font-size: 18px;
+
+            border: 2px solid #d9a653;
+        }
+
+        .logo-text {
+            font-size: 19px;
+            font-weight: 800;
+            line-height: 17px;
+
+            color: #5a2d1c;
+        }
+
+        /* =========================
+           TITLE
+        ========================== */
+
+        .welcome {
+            text-align: center;
+
+            margin-top: 6px;
+            margin-bottom: 20px;
+        }
+
+        .welcome h1 {
+            font-size: 17px;
+            font-weight: 700;
+
+            margin-bottom: 8px;
+        }
+
+        .welcome p {
+            font-size: 11px;
+            color: #765f51;
+        }
+
+        /* =========================
+           FORM
+        ========================== */
+
+        .form-group {
+            margin-bottom: 14px;
+        }
+
+        .form-group label {
+            display: block;
+
+            font-size: 11px;
+            font-weight: 500;
+
+            margin-bottom: 6px;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        .form-input {
+            width: 100%;
+
+            height: 38px;
+
+            padding: 0 12px;
+
+            border: 1px solid #e8ddd2;
+            border-radius: 6px;
+
+            background: #fff;
+
+            font-size: 11px;
+
+            outline: none;
+
+            color: #4b2b1d;
+        }
+
+        .form-input:focus {
+            border-color: #f39a16;
+
+            box-shadow: 0 0 0 2px rgba(243, 154, 22, 0.10);
+        }
+
+        .password-input {
+            padding-right: 38px;
+        }
+
+        .eye {
+            position: absolute;
+
+            right: 12px;
+            top: 50%;
+
+            transform: translateY(-50%);
+
+            cursor: pointer;
+
+            color: #8a796e;
+
+            font-size: 14px;
+        }
+
+        /* =========================
+           REMEMBER + FORGOT
+        ========================== */
+
+        .form-options {
+            display: flex;
+
+            align-items: center;
+            justify-content: space-between;
+
+            margin-top: -3px;
+            margin-bottom: 17px;
+        }
+
+        .remember {
+            display: flex;
+            align-items: center;
+
+            gap: 5px;
+
+            font-size: 10px;
+        }
+
+        .remember input {
+            accent-color: #f39a16;
+
+            width: 12px;
+            height: 12px;
+        }
+
+        .forgot {
+            font-size: 10px;
+
+            color: #e87913;
+
+            text-decoration: none;
+        }
+
+        /* =========================
+           LOGIN BUTTON
+        ========================== */
+
+        .login-button {
+            width: 100%;
+
+            height: 38px;
+
+            border: none;
+            border-radius: 6px;
+
+            background: #f39a16;
+
+            color: white;
+
+            font-size: 11px;
+            font-weight: 700;
+
+            cursor: pointer;
+
+            transition: 0.2s;
+        }
+
+        .login-button:hover {
+            background: #e98b08;
+        }
+
+        .login-button:active {
+            transform: scale(0.99);
+        }
+
+        .login-button:disabled {
+            background: #e8c99a;
+            cursor: not-allowed;
+        }
+
+        /* =========================
+           INFO AKUN (pengganti Register)
+        ========================== */
+
+        .account-info {
+            text-align: center;
+
+            margin-top: 22px;
+
+            font-size: 10px;
+
+            color: #8a796e;
+
+            line-height: 15px;
+        }
+
+        /* =========================
+           TAMBAHAN 2: Pesan error login
+        ========================== */
+
+        .error-message {
+            display: none;
+
+            background: #fdeaea;
+            color: #c0392b;
+
+            font-size: 10px;
+
+            padding: 8px 10px;
+
+            border-radius: 6px;
+
+            margin-bottom: 12px;
+        }
+
+        /* =========================
+           MOBILE
+        ========================== */
+
+        @media (max-width: 480px) {
+
+            body {
+                padding: 16px;
+            }
+
+            .login-card {
+                max-width: 360px;
+
+                padding: 22px 18px 24px;
+            }
+        }
+    </style>
+</head>
+
+
+<body>
+
+    <div class="login-card">
+
+        <!-- LOGO -->
+        <div class="logo">
+
+            <div class="logo-icon">
+
+                <div class="bread">🥯</div>
+                <div class="bread">🥐</div>
+
+            </div>
+
+            <div class="logo-text">
+                OMA<br>
+                OPA
+            </div>
+
+        </div>
+
+
+        <!-- WELCOME -->
+        <div class="welcome">
+
+            <h1>Selamat Datang!</h1>
+
+            <p>
+                Silakan masuk untuk melanjutkan
+            </p>
+
+        </div>
+
+
+        <!-- TAMBAHAN: Pesan error kalau login gagal -->
+        <div class="error-message" id="errorMessage"></div>
+
+
+        <!-- USERNAME -->
+        <div class="form-group">
+
+            <label for="username">
+                Username
+            </label>
+
+            <input
+                type="text"
+                id="username"
+                class="form-input"
+                placeholder="URNKASIR1JAKAL"
+                autocapitalize="none"
+                autocomplete="username"
+            >
+
+        </div>
+
+
+        <!-- PASSWORD -->
+        <div class="form-group">
+
+            <label for="password">
+                Password
+            </label>
+
+            <div class="input-wrapper">
+
+                <input
+                    type="password"
+                    id="password"
+                    class="form-input password-input"
+                    placeholder="••••••••"
+                >
+
+                <span
+                    class="eye"
+                    onclick="togglePassword()"
+                    id="eyeIcon"
+                >
+                    ◉
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <!-- OPTIONS -->
+        <div class="form-options">
+
+            <label class="remember">
+
+                <input
+                    type="checkbox"
+                    id="remember"
+                >
+
+                <span>Ingat saya</span>
+
+            </label>
+
+        </div>
+
+
+        <!-- LOGIN -->
+        <button
+            class="login-button"
+            id="loginBtn"
+            onclick="loginFirebase()"
+        >
+            Masuk
+        </button>
+
+
+    </div>
+
+
+    <script>
+
+        /* =========================================================
+           TAMBAHAN 3: Konfigurasi Firebase
+           Ganti semua nilai di bawah ini dengan konfigurasi
+           project Firebase kamu sendiri (Project Settings > Your apps)
+        ========================================================== */
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyC5nxXV7YPTEq160fLoqBBKtvwaHBQljfc",
+  authDomain: "omaopa-pos.firebaseapp.com",
+  projectId: "omaopa-pos",
+  storageBucket: "omaopa-pos.firebasestorage.app",
+  messagingSenderId: "101370933916",
+  appId: "1:101370933916:web:129ebea30dd9e59508f359"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+
+        /* =========================
+           SHOW / HIDE PASSWORD
+           (tidak berubah dari versi demo)
+        ========================== */
+
+        function togglePassword() {
+
+            const password =
+                document.getElementById("password");
+
+            const eye =
+                document.getElementById("eyeIcon");
+
+
+            if (password.type === "password") {
+
+                password.type = "text";
+
+                eye.innerHTML = "◉";
+
+            } else {
+
+                password.type = "password";
+
+                eye.innerHTML = "◉";
+            }
+        }
+
+
+        /* =========================================================
+           TAMBAHAN 4: LOGIN BENERAN PAKAI FIREBASE
+           Ini menggantikan fungsi loginDemo() yang lama
+        ========================================================== */
+
+        function showError(message) {
+
+            const errorBox =
+                document.getElementById("errorMessage");
+
+            errorBox.textContent = message;
+            errorBox.style.display = "block";
+        }
+
+
+        /* =========================================================
+           TAMBAHAN: Konversi Username -> Email palsu
+           Firebase Authentication WAJIB pakai format email,
+           jadi username diubah dulu jadi email di belakang layar.
+           Contoh: "URNKASIR1JAKAL" -> "urnkasir1jakal@omaopa.internal"
+           User tidak perlu tahu proses ini, tetap terasa "login
+           pakai username" dari sisi tampilan.
+        ========================================================== */
+
+        function usernameToEmail(username) {
+
+            const usernameBersih =
+                username.trim().toLowerCase();
+
+            return usernameBersih + "@omaopa.internal";
+        }
+
+
+        function loginFirebase() {
+
+            const usernameInput =
+                document.getElementById("username").value;
+
+            const password =
+                document.getElementById("password").value;
+
+            const loginBtn =
+                document.getElementById("loginBtn");
+
+            const errorBox =
+                document.getElementById("errorMessage");
+
+            errorBox.style.display = "none";
+
+
+            if (!usernameInput || !password) {
+
+                showError("Username dan password harus diisi.");
+
+                return;
+            }
+
+            // Konversi username menjadi format email untuk Firebase
+            const email = usernameToEmail(usernameInput);
+
+
+            // Nonaktifkan tombol sementara supaya tidak diklik dobel
+            loginBtn.disabled = true;
+            loginBtn.textContent = "Memproses...";
+
+
+            // Ini bagian yang benar-benar mengecek ke Firebase Authentication
+            auth.signInWithEmailAndPassword(email, password)
+
+                .then((userCredential) => {
+
+                    const user = userCredential.user;
+
+                    // Setelah login berhasil, ambil data tambahan
+                    // dari Firestore: role (kasir/admin) & outlet mana
+                    return db.collection("users").doc(user.uid).get();
+
+                })
+
+                .then((userDoc) => {
+
+                    if (userDoc.exists) {
+
+                        const userData = userDoc.data();
+
+                        alert(
+                            "Login berhasil!\n\n" +
+                            "Nama: " + userData.nama + "\n" +
+                            "Role: " + userData.role + "\n" +
+                            "Outlet: " + userData.outlet
+                        );
+
+                        // Di aplikasi beneran, ini diganti redirect:
+                        // window.location.href = "dashboard.html";
+
+                    } else {
+
+                        showError(
+                            "Login berhasil, tapi data user tidak " +
+                            "ditemukan di Firestore."
+                        );
+                    }
+                })
+
+                .catch((error) => {
+
+                    // Pesan error dari Firebase diterjemahkan
+                    // ke Bahasa Indonesia yang lebih ramah
+                    let pesan =
+                        "Username atau password salah.";
+
+                    if (error.code === "auth/user-not-found") {
+                        pesan = "Username tidak terdaftar.";
+                    }
+
+                    if (error.code === "auth/too-many-requests") {
+                        pesan =
+                            "Terlalu banyak percobaan gagal. " +
+                            "Coba lagi nanti.";
+                    }
+
+                    showError(pesan);
+                })
+
+                .finally(() => {
+
+                    loginBtn.disabled = false;
+                    loginBtn.textContent = "Masuk";
+                });
+        }
+
+    </script>
+
+</body>
+</html>
