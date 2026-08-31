@@ -548,15 +548,17 @@
 
 
             // Ini bagian yang benar-benar mengecek ke Firebase Authentication
+            let uidUser = null;
+
             auth.signInWithEmailAndPassword(email, password)
 
                 .then((userCredential) => {
 
-                    const user = userCredential.user;
+                    uidUser = userCredential.user.uid;
 
                     // Setelah login berhasil, ambil data tambahan
                     // dari Firestore: role (kasir/admin) & outlet mana
-                    return db.collection("users").doc(user.uid).get();
+                    return db.collection("users").doc(uidUser).get();
 
                 })
 
@@ -565,7 +567,7 @@
                     if (userDoc.exists) {
 
                         const userData = userDoc.data();
-                        userData.uid = user.uid;
+                        userData.uid = uidUser;
 
                         // Simpan data user supaya bisa dipakai di halaman lain
                         // (kasir.html, stok.html, dst) tanpa perlu query ulang
