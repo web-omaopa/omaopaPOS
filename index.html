@@ -434,17 +434,16 @@
 
         /* =========================================================
            TAMBAHAN 3: Konfigurasi Firebase
-           Ganti semua nilai di bawah ini dengan konfigurasi
-           project Firebase kamu sendiri (Project Settings > Your apps)
+           Sudah diisi dengan config asli project omaopa-pos
         ========================================================== */
 
         const firebaseConfig = {
             apiKey: "AIzaSyC5nxXV7YPTEq160fLoqBBKtvwaHBQljfc",
-  authDomain: "omaopa-pos.firebaseapp.com",
-  projectId: "omaopa-pos",
-  storageBucket: "omaopa-pos.firebasestorage.app",
-  messagingSenderId: "101370933916",
-  appId: "1:101370933916:web:129ebea30dd9e59508f359"
+            authDomain: "omaopa-pos.firebaseapp.com",
+            projectId: "omaopa-pos",
+            storageBucket: "omaopa-pos.firebasestorage.app",
+            messagingSenderId: "101370933916",
+            appId: "1:101370933916:web:129ebea30dd9e59508f359"
         };
 
         firebase.initializeApp(firebaseConfig);
@@ -566,16 +565,18 @@
                     if (userDoc.exists) {
 
                         const userData = userDoc.data();
+                        userData.uid = user.uid;
 
-                        alert(
-                            "Login berhasil!\n\n" +
-                            "Nama: " + userData.nama + "\n" +
-                            "Role: " + userData.role + "\n" +
-                            "Outlet: " + userData.outlet
+                        // Simpan data user supaya bisa dipakai di halaman lain
+                        // (kasir.html, stok.html, dst) tanpa perlu query ulang
+                        sessionStorage.setItem(
+                            "omaopa_user",
+                            JSON.stringify(userData)
                         );
 
-                        // Di aplikasi beneran, ini diganti redirect:
-                        // window.location.href = "dashboard.html";
+                        // Arahkan ke Beranda; menu yang tampil di sana
+                        // otomatis menyesuaikan role user (kasir vs admin/owner)
+                        window.location.href = "beranda.html";
 
                     } else {
 
