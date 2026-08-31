@@ -66,26 +66,11 @@
             margin-bottom: 12px;
         }
 
-        .logo-icon {
-            display: flex;
-            gap: 2px;
-        }
-
-        .bread {
-            width: 32px;
-            height: 32px;
-
-            background: #f7c66b;
-
-            border-radius: 50% 50% 45% 45%;
-
-            display: flex;
-            align-items: center;
-            justify-content: center;
-
-            font-size: 18px;
-
-            border: 2px solid #d9a653;
+        .logo-img {
+            width: 100%;
+            max-width: 260px;
+            height: auto;
+            object-fit: contain;
         }
 
         .logo-text {
@@ -321,17 +306,7 @@
         <!-- LOGO -->
         <div class="logo">
 
-            <div class="logo-icon">
-
-                <div class="bread">🥯</div>
-                <div class="bread">🥐</div>
-
-            </div>
-
-            <div class="logo-text">
-                OMA<br>
-                OPA
-            </div>
+            <img src="logo.png" alt="Logo Oma Opa" class="logo-img">
 
         </div>
 
