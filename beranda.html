@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oma Opa POS - Beranda</title>
+
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+    <script src="roles.js"></script>
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            background: #fff8ed;
+            color: #4b2b1d;
+        }
+
+        .app-layout { display: flex; min-height: 100vh; }
+
+        /* ===== SIDEBAR ===== */
+        .sidebar {
+            width: 190px;
+            flex-shrink: 0;
+            background: #fffdf9;
+            border-right: 1px solid #eadfd2;
+            padding: 20px 14px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar .brand {
+            font-weight: 800;
+            font-size: 15px;
+            color: #5a2d1c;
+            margin-bottom: 18px;
+        }
+
+        .sidebar .nav-item {
+            display: block;
+            padding: 9px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #765f51;
+            text-decoration: none;
+            margin-bottom: 4px;
+        }
+
+        .sidebar .nav-item:hover { background: #fbf1e3; }
+
+        .sidebar .nav-item.active {
+            background: #fcecd2;
+            color: #a8570c;
+            font-weight: 700;
+        }
+
+        .sidebar .nav-item.disabled {
+            color: #c9beb0;
+            pointer-events: none;
+        }
+
+        .sidebar .nav-divider {
+            border-top: 1px solid #eadfd2;
+            margin: 14px 0 10px;
+        }
+
+        .sidebar .nav-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: #b0a89c;
+            text-transform: uppercase;
+            padding: 0 12px;
+            margin-bottom: 6px;
+        }
+
+        .sidebar .user-block {
+            margin-top: auto;
+            padding-top: 14px;
+            border-top: 1px solid #eadfd2;
+        }
+
+        .sidebar .user-name { font-size: 12px; font-weight: 700; }
+        .sidebar .user-role { font-size: 10px; color: #8a796e; margin-bottom: 8px; }
+
+        .sidebar .logout-link {
+            font-size: 11px;
+            color: #c0392b;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        /* ===== CONTENT ===== */
+        .content {
+            flex: 1;
+            padding: 28px 30px;
+            max-width: 720px;
+        }
+
+        .greeting p:first-child { font-size: 13px; color: #765f51; }
+        .greeting h1 { font-size: 20px; margin: 4px 0 4px; }
+
+        .role-tag {
+            display: inline-block;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 20px;
+            background: #fcf3e6;
+            color: #b06d09;
+            text-transform: uppercase;
+        }
+
+        .section-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: #8a796e;
+            text-transform: uppercase;
+            margin-top: 28px;
+            margin-bottom: 8px;
+        }
+
+        .quick-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+        }
+
+        .quick-card {
+            background: #fffdf9;
+            border: 1px solid #eadfd2;
+            border-radius: 12px;
+            padding: 18px 16px;
+            text-decoration: none;
+            color: #4b2b1d;
+            display: block;
+        }
+
+        .quick-card:hover { border-color: #f39a16; }
+        .quick-card .icon { font-size: 22px; }
+        .quick-card .title { font-size: 13px; font-weight: 700; margin-top: 8px; }
+        .quick-card .desc { font-size: 11px; color: #8a796e; margin-top: 2px; }
+    </style>
+</head>
+<body>
+
+    <div class="app-layout">
+        <div class="sidebar" id="sidebarContainer"></div>
+
+        <div class="content">
+            <div class="greeting">
+                <p>Selamat datang,</p>
+                <h1 id="namaUser">...</h1>
+                <span class="role-tag" id="roleTag">...</span>
+            </div>
+
+            <div id="quickAccessContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyC5nxXV7YPTEq160fLoqBBKtvwaHBQljfc",
+            authDomain: "omaopa-pos.firebaseapp.com",
+            projectId: "omaopa-pos",
+            storageBucket: "omaopa-pos.firebasestorage.app",
+            messagingSenderId: "101370933916",
+            appId: "1:101370933916:web:129ebea30dd9e59508f359"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        let currentUser = null;
+
+        auth.onAuthStateChanged(function (user) {
+            if (!user) {
+                window.location.href = "index.html";
+                return;
+            }
+
+            const savedUser = sessionStorage.getItem("omaopa_user");
+
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                tampilkanBeranda();
+            } else {
+                db.collection("users").doc(user.uid).get().then(function (doc) {
+                    if (doc.exists) {
+                        currentUser = doc.data();
+                        currentUser.uid = user.uid;
+                        sessionStorage.setItem("omaopa_user", JSON.stringify(currentUser));
+                        tampilkanBeranda();
+                    } else {
+                        window.location.href = "index.html";
+                    }
+                });
+            }
+        });
+
+        function logout() {
+            auth.signOut().then(function () {
+                sessionStorage.removeItem("omaopa_user");
+                window.location.href = "index.html";
+            });
+        }
+
+        function tampilkanBeranda() {
+            document.getElementById("namaUser").textContent = currentUser.nama;
+            document.getElementById("roleTag").textContent = currentUser.role;
+
+            document.getElementById("sidebarContainer").innerHTML =
+                renderSidebar(currentUser, "beranda");
+
+            const halamanDiizinkan = getHalamanUntukRole(currentUser.role);
+            const sudahDibangun = halamanDiizinkan.filter(function (h) { return h.dibangun; });
+            const container = document.getElementById("quickAccessContainer");
+
+            if (sudahDibangun.length === 0) {
+                container.innerHTML =
+                    '<p style="font-size:12px; color:#8a796e; margin-top:20px;">Belum ada menu yang tersedia untuk peran Anda. Hubungi admin.</p>';
+                return;
+            }
+
+            let html = '<div class="section-label">Akses cepat</div><div class="quick-grid">';
+            sudahDibangun.forEach(function (h) {
+                html += '<a href="' + h.href + '" class="quick-card">' +
+                    '<div class="icon">' + h.icon + '</div>' +
+                    '<div class="title">' + h.title + '</div>' +
+                    '<div class="desc">' + h.desc + '</div>' +
+                '</a>';
+            });
+            html += '</div>';
+
+            container.innerHTML = html;
+        }
+    </script>
+
+</body>
+</html>

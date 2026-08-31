@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oma Opa POS - Stok</title>
+
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+    <script src="roles.js"></script>
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            background: #fff8ed;
+            color: #4b2b1d;
+        }
+
+        .app-layout { display: flex; min-height: 100vh; }
+
+        .sidebar {
+            width: 190px;
+            flex-shrink: 0;
+            background: #fffdf9;
+            border-right: 1px solid #eadfd2;
+            padding: 20px 14px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar .brand { font-weight: 800; font-size: 15px; color: #5a2d1c; margin-bottom: 18px; }
+
+        .sidebar .nav-item {
+            display: block; padding: 9px 12px; border-radius: 8px;
+            font-size: 12px; color: #765f51; text-decoration: none; margin-bottom: 4px;
+        }
+
+        .sidebar .nav-item:hover { background: #fbf1e3; }
+        .sidebar .nav-item.active { background: #fcecd2; color: #a8570c; font-weight: 700; }
+        .sidebar .nav-item.disabled { color: #c9beb0; pointer-events: none; }
+
+        .sidebar .nav-divider { border-top: 1px solid #eadfd2; margin: 14px 0 10px; }
+
+        .sidebar .nav-label {
+            font-size: 10px; font-weight: 700; color: #b0a89c;
+            text-transform: uppercase; padding: 0 12px; margin-bottom: 6px;
+        }
+
+        .sidebar .user-block { margin-top: auto; padding-top: 14px; border-top: 1px solid #eadfd2; }
+        .sidebar .user-name { font-size: 12px; font-weight: 700; }
+        .sidebar .user-role { font-size: 10px; color: #8a796e; margin-bottom: 8px; }
+
+        .sidebar .logout-link {
+            font-size: 11px; color: #c0392b; background: none;
+            border: none; cursor: pointer; padding: 0;
+        }
+
+        .content { flex: 1; padding: 24px 28px; max-width: 700px; }
+
+        .header-row {
+            display: flex; justify-content: space-between;
+            align-items: center; margin-bottom: 16px;
+        }
+
+        .header-row h2 { font-size: 16px; font-weight: 700; }
+
+        select.outlet-select {
+            height: 34px; border: 1px solid #e8ddd2; border-radius: 6px;
+            padding: 0 10px; font-size: 12px;
+        }
+
+        table {
+            width: 100%; border-collapse: collapse;
+            background: #fffdf9; border: 1px solid #eadfd2;
+            border-radius: 10px; overflow: hidden; font-size: 12px;
+        }
+
+        thead th {
+            text-align: left; padding: 10px 14px;
+            background: #fcf3e6; color: #765f51; font-weight: 700; font-size: 11px;
+        }
+
+        tbody td { padding: 10px 14px; border-top: 1px solid #f2e9dd; }
+
+        .badge { font-size: 10px; padding: 3px 9px; border-radius: 20px; font-weight: 700; }
+        .badge-aman { background: #e5f4e6; color: #1e7d32; }
+        .badge-menipis { background: #fdf1de; color: #b06d09; }
+        .badge-habis { background: #fdeaea; color: #c0392b; }
+
+        .loading-state, .empty-state { text-align: center; color: #8a796e; font-size: 12px; padding: 30px 0; }
+        .denied-state { text-align: center; color: #8a796e; font-size: 12px; padding: 40px 0; }
+    </style>
+</head>
+<body>
+
+    <div class="app-layout">
+        <div class="sidebar" id="sidebarContainer"></div>
+
+        <div class="content" id="mainContent">
+            <div class="header-row">
+                <h2>Stok Produk</h2>
+                <select class="outlet-select" id="outletSelect"></select>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Produk</th>
+                        <th style="text-align:right;">Stok</th>
+                        <th style="text-align:right;">Status</th>
+                    </tr>
+                </thead>
+                <tbody id="stockTableBody">
+                    <tr><td colspan="3" class="loading-state">Memuat data stok...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyC5nxXV7YPTEq160fLoqBBKtvwaHBQljfc",
+            authDomain: "omaopa-pos.firebaseapp.com",
+            projectId: "omaopa-pos",
+            storageBucket: "omaopa-pos.firebasestorage.app",
+            messagingSenderId: "101370933916",
+            appId: "1:101370933916:web:129ebea30dd9e59508f359"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        let currentUser = null;
+        let productMap = {};
+
+        auth.onAuthStateChanged(function (user) {
+            if (!user) {
+                window.location.href = "index.html";
+                return;
+            }
+
+            const savedUser = sessionStorage.getItem("omaopa_user");
+
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                mulaiHalaman();
+            } else {
+                db.collection("users").doc(user.uid).get().then(function (doc) {
+                    if (doc.exists) {
+                        currentUser = doc.data();
+                        currentUser.uid = user.uid;
+                        sessionStorage.setItem("omaopa_user", JSON.stringify(currentUser));
+                        mulaiHalaman();
+                    } else {
+                        window.location.href = "index.html";
+                    }
+                });
+            }
+        });
+
+        function logout() {
+            auth.signOut().then(function () {
+                sessionStorage.removeItem("omaopa_user");
+                window.location.href = "index.html";
+            });
+        }
+
+        function mulaiHalaman() {
+            document.getElementById("sidebarContainer").innerHTML =
+                renderSidebar(currentUser, "stok");
+
+            if (!jagaAksesHalaman(currentUser.role, "stok")) return;
+
+            const outletSelect = document.getElementById("outletSelect");
+
+            if (currentUser.role === "kasir") {
+                outletSelect.innerHTML = '<option value="' + currentUser.outlet + '">' + currentUser.outlet + '</option>';
+                outletSelect.disabled = true;
+                loadStok(currentUser.outlet);
+            } else {
+                db.collection("outlets").get().then(function (snapshot) {
+                    outletSelect.innerHTML = "";
+                    snapshot.forEach(function (doc) {
+                        const opt = document.createElement("option");
+                        opt.value = doc.id;
+                        opt.textContent = doc.id;
+                        if (doc.id === currentUser.outlet) opt.selected = true;
+                        outletSelect.appendChild(opt);
+                    });
+                    loadStok(outletSelect.value || currentUser.outlet);
+                });
+            }
+
+            outletSelect.addEventListener("change", function () {
+                loadStok(this.value);
+            });
+        }
+
+        function loadProductNames() {
+            if (Object.keys(productMap).length > 0) {
+                return Promise.resolve(productMap);
+            }
+            return db.collection("products").get().then(function (snapshot) {
+                snapshot.forEach(function (doc) {
+                    productMap[doc.id] = doc.data().nama;
+                });
+                return productMap;
+            });
+        }
+
+        function loadStok(outletName) {
+            const tbody = document.getElementById("stockTableBody");
+            tbody.innerHTML = '<tr><td colspan="3" class="loading-state">Memuat data stok...</td></tr>';
+
+            loadProductNames().then(function () {
+                return db.collection("outlets").doc(outletName).collection("stock").get();
+            }).then(function (snapshot) {
+
+                if (snapshot.empty) {
+                    tbody.innerHTML = '<tr><td colspan="3" class="empty-state">Belum ada data stok untuk outlet ini.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = "";
+
+                snapshot.forEach(function (doc) {
+                    const data = doc.data();
+                    const nama = productMap[doc.id] || doc.id;
+                    const jumlah = data.jumlah || 0;
+                    const minStok = data.minStok !== undefined ? data.minStok : 5;
+
+                    let badgeClass = "badge-aman";
+                    let badgeText = "Aman";
+
+                    if (jumlah <= 0) {
+                        badgeClass = "badge-habis";
+                        badgeText = "Habis";
+                    } else if (jumlah <= minStok) {
+                        badgeClass = "badge-menipis";
+                        badgeText = "Menipis";
+                    }
+
+                    const row = document.createElement("tr");
+                    row.innerHTML =
+                        '<td>' + nama + '</td>' +
+                        '<td style="text-align:right;">' + jumlah + '</td>' +
+                        '<td style="text-align:right;"><span class="badge ' + badgeClass + '">' + badgeText + '</span></td>';
+                    tbody.appendChild(row);
+                });
+            }).catch(function (error) {
+                tbody.innerHTML = '<tr><td colspan="3" class="empty-state">Gagal memuat: ' + error.message + '</td></tr>';
+            });
+        }
+    </script>
+
+</body>
+</html>

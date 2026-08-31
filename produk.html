@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oma Opa POS - Manajemen Produk</title>
+
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+    <script src="roles.js"></script>
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            background: #fff8ed;
+            color: #4b2b1d;
+        }
+
+        .app-layout { display: flex; min-height: 100vh; }
+
+        .sidebar {
+            width: 190px;
+            flex-shrink: 0;
+            background: #fffdf9;
+            border-right: 1px solid #eadfd2;
+            padding: 20px 14px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar .brand { font-weight: 800; font-size: 15px; color: #5a2d1c; margin-bottom: 18px; }
+
+        .sidebar .nav-item {
+            display: block; padding: 9px 12px; border-radius: 8px;
+            font-size: 12px; color: #765f51; text-decoration: none; margin-bottom: 4px;
+        }
+
+        .sidebar .nav-item:hover { background: #fbf1e3; }
+        .sidebar .nav-item.active { background: #fcecd2; color: #a8570c; font-weight: 700; }
+        .sidebar .nav-item.disabled { color: #c9beb0; pointer-events: none; }
+
+        .sidebar .nav-divider { border-top: 1px solid #eadfd2; margin: 14px 0 10px; }
+
+        .sidebar .nav-label {
+            font-size: 10px; font-weight: 700; color: #b0a89c;
+            text-transform: uppercase; padding: 0 12px; margin-bottom: 6px;
+        }
+
+        .sidebar .user-block { margin-top: auto; padding-top: 14px; border-top: 1px solid #eadfd2; }
+        .sidebar .user-name { font-size: 12px; font-weight: 700; }
+        .sidebar .user-role { font-size: 10px; color: #8a796e; margin-bottom: 8px; }
+
+        .sidebar .logout-link {
+            font-size: 11px; color: #c0392b; background: none;
+            border: none; cursor: pointer; padding: 0;
+        }
+
+        .content { flex: 1; padding: 24px 28px; max-width: 800px; }
+
+        .header-row {
+            display: flex; justify-content: space-between;
+            align-items: center; margin-bottom: 16px;
+        }
+
+        .header-row h2 { font-size: 16px; font-weight: 700; }
+
+        .add-btn {
+            background: #f39a16; color: white; border: none;
+            border-radius: 6px; padding: 8px 14px; font-size: 12px;
+            font-weight: 700; cursor: pointer;
+        }
+
+        .add-btn:hover { background: #e98b08; }
+
+        table {
+            width: 100%; border-collapse: collapse;
+            background: #fffdf9; border: 1px solid #eadfd2;
+            border-radius: 10px; overflow: hidden; font-size: 12px;
+        }
+
+        thead th {
+            text-align: left; padding: 10px 14px;
+            background: #fcf3e6; color: #765f51; font-weight: 700; font-size: 11px;
+        }
+
+        tbody td { padding: 10px 14px; border-top: 1px solid #f2e9dd; }
+
+        .badge { font-size: 10px; padding: 3px 9px; border-radius: 20px; font-weight: 700; }
+        .badge-aktif { background: #e5f4e6; color: #1e7d32; }
+        .badge-nonaktif { background: #f1eee8; color: #765f51; }
+
+        .action-btn { border: none; background: none; cursor: pointer; font-size: 11px; color: #e87913; margin-right: 8px; }
+        .action-btn.danger { color: #c0392b; }
+
+        .loading-state, .empty-state, .denied-state {
+            text-align: center; color: #8a796e; font-size: 12px; padding: 30px 0;
+        }
+
+        /* ===== MODAL FORM ===== */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(75, 43, 29, 0.35);
+            align-items: center; justify-content: center; z-index: 10;
+        }
+
+        .modal-overlay.open { display: flex; }
+
+        .modal-box { background: #fffdf9; border-radius: 10px; padding: 22px; width: 100%; max-width: 340px; }
+        .modal-box h3 { font-size: 14px; margin-bottom: 14px; }
+
+        .modal-box label { display: block; font-size: 11px; font-weight: 700; margin-bottom: 5px; margin-top: 10px; }
+
+        .modal-box input, .modal-box select {
+            width: 100%; height: 36px; border: 1px solid #e8ddd2;
+            border-radius: 6px; padding: 0 10px; font-size: 12px;
+        }
+
+        .modal-actions { display: flex; gap: 8px; margin-top: 18px; }
+
+        .modal-actions button {
+            flex: 1; height: 36px; border-radius: 6px;
+            font-size: 12px; font-weight: 700; cursor: pointer;
+        }
+
+        .btn-save { background: #f39a16; color: white; border: none; }
+        .btn-cancel { background: none; border: 1px solid #eadfd2; color: #765f51; }
+
+        .err-text { font-size: 10px; color: #c0392b; margin-top: 4px; display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="app-layout">
+        <div class="sidebar" id="sidebarContainer"></div>
+
+        <div class="content" id="mainContent">
+            <div class="loading-state">Memeriksa akses...</div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal-box">
+            <h3 id="modalTitle">Tambah Produk</h3>
+
+            <label>Nama Produk</label>
+            <input type="text" id="inputNama" placeholder="Mini Ogura">
+
+            <label>Harga (Rp)</label>
+            <input type="number" id="inputHarga" placeholder="8000">
+
+            <label>Kategori</label>
+            <input type="text" id="inputKategori" placeholder="Roti / Snack / Minuman">
+
+            <label>Status</label>
+            <select id="inputStatus">
+                <option value="aktif">Aktif</option>
+                <option value="nonaktif">Nonaktif</option>
+            </select>
+
+            <div class="err-text" id="formError"></div>
+
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="tutupModal()">Batal</button>
+                <button class="btn-save" onclick="simpanProduk()">Simpan</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyC5nxXV7YPTEq160fLoqBBKtvwaHBQljfc",
+            authDomain: "omaopa-pos.firebaseapp.com",
+            projectId: "omaopa-pos",
+            storageBucket: "omaopa-pos.firebasestorage.app",
+            messagingSenderId: "101370933916",
+            appId: "1:101370933916:web:129ebea30dd9e59508f359"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        let currentUser = null;
+        let editingId = null;
+
+        auth.onAuthStateChanged(function (user) {
+            if (!user) {
+                window.location.href = "index.html";
+                return;
+            }
+
+            const savedUser = sessionStorage.getItem("omaopa_user");
+
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                mulaiHalaman();
+            } else {
+                db.collection("users").doc(user.uid).get().then(function (doc) {
+                    if (doc.exists) {
+                        currentUser = doc.data();
+                        currentUser.uid = user.uid;
+                        sessionStorage.setItem("omaopa_user", JSON.stringify(currentUser));
+                        mulaiHalaman();
+                    } else {
+                        window.location.href = "index.html";
+                    }
+                });
+            }
+        });
+
+        function logout() {
+            auth.signOut().then(function () {
+                sessionStorage.removeItem("omaopa_user");
+                window.location.href = "index.html";
+            });
+        }
+
+        function mulaiHalaman() {
+            document.getElementById("sidebarContainer").innerHTML =
+                renderSidebar(currentUser, "produk");
+
+            if (!jagaAksesHalaman(currentUser.role, "produk")) return;
+
+            renderMainContent();
+            loadProduk();
+        }
+
+        function renderMainContent() {
+            document.getElementById("mainContent").innerHTML =
+                '<div class="header-row">' +
+                    '<h2>Manajemen Produk</h2>' +
+                    '<button class="add-btn" onclick="bukaModalTambah()">+ Tambah Produk</button>' +
+                '</div>' +
+                '<table>' +
+                    '<thead><tr>' +
+                        '<th>Nama</th><th>Kategori</th><th style="text-align:right;">Harga</th>' +
+                        '<th style="text-align:right;">Status</th><th></th>' +
+                    '</tr></thead>' +
+                    '<tbody id="produkTableBody">' +
+                        '<tr><td colspan="5" class="loading-state">Memuat produk...</td></tr>' +
+                    '</tbody>' +
+                '</table>';
+        }
+
+        function loadProduk() {
+            db.collection("products").get().then(function (snapshot) {
+                const tbody = document.getElementById("produkTableBody");
+
+                if (snapshot.empty) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Belum ada produk. Klik "+ Tambah Produk".</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = "";
+
+                snapshot.forEach(function (doc) {
+                    const p = doc.data();
+                    const row = document.createElement("tr");
+                    row.innerHTML =
+                        '<td>' + p.nama + '</td>' +
+                        '<td>' + (p.kategori || "-") + '</td>' +
+                        '<td style="text-align:right;">Rp ' + Number(p.harga).toLocaleString("id-ID") + '</td>' +
+                        '<td style="text-align:right;"><span class="badge badge-' + p.status + '">' +
+                            (p.status === "aktif" ? "Aktif" : "Nonaktif") + '</span></td>' +
+                        '<td style="text-align:right; white-space:nowrap;">' +
+                            '<button class="action-btn" onclick="bukaModalEdit(\'' + doc.id + '\')">Edit</button>' +
+                            '<button class="action-btn danger" onclick="hapusProduk(\'' + doc.id + '\', \'' + p.nama.replace(/'/g, "") + '\')">Hapus</button>' +
+                        '</td>';
+                    tbody.appendChild(row);
+                });
+            }).catch(function (error) {
+                document.getElementById("produkTableBody").innerHTML =
+                    '<tr><td colspan="5" class="empty-state">Gagal memuat: ' + error.message + '</td></tr>';
+            });
+        }
+
+        function bukaModalTambah() {
+            editingId = null;
+            document.getElementById("modalTitle").textContent = "Tambah Produk";
+            document.getElementById("inputNama").value = "";
+            document.getElementById("inputHarga").value = "";
+            document.getElementById("inputKategori").value = "";
+            document.getElementById("inputStatus").value = "aktif";
+            document.getElementById("formError").style.display = "none";
+            document.getElementById("modalOverlay").classList.add("open");
+        }
+
+        function bukaModalEdit(productId) {
+            db.collection("products").doc(productId).get().then(function (doc) {
+                if (!doc.exists) return;
+                const p = doc.data();
+
+                editingId = productId;
+                document.getElementById("modalTitle").textContent = "Edit Produk";
+                document.getElementById("inputNama").value = p.nama;
+                document.getElementById("inputHarga").value = p.harga;
+                document.getElementById("inputKategori").value = p.kategori || "";
+                document.getElementById("inputStatus").value = p.status;
+                document.getElementById("formError").style.display = "none";
+                document.getElementById("modalOverlay").classList.add("open");
+            });
+        }
+
+        function tutupModal() {
+            document.getElementById("modalOverlay").classList.remove("open");
+        }
+
+        function simpanProduk() {
+            const nama = document.getElementById("inputNama").value.trim();
+            const harga = Number(document.getElementById("inputHarga").value);
+            const kategori = document.getElementById("inputKategori").value.trim();
+            const status = document.getElementById("inputStatus").value;
+            const errBox = document.getElementById("formError");
+
+            if (!nama || !harga || harga <= 0) {
+                errBox.textContent = "Nama dan harga (lebih dari 0) wajib diisi.";
+                errBox.style.display = "block";
+                return;
+            }
+
+            const data = { nama: nama, harga: harga, kategori: kategori, status: status };
+
+            const savePromise = editingId
+                ? db.collection("products").doc(editingId).update(data)
+                : db.collection("products").add(data);
+
+            savePromise.then(function () {
+                tutupModal();
+                loadProduk();
+            }).catch(function (error) {
+                errBox.textContent = "Gagal menyimpan: " + error.message;
+                errBox.style.display = "block";
+            });
+        }
+
+        function hapusProduk(productId, nama) {
+            if (!confirm('Hapus produk "' + nama + '"? Stok yang sudah tercatat di outlet tidak akan ikut terhapus.')) {
+                return;
+            }
+
+            db.collection("products").doc(productId).delete().then(function () {
+                loadProduk();
+            }).catch(function (error) {
+                alert("Gagal menghapus: " + error.message);
+            });
+        }
+    </script>
+
+</body>
+</html>

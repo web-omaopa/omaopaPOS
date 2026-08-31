@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oma Opa POS - Kasir</title>
+
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+    <script src="roles.js"></script>
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            background: #fff8ed;
+            color: #4b2b1d;
+        }
+
+        .app-layout { display: flex; min-height: 100vh; }
+
+        /* ===== SIDEBAR (identik di semua halaman) ===== */
+        .sidebar {
+            width: 190px;
+            flex-shrink: 0;
+            background: #fffdf9;
+            border-right: 1px solid #eadfd2;
+            padding: 20px 14px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar .brand { font-weight: 800; font-size: 15px; color: #5a2d1c; margin-bottom: 18px; }
+
+        .sidebar .nav-item {
+            display: block;
+            padding: 9px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #765f51;
+            text-decoration: none;
+            margin-bottom: 4px;
+        }
+
+        .sidebar .nav-item:hover { background: #fbf1e3; }
+        .sidebar .nav-item.active { background: #fcecd2; color: #a8570c; font-weight: 700; }
+        .sidebar .nav-item.disabled { color: #c9beb0; pointer-events: none; }
+
+        .sidebar .nav-divider { border-top: 1px solid #eadfd2; margin: 14px 0 10px; }
+
+        .sidebar .nav-label {
+            font-size: 10px; font-weight: 700; color: #b0a89c;
+            text-transform: uppercase; padding: 0 12px; margin-bottom: 6px;
+        }
+
+        .sidebar .user-block { margin-top: auto; padding-top: 14px; border-top: 1px solid #eadfd2; }
+        .sidebar .user-name { font-size: 12px; font-weight: 700; }
+        .sidebar .user-role { font-size: 10px; color: #8a796e; margin-bottom: 8px; }
+
+        .sidebar .logout-link {
+            font-size: 11px; color: #c0392b; background: none;
+            border: none; cursor: pointer; padding: 0;
+        }
+
+        /* ===== CONTENT ===== */
+        .content { flex: 1; padding: 24px 28px; }
+
+        .search-box {
+            width: 100%;
+            height: 38px;
+            padding: 0 12px;
+            border: 1px solid #e8ddd2;
+            border-radius: 6px;
+            font-size: 13px;
+            margin-bottom: 14px;
+            outline: none;
+        }
+
+        .search-box:focus { border-color: #f39a16; }
+
+        .kasir-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; }
+
+        @media (max-width: 800px) {
+            .kasir-grid { grid-template-columns: 1fr; }
+        }
+
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 10px;
+        }
+
+        .product-card {
+            background: #fffdf9;
+            border: 1px solid #eadfd2;
+            border-radius: 10px;
+            padding: 14px 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: 0.15s;
+        }
+
+        .product-card:hover { border-color: #f39a16; transform: translateY(-1px); }
+        .product-card .icon { font-size: 26px; }
+        .product-card .name { font-size: 12px; font-weight: 700; margin-top: 6px; }
+        .product-card .price { font-size: 11px; color: #765f51; margin-top: 2px; }
+        .product-card .stock-warn { font-size: 10px; color: #c0392b; margin-top: 2px; }
+
+        .empty-state, .loading-state {
+            grid-column: 1 / -1;
+            text-align: center;
+            color: #8a796e;
+            font-size: 12px;
+            padding: 30px 0;
+        }
+
+        /* ===== CART ===== */
+        .cart-card {
+            background: #fffdf9;
+            border: 1px solid #eadfd2;
+            border-radius: 10px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            height: fit-content;
+        }
+
+        .cart-title { font-size: 14px; font-weight: 700; margin-bottom: 10px; }
+
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #f2e9dd;
+            font-size: 12px;
+        }
+
+        .cart-item .qty-controls { display: flex; align-items: center; gap: 6px; margin-top: 3px; }
+
+        .qty-btn {
+            width: 20px; height: 20px;
+            border: 1px solid #eadfd2;
+            background: #fff;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            line-height: 1;
+        }
+
+        .cart-empty { font-size: 12px; color: #8a796e; text-align: center; padding: 20px 0; }
+
+        .cart-total-row {
+            display: flex; justify-content: space-between;
+            font-size: 15px; font-weight: 700; margin: 12px 0;
+        }
+
+        select, .pay-btn {
+            width: 100%; height: 38px; border-radius: 6px;
+            font-size: 12px; margin-bottom: 8px;
+        }
+
+        select { border: 1px solid #e8ddd2; padding: 0 10px; }
+
+        .pay-btn { border: none; background: #f39a16; color: white; font-weight: 700; cursor: pointer; }
+        .pay-btn:hover { background: #e98b08; }
+        .pay-btn:disabled { background: #e8c99a; cursor: not-allowed; }
+
+        .msg-box { font-size: 11px; padding: 8px 10px; border-radius: 6px; margin-bottom: 10px; display: none; }
+        .msg-error { background: #fdeaea; color: #c0392b; }
+        .msg-success { background: #eaf6ea; color: #1e7d32; }
+
+        .denied-state { text-align: center; color: #8a796e; font-size: 12px; padding: 40px 0; }
+    </style>
+</head>
+<body>
+
+    <div class="app-layout">
+        <div class="sidebar" id="sidebarContainer"></div>
+
+        <div class="content" id="mainContent">
+            <div class="kasir-grid">
+                <div>
+                    <input type="text" class="search-box" id="searchBox" placeholder="Cari produk...">
+                    <div class="product-grid" id="productGrid">
+                        <div class="loading-state">Memuat produk...</div>
+                    </div>
+                </div>
+
+                <div class="cart-card">
+                    <div class="cart-title">Keranjang</div>
+                    <div class="msg-box" id="msgBox"></div>
+                    <div id="cartItems">
+                        <div class="cart-empty">Belum ada produk dipilih</div>
+                    </div>
+                    <div class="cart-total-row">
+                        <span>Total</span>
+                        <span id="cartTotal">Rp 0</span>
+                    </div>
+                    <select id="metodeBayar">
+                        <option value="Tunai">Tunai</option>
+                        <option value="QRIS">QRIS</option>
+                    </select>
+                    <button class="pay-btn" id="payBtn" onclick="prosesBayar()">Bayar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyC5nxXV7YPTEq160fLoqBBKtvwaHBQljfc",
+            authDomain: "omaopa-pos.firebaseapp.com",
+            projectId: "omaopa-pos",
+            storageBucket: "omaopa-pos.firebasestorage.app",
+            messagingSenderId: "101370933916",
+            appId: "1:101370933916:web:129ebea30dd9e59508f359"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        let currentUser = null;
+        let allProducts = [];
+        let stockMap = {};
+        let cart = {};
+        let kontenAsli = null;
+
+        auth.onAuthStateChanged(function (user) {
+            if (!user) {
+                window.location.href = "index.html";
+                return;
+            }
+
+            const savedUser = sessionStorage.getItem("omaopa_user");
+
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                mulaiHalaman();
+            } else {
+                db.collection("users").doc(user.uid).get().then(function (doc) {
+                    if (doc.exists) {
+                        currentUser = doc.data();
+                        currentUser.uid = user.uid;
+                        sessionStorage.setItem("omaopa_user", JSON.stringify(currentUser));
+                        mulaiHalaman();
+                    } else {
+                        window.location.href = "index.html";
+                    }
+                });
+            }
+        });
+
+        function logout() {
+            auth.signOut().then(function () {
+                sessionStorage.removeItem("omaopa_user");
+                window.location.href = "index.html";
+            });
+        }
+
+        function mulaiHalaman() {
+            document.getElementById("sidebarContainer").innerHTML =
+                renderSidebar(currentUser, "kasir");
+
+            // simpan konten asli sebelum kemungkinan ditimpa pesan akses ditolak
+            kontenAsli = document.getElementById("mainContent").innerHTML;
+
+            if (!jagaAksesHalaman(currentUser.role, "kasir")) return;
+
+            loadProducts();
+        }
+
+        /* =====================================================
+           LOAD PRODUK + STOK OUTLET
+        ====================================================== */
+        function loadProducts() {
+            const grid = document.getElementById("productGrid");
+
+            db.collection("products")
+                .where("status", "==", "aktif")
+                .get()
+                .then(function (snapshot) {
+
+                    allProducts = [];
+                    snapshot.forEach(function (doc) {
+                        allProducts.push(Object.assign({ id: doc.id }, doc.data()));
+                    });
+
+                    if (allProducts.length === 0) {
+                        grid.innerHTML = '<div class="empty-state">Belum ada produk. Tambahkan lewat halaman Produk.</div>';
+                        return;
+                    }
+
+                    return db.collection("outlets")
+                        .doc(currentUser.outlet)
+                        .collection("stock")
+                        .get();
+                })
+                .then(function (stockSnapshot) {
+                    stockMap = {};
+                    if (stockSnapshot) {
+                        stockSnapshot.forEach(function (doc) {
+                            stockMap[doc.id] = doc.data().jumlah || 0;
+                        });
+                    }
+                    renderProducts(allProducts);
+                })
+                .catch(function (error) {
+                    grid.innerHTML = '<div class="empty-state">Gagal memuat produk: ' + error.message + '</div>';
+                });
+        }
+
+        function renderProducts(products) {
+            const grid = document.getElementById("productGrid");
+            grid.innerHTML = "";
+
+            if (products.length === 0) {
+                grid.innerHTML = '<div class="empty-state">Produk tidak ditemukan</div>';
+                return;
+            }
+
+            products.forEach(function (p) {
+                const stok = stockMap[p.id] !== undefined ? stockMap[p.id] : 0;
+                const card = document.createElement("div");
+                card.className = "product-card";
+                card.innerHTML =
+                    '<div class="icon">🥐</div>' +
+                    '<div class="name">' + p.nama + '</div>' +
+                    '<div class="price">Rp ' + formatRupiah(p.harga) + '</div>' +
+                    (stok <= 0
+                        ? '<div class="stock-warn">Stok habis</div>'
+                        : '<div class="price">Stok: ' + stok + '</div>');
+
+                if (stok > 0) {
+                    card.onclick = function () { tambahKeKeranjang(p); };
+                } else {
+                    card.style.opacity = "0.5";
+                    card.style.cursor = "not-allowed";
+                }
+
+                grid.appendChild(card);
+            });
+        }
+
+        document.getElementById("searchBox").addEventListener("input", function (e) {
+            const keyword = e.target.value.toLowerCase();
+            const filtered = allProducts.filter(function (p) {
+                return p.nama.toLowerCase().includes(keyword);
+            });
+            renderProducts(filtered);
+        });
+
+        /* =====================================================
+           KERANJANG
+        ====================================================== */
+        function tambahKeKeranjang(product) {
+            const stokTersedia = stockMap[product.id] || 0;
+            const sudahDiKeranjang = cart[product.id] ? cart[product.id].qty : 0;
+
+            if (sudahDiKeranjang >= stokTersedia) {
+                tampilkanPesan("Stok " + product.nama + " tidak mencukupi.", "error");
+                return;
+            }
+
+            if (cart[product.id]) {
+                cart[product.id].qty += 1;
+            } else {
+                cart[product.id] = { id: product.id, nama: product.nama, harga: product.harga, qty: 1 };
+            }
+            renderCart();
+        }
+
+        function ubahQty(productId, delta) {
+            const item = cart[productId];
+            if (!item) return;
+
+            const stokTersedia = stockMap[productId] || 0;
+            const newQty = item.qty + delta;
+
+            if (newQty <= 0) {
+                delete cart[productId];
+            } else if (newQty > stokTersedia) {
+                tampilkanPesan("Stok tidak mencukupi.", "error");
+                return;
+            } else {
+                item.qty = newQty;
+            }
+            renderCart();
+        }
+
+        function renderCart() {
+            const container = document.getElementById("cartItems");
+            const items = Object.values(cart);
+
+            if (items.length === 0) {
+                container.innerHTML = '<div class="cart-empty">Belum ada produk dipilih</div>';
+                document.getElementById("cartTotal").textContent = "Rp 0";
+                document.getElementById("payBtn").disabled = true;
+                return;
+            }
+
+            container.innerHTML = "";
+            let total = 0;
+
+            items.forEach(function (item) {
+                total += item.harga * item.qty;
+                const row = document.createElement("div");
+                row.className = "cart-item";
+                row.innerHTML =
+                    '<div>' +
+                        '<div>' + item.nama + '</div>' +
+                        '<div class="qty-controls">' +
+                            '<button class="qty-btn" onclick="ubahQty(\'' + item.id + '\', -1)">-</button>' +
+                            '<span>' + item.qty + '</span>' +
+                            '<button class="qty-btn" onclick="ubahQty(\'' + item.id + '\', 1)">+</button>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div>Rp ' + formatRupiah(item.harga * item.qty) + '</div>';
+                container.appendChild(row);
+            });
+
+            document.getElementById("cartTotal").textContent = "Rp " + formatRupiah(total);
+            document.getElementById("payBtn").disabled = false;
+        }
+
+        /* =====================================================
+           PROSES BAYAR: simpan transaksi + kurangi stok (ATOMIK)
+        ====================================================== */
+        function prosesBayar() {
+            const items = Object.values(cart);
+            if (items.length === 0) return;
+
+            const payBtn = document.getElementById("payBtn");
+            payBtn.disabled = true;
+            payBtn.textContent = "Memproses...";
+
+            const total = items.reduce(function (sum, item) {
+                return sum + (item.harga * item.qty);
+            }, 0);
+
+            const metodeBayar = document.getElementById("metodeBayar").value;
+            const outletRef = db.collection("outlets").doc(currentUser.outlet);
+
+            db.runTransaction(function (transaction) {
+
+                const stockRefs = items.map(function (item) {
+                    return outletRef.collection("stock").doc(item.id);
+                });
+
+                return Promise.all(stockRefs.map(function (ref) {
+                    return transaction.get(ref);
+                })).then(function (stockDocs) {
+
+                    for (let i = 0; i < items.length; i++) {
+                        const stokSekarang = stockDocs[i].exists ? stockDocs[i].data().jumlah : 0;
+                        if (stokSekarang < items[i].qty) {
+                            throw new Error("Stok " + items[i].nama + " tidak mencukupi (sisa " + stokSekarang + ").");
+                        }
+                    }
+
+                    items.forEach(function (item, i) {
+                        const stokSekarang = stockDocs[i].data().jumlah;
+                        transaction.update(stockRefs[i], { jumlah: stokSekarang - item.qty });
+                    });
+
+                    const transRef = db.collection("transactions").doc();
+                    transaction.set(transRef, {
+                        outlet: currentUser.outlet,
+                        kasirUid: currentUser.uid,
+                        kasirNama: currentUser.nama,
+                        items: items,
+                        total: total,
+                        metodeBayar: metodeBayar,
+                        status: "aktif",
+                        waktu: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                });
+            })
+            .then(function () {
+                tampilkanPesan("Transaksi berhasil! Total Rp " + formatRupiah(total), "success");
+                cart = {};
+                renderCart();
+                loadProducts();
+            })
+            .catch(function (error) {
+                tampilkanPesan(error.message, "error");
+            })
+            .finally(function () {
+                payBtn.disabled = false;
+                payBtn.textContent = "Bayar";
+            });
+        }
+
+        function tampilkanPesan(text, type) {
+            const box = document.getElementById("msgBox");
+            box.textContent = text;
+            box.className = "msg-box " + (type === "error" ? "msg-error" : "msg-success");
+            box.style.display = "block";
+            setTimeout(function () { box.style.display = "none"; }, 4000);
+        }
+
+        function formatRupiah(angka) {
+            return Number(angka).toLocaleString("id-ID");
+        }
+    </script>
+
+</body>
+</html>
