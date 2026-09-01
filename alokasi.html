@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oma Opa POS - Alokasi Stok</title>
+
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+    <script src="roles.js"></script>
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body { font-family: Arial, Helvetica, sans-serif; background: #fff8ed; color: #4b2b1d; }
+
+        .app-layout { display: flex; min-height: 100vh; }
+
+        .sidebar {
+            width: 190px; flex-shrink: 0; background: #fffdf9;
+            border-right: 1px solid #eadfd2; padding: 20px 14px;
+            display: flex; flex-direction: column;
+        }
+
+        .sidebar .brand { font-weight: 800; font-size: 15px; color: #5a2d1c; margin-bottom: 18px; }
+
+        .sidebar .nav-item {
+            display: block; padding: 9px 12px; border-radius: 8px;
+            font-size: 12px; color: #765f51; text-decoration: none; margin-bottom: 4px;
+        }
+
+        .sidebar .nav-item:hover { background: #fbf1e3; }
+        .sidebar .nav-item.active { background: #fcecd2; color: #a8570c; font-weight: 700; }
+        .sidebar .nav-item.disabled { color: #c9beb0; pointer-events: none; }
+
+        .sidebar .nav-divider { border-top: 1px solid #eadfd2; margin: 14px 0 10px; }
+
+        .sidebar .nav-label {
+            font-size: 10px; font-weight: 700; color: #b0a89c;
+            text-transform: uppercase; padding: 0 12px; margin-bottom: 6px;
+        }
+
+        .sidebar .user-block { margin-top: auto; padding-top: 14px; border-top: 1px solid #eadfd2; }
+        .sidebar .user-name { font-size: 12px; font-weight: 700; }
+        .sidebar .user-role { font-size: 10px; color: #8a796e; margin-bottom: 8px; }
+
+        .sidebar .logout-link {
+            font-size: 11px; color: #c0392b; background: none;
+            border: none; cursor: pointer; padding: 0;
+        }
+
+        .content { flex: 1; padding: 24px 28px; max-width: 640px; }
+
+        .header-row { margin-bottom: 4px; }
+        .header-row h2 { font-size: 16px; font-weight: 700; }
+        .header-row p { font-size: 12px; color: #8a796e; margin-top: 2px; margin-bottom: 18px; }
+
+        select.outlet-select {
+            width: 100%; height: 40px; border: 1px solid #e8ddd2;
+            border-radius: 6px; padding: 0 12px; font-size: 13px;
+            margin-bottom: 18px;
+        }
+
+        .product-row {
+            display: flex; align-items: center; justify-content: space-between;
+            background: #fffdf9; border: 1px solid #eadfd2; border-radius: 10px;
+            padding: 12px 14px; margin-bottom: 8px;
+        }
+
+        .product-row .info { flex: 1; }
+        .product-row .nama { font-size: 13px; font-weight: 700; }
+        .product-row .meta { font-size: 11px; color: #8a796e; margin-top: 2px; }
+
+        .tipe-badge {
+            font-size: 9px; font-weight: 700; padding: 2px 7px;
+            border-radius: 10px; margin-left: 6px; text-transform: uppercase;
+        }
+
+        .tipe-reset { background: #fdf1de; color: #b06d09; }
+        .tipe-akumulasi { background: #e5f0f4; color: #1e6b7d; }
+
+        .qty-input {
+            width: 80px; height: 36px; text-align: center;
+            border: 1px solid #e8ddd2; border-radius: 6px; font-size: 13px;
+        }
+
+        .qty-input:focus { border-color: #f39a16; outline: none; }
+
+        .submit-btn {
+            width: 100%; height: 42px; border: none; border-radius: 6px;
+            background: #f39a16; color: white; font-weight: 700; font-size: 13px;
+            cursor: pointer; margin-top: 16px;
+        }
+
+        .submit-btn:hover { background: #e98b08; }
+        .submit-btn:disabled { background: #e8c99a; cursor: not-allowed; }
+
+        .msg-box { font-size: 12px; padding: 10px 12px; border-radius: 6px; margin-bottom: 14px; display: none; }
+        .msg-error { background: #fdeaea; color: #c0392b; }
+        .msg-success { background: #eaf6ea; color: #1e7d32; }
+
+        .loading-state, .empty-state, .denied-state {
+            text-align: center; color: #8a796e; font-size: 12px; padding: 30px 0;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-layout">
+        <div class="sidebar" id="sidebarContainer"></div>
+
+        <div class="content" id="mainContent">
+            <div class="loading-state">Memeriksa akses...</div>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyC5nxXV7YPTEq160fLoqBBKtvwaHBQljfc",
+            authDomain: "omaopa-pos.firebaseapp.com",
+            projectId: "omaopa-pos",
+            storageBucket: "omaopa-pos.firebasestorage.app",
+            messagingSenderId: "101370933916",
+            appId: "1:101370933916:web:129ebea30dd9e59508f359"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        let currentUser = null;
+        let daftarProduk = [];
+
+        auth.onAuthStateChanged(function (user) {
+            if (!user) {
+                window.location.href = "index.html";
+                return;
+            }
+
+            const savedUser = sessionStorage.getItem("omaopa_user");
+
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                mulaiHalaman();
+            } else {
+                db.collection("users").doc(user.uid).get().then(function (doc) {
+                    if (doc.exists) {
+                        currentUser = doc.data();
+                        currentUser.uid = user.uid;
+                        sessionStorage.setItem("omaopa_user", JSON.stringify(currentUser));
+                        mulaiHalaman();
+                    } else {
+                        window.location.href = "index.html";
+                    }
+                });
+            }
+        });
+
+        function logout() {
+            auth.signOut().then(function () {
+                sessionStorage.removeItem("omaopa_user");
+                window.location.href = "index.html";
+            });
+        }
+
+        function mulaiHalaman() {
+            document.getElementById("sidebarContainer").innerHTML =
+                renderSidebar(currentUser, "alokasi");
+
+            if (!jagaAksesHalaman(currentUser.role, "alokasi")) return;
+
+            renderMainContent();
+            loadOutletDropdown();
+            loadDaftarProduk();
+        }
+
+        function renderMainContent() {
+            document.getElementById("mainContent").innerHTML =
+                '<div class="header-row">' +
+                    '<h2>Alokasi Stok Harian</h2>' +
+                    '<p>Bagikan jumlah produk ke outlet untuk periode hari ini.</p>' +
+                '</div>' +
+                '<select class="outlet-select" id="outletSelect"><option>Memuat outlet...</option></select>' +
+                '<div class="msg-box" id="msgBox"></div>' +
+                '<div id="produkList"><div class="loading-state">Memuat produk...</div></div>' +
+                '<button class="submit-btn" id="submitBtn" onclick="simpanAlokasi()" disabled>Simpan Alokasi</button>';
+        }
+
+        function loadOutletDropdown() {
+            db.collection("outlets").get().then(function (snapshot) {
+                const select = document.getElementById("outletSelect");
+
+                if (snapshot.empty) {
+                    select.innerHTML = '<option>Belum ada outlet. Tambahkan lewat halaman Kelola Outlet.</option>';
+                    return;
+                }
+
+                const perArea = {};
+                snapshot.forEach(function (doc) {
+                    const area = doc.data().area || "Area lain";
+                    if (!perArea[area]) perArea[area] = [];
+                    perArea[area].push(doc.id);
+                });
+
+                let html = "";
+                Object.keys(perArea).sort().forEach(function (area) {
+                    html += '<optgroup label="' + area + '">';
+                    perArea[area].sort().forEach(function (nama) {
+                        html += '<option value="' + nama + '">' + nama + '</option>';
+                    });
+                    html += '</optgroup>';
+                });
+
+                select.innerHTML = html;
+                document.getElementById("submitBtn").disabled = false;
+            }).catch(function (error) {
+                document.getElementById("outletSelect").innerHTML =
+                    '<option>Gagal memuat outlet</option>';
+            });
+        }
+
+        function loadDaftarProduk() {
+            db.collection("products").where("status", "==", "aktif").get().then(function (snapshot) {
+                const container = document.getElementById("produkList");
+
+                if (snapshot.empty) {
+                    container.innerHTML = '<div class="empty-state">Belum ada produk aktif. Tambahkan lewat halaman Produk.</div>';
+                    return;
+                }
+
+                daftarProduk = [];
+                snapshot.forEach(function (doc) {
+                    daftarProduk.push(Object.assign({ id: doc.id }, doc.data()));
+                });
+
+                daftarProduk.sort(function (a, b) {
+                    return (a.kategori || "").localeCompare(b.kategori || "") || a.nama.localeCompare(b.nama);
+                });
+
+                let html = "";
+                daftarProduk.forEach(function (p) {
+                    const isReset = p.resetHarian !== false;
+                    html +=
+                        '<div class="product-row">' +
+                            '<div class="info">' +
+                                '<div class="nama">' + p.nama +
+                                    '<span class="tipe-badge ' + (isReset ? "tipe-reset" : "tipe-akumulasi") + '">' +
+                                        (isReset ? "Reset" : "Tambah") +
+                                    '</span>' +
+                                '</div>' +
+                                '<div class="meta">' + (p.kategori || "-") + '</div>' +
+                            '</div>' +
+                            '<input type="number" min="0" class="qty-input" id="qty_' + p.id + '" placeholder="0">' +
+                        '</div>';
+                });
+
+                container.innerHTML = html;
+            }).catch(function (error) {
+                document.getElementById("produkList").innerHTML =
+                    '<div class="empty-state">Gagal memuat: ' + error.message + '</div>';
+            });
+        }
+
+        /* =====================================================
+           SIMPAN ALOKASI
+           - resetHarian true  -> stok DITIMPA angka baru
+           - resetHarian false -> stok DITAMBAH dari sisa sebelumnya
+           Dicatat juga di collection "alokasi_log" untuk jejak audit.
+        ====================================================== */
+        function simpanAlokasi() {
+            const outlet = document.getElementById("outletSelect").value;
+            const submitBtn = document.getElementById("submitBtn");
+            const msgBox = document.getElementById("msgBox");
+
+            if (!outlet) return;
+
+            const inputan = daftarProduk
+                .map(function (p) {
+                    const el = document.getElementById("qty_" + p.id);
+                    const nilai = el ? Number(el.value) : 0;
+                    return { produk: p, jumlahInput: nilai };
+                })
+                .filter(function (item) { return item.jumlahInput > 0; });
+
+            if (inputan.length === 0) {
+                tampilkanPesan("Isi minimal satu jumlah produk sebelum menyimpan.", "error");
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Menyimpan...";
+
+            const outletRef = db.collection("outlets").doc(outlet);
+            const stockRefs = inputan.map(function (item) {
+                return outletRef.collection("stock").doc(item.produk.id);
+            });
+
+            // Baca dulu semua stok yang sudah ada, supaya tahu berapa yang
+            // "akumulasi" harus ditambahkan dari sisa sebelumnya.
+            Promise.all(stockRefs.map(function (ref) { return ref.get(); }))
+                .then(function (stockDocs) {
+
+                    const batch = db.batch();
+
+                    inputan.forEach(function (item, i) {
+                        const isReset = item.produk.resetHarian !== false;
+                        const stokLama = stockDocs[i].exists ? (stockDocs[i].data().jumlah || 0) : 0;
+                        const stokBaru = isReset ? item.jumlahInput : (stokLama + item.jumlahInput);
+
+                        batch.set(stockRefs[i], {
+                            jumlah: stokBaru,
+                            minStok: stockDocs[i].exists && stockDocs[i].data().minStok !== undefined
+                                ? stockDocs[i].data().minStok : 5,
+                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        }, { merge: true });
+
+                        const logRef = db.collection("alokasi_log").doc();
+                        batch.set(logRef, {
+                            outlet: outlet,
+                            productId: item.produk.id,
+                            namaProduk: item.produk.nama,
+                            tipe: isReset ? "reset" : "akumulasi",
+                            jumlahInput: item.jumlahInput,
+                            stokSebelum: stokLama,
+                            stokSesudah: stokBaru,
+                            olehUid: currentUser.uid,
+                            olehNama: currentUser.nama,
+                            waktu: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    });
+
+                    return batch.commit();
+                })
+                .then(function () {
+                    tampilkanPesan("Alokasi untuk outlet " + outlet + " berhasil disimpan (" + inputan.length + " produk).", "success");
+                    daftarProduk.forEach(function (p) {
+                        const el = document.getElementById("qty_" + p.id);
+                        if (el) el.value = "";
+                    });
+                })
+                .catch(function (error) {
+                    tampilkanPesan("Gagal menyimpan: " + error.message, "error");
+                })
+                .finally(function () {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = "Simpan Alokasi";
+                });
+        }
+
+        function tampilkanPesan(text, type) {
+            const box = document.getElementById("msgBox");
+            box.textContent = text;
+            box.className = "msg-box " + (type === "error" ? "msg-error" : "msg-success");
+            box.style.display = "block";
+            setTimeout(function () { box.style.display = "none"; }, 5000);
+        }
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oma Opa POS - Kelola User</title>
+
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+    <script src="roles.js"></script>
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body { font-family: Arial, Helvetica, sans-serif; background: #fff8ed; color: #4b2b1d; }
+
+        .app-layout { display: flex; min-height: 100vh; }
+
+        .sidebar {
+            width: 190px; flex-shrink: 0; background: #fffdf9;
+            border-right: 1px solid #eadfd2; padding: 20px 14px;
+            display: flex; flex-direction: column;
+        }
+
+        .sidebar .brand { font-weight: 800; font-size: 15px; color: #5a2d1c; margin-bottom: 18px; }
+
+        .sidebar .nav-item {
+            display: block; padding: 9px 12px; border-radius: 8px;
+            font-size: 12px; color: #765f51; text-decoration: none; margin-bottom: 4px;
+        }
+
+        .sidebar .nav-item:hover { background: #fbf1e3; }
+        .sidebar .nav-item.active { background: #fcecd2; color: #a8570c; font-weight: 700; }
+        .sidebar .nav-item.disabled { color: #c9beb0; pointer-events: none; }
+
+        .sidebar .nav-divider { border-top: 1px solid #eadfd2; margin: 14px 0 10px; }
+
+        .sidebar .nav-label {
+            font-size: 10px; font-weight: 700; color: #b0a89c;
+            text-transform: uppercase; padding: 0 12px; margin-bottom: 6px;
+        }
+
+        .sidebar .user-block { margin-top: auto; padding-top: 14px; border-top: 1px solid #eadfd2; }
+        .sidebar .user-name { font-size: 12px; font-weight: 700; }
+        .sidebar .user-role { font-size: 10px; color: #8a796e; margin-bottom: 8px; }
+
+        .sidebar .logout-link {
+            font-size: 11px; color: #c0392b; background: none;
+            border: none; cursor: pointer; padding: 0;
+        }
+
+        .content { flex: 1; padding: 24px 28px; max-width: 800px; }
+
+        .breadcrumb { font-size: 11px; color: #8a796e; margin-bottom: 6px; }
+        .breadcrumb a { color: #b06d09; text-decoration: none; }
+
+        .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .header-row h2 { font-size: 16px; font-weight: 700; }
+
+        .add-btn {
+            background: #f39a16; color: white; border: none;
+            border-radius: 6px; padding: 8px 14px; font-size: 12px;
+            font-weight: 700; cursor: pointer;
+        }
+
+        .add-btn:hover { background: #e98b08; }
+
+        table {
+            width: 100%; border-collapse: collapse;
+            background: #fffdf9; border: 1px solid #eadfd2;
+            border-radius: 10px; overflow: hidden; font-size: 12px;
+        }
+
+        thead th {
+            text-align: left; padding: 10px 14px;
+            background: #fcf3e6; color: #765f51; font-weight: 700; font-size: 11px;
+        }
+
+        tbody td { padding: 10px 14px; border-top: 1px solid #f2e9dd; }
+
+        .role-badge {
+            font-size: 10px; padding: 3px 9px; border-radius: 20px;
+            font-weight: 700; background: #fcf3e6; color: #b06d09;
+        }
+
+        .action-btn { border: none; background: none; cursor: pointer; font-size: 11px; color: #e87913; margin-right: 8px; }
+        .action-btn.danger { color: #c0392b; }
+
+        .loading-state, .empty-state, .denied-state {
+            text-align: center; color: #8a796e; font-size: 12px; padding: 30px 0;
+        }
+
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(75, 43, 29, 0.35);
+            align-items: center; justify-content: center; z-index: 10;
+        }
+
+        .modal-overlay.open { display: flex; }
+
+        .modal-box { background: #fffdf9; border-radius: 10px; padding: 22px; width: 100%; max-width: 360px; max-height: 90vh; overflow-y: auto; }
+        .modal-box h3 { font-size: 14px; margin-bottom: 4px; }
+        .modal-box .modal-hint { font-size: 10px; color: #8a796e; margin-bottom: 10px; }
+
+        .modal-box label { display: block; font-size: 11px; font-weight: 700; margin-bottom: 5px; margin-top: 10px; }
+
+        .modal-box input, .modal-box select {
+            width: 100%; height: 36px; border: 1px solid #e8ddd2;
+            border-radius: 6px; padding: 0 10px; font-size: 12px;
+        }
+
+        .modal-box .field-hint { font-size: 10px; color: #8a796e; margin-top: 4px; }
+
+        .modal-actions { display: flex; gap: 8px; margin-top: 18px; }
+
+        .modal-actions button {
+            flex: 1; height: 36px; border-radius: 6px;
+            font-size: 12px; font-weight: 700; cursor: pointer;
+        }
+
+        .btn-save { background: #f39a16; color: white; border: none; }
+        .btn-cancel { background: none; border: 1px solid #eadfd2; color: #765f51; }
+
+        .err-text { font-size: 10px; color: #c0392b; margin-top: 4px; display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="app-layout">
+        <div class="sidebar" id="sidebarContainer"></div>
+
+        <div class="content" id="mainContent">
+            <div class="loading-state">Memeriksa akses...</div>
+        </div>
+    </div>
+
+    <!-- MODAL TAMBAH USER (Authentication + Firestore sekaligus) -->
+    <div class="modal-overlay" id="modalTambah">
+        <div class="modal-box">
+            <h3>Tambah User Baru</h3>
+            <div class="modal-hint">Membuat akun login (Authentication) sekaligus data profil (Firestore).</div>
+
+            <label>Username</label>
+            <input type="text" id="inputUsername" placeholder="URNKASIR1JAKAL">
+            <div class="field-hint">Otomatis diubah jadi email di belakang layar. Kasir cukup tahu username ini.</div>
+
+            <label>Password</label>
+            <input type="text" id="inputPassword" placeholder="Minimal 6 karakter">
+
+            <label>Nama Lengkap</label>
+            <input type="text" id="inputNamaUser" placeholder="Kasir 1 Jakal">
+
+            <label>Role</label>
+            <select id="inputRoleUser"></select>
+
+            <label>Outlet</label>
+            <select id="inputOutletUser"></select>
+
+            <div class="err-text" id="formErrorTambah"></div>
+
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="tutupModalTambah()">Batal</button>
+                <button class="btn-save" id="btnSimpanTambah" onclick="simpanUserBaru()">Simpan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL EDIT USER (hanya data Firestore: nama, role, outlet) -->
+    <div class="modal-overlay" id="modalEdit">
+        <div class="modal-box">
+            <h3>Edit User</h3>
+            <div class="modal-hint">Untuk ganti password, lakukan lewat Firebase Console &gt; Authentication.</div>
+
+            <label>Nama Lengkap</label>
+            <input type="text" id="editNamaUser">
+
+            <label>Role</label>
+            <select id="editRoleUser"></select>
+
+            <label>Outlet</label>
+            <select id="editOutletUser"></select>
+
+            <div class="err-text" id="formErrorEdit"></div>
+
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="tutupModalEdit()">Batal</button>
+                <button class="btn-save" onclick="simpanEditUser()">Simpan</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyC5nxXV7YPTEq160fLoqBBKtvwaHBQljfc",
+            authDomain: "omaopa-pos.firebaseapp.com",
+            projectId: "omaopa-pos",
+            storageBucket: "omaopa-pos.firebasestorage.app",
+            messagingSenderId: "101370933916",
+            appId: "1:101370933916:web:129ebea30dd9e59508f359"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        let currentUser = null;
+        let editingUid = null;
+        let daftarOutlet = [];
+
+        auth.onAuthStateChanged(function (user) {
+            if (!user) {
+                window.location.href = "index.html";
+                return;
+            }
+
+            const savedUser = sessionStorage.getItem("omaopa_user");
+
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                mulaiHalaman();
+            } else {
+                db.collection("users").doc(user.uid).get().then(function (doc) {
+                    if (doc.exists) {
+                        currentUser = doc.data();
+                        currentUser.uid = user.uid;
+                        sessionStorage.setItem("omaopa_user", JSON.stringify(currentUser));
+                        mulaiHalaman();
+                    } else {
+                        window.location.href = "index.html";
+                    }
+                });
+            }
+        });
+
+        function logout() {
+            auth.signOut().then(function () {
+                sessionStorage.removeItem("omaopa_user");
+                window.location.href = "index.html";
+            });
+        }
+
+        function mulaiHalaman() {
+            document.getElementById("sidebarContainer").innerHTML =
+                renderSidebar(currentUser, "user");
+
+            if (!jagaAksesHalaman(currentUser.role, "user")) return;
+
+            renderMainContent();
+            isiDropdownRole();
+            loadOutletUntukDropdown();
+            loadDaftarUser();
+        }
+
+        function renderMainContent() {
+            document.getElementById("mainContent").innerHTML =
+                '<div class="breadcrumb"><a href="master.html">Data Master</a> / Kelola User</div>' +
+                '<div class="header-row">' +
+                    '<h2>Kelola User</h2>' +
+                    '<button class="add-btn" onclick="bukaModalTambah()">+ Tambah User</button>' +
+                '</div>' +
+                '<table>' +
+                    '<thead><tr><th>Nama</th><th>Role</th><th>Outlet</th><th></th></tr></thead>' +
+                    '<tbody id="userTableBody"><tr><td colspan="4" class="loading-state">Memuat user...</td></tr></tbody>' +
+                '</table>';
+        }
+
+        function isiDropdownRole() {
+            const daftarRole = Object.keys(ROLE_PERMISSIONS);
+            [document.getElementById("inputRoleUser"), document.getElementById("editRoleUser")].forEach(function (select) {
+                select.innerHTML = daftarRole.map(function (r) {
+                    return '<option value="' + r + '">' + r + '</option>';
+                }).join("");
+            });
+        }
+
+        function loadOutletUntukDropdown() {
+            db.collection("outlets").get().then(function (snapshot) {
+                daftarOutlet = [];
+                snapshot.forEach(function (doc) { daftarOutlet.push(doc.id); });
+                daftarOutlet.sort();
+
+                const optionsHtml = daftarOutlet.map(function (o) {
+                    return '<option value="' + o + '">' + o + '</option>';
+                }).join("");
+
+                document.getElementById("inputOutletUser").innerHTML = optionsHtml || '<option value="">Belum ada outlet</option>';
+                document.getElementById("editOutletUser").innerHTML = optionsHtml || '<option value="">Belum ada outlet</option>';
+            });
+        }
+
+        function loadDaftarUser() {
+            db.collection("users").get().then(function (snapshot) {
+                const tbody = document.getElementById("userTableBody");
+
+                if (snapshot.empty) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="empty-state">Belum ada user.</td></tr>';
+                    return;
+                }
+
+                let rows = [];
+                snapshot.forEach(function (doc) {
+                    const u = doc.data();
+                    rows.push({ uid: doc.id, nama: u.nama || "-", role: u.role || "-", outlet: u.outlet || "-" });
+                });
+
+                rows.sort(function (a, b) { return a.nama.localeCompare(b.nama); });
+
+                tbody.innerHTML = rows.map(function (u) {
+                    return '<tr>' +
+                        '<td>' + u.nama + '</td>' +
+                        '<td><span class="role-badge">' + u.role + '</span></td>' +
+                        '<td>' + u.outlet + '</td>' +
+                        '<td style="text-align:right; white-space:nowrap;">' +
+                            '<button class="action-btn" onclick="bukaModalEdit(\'' + u.uid + '\')">Edit</button>' +
+                            '<button class="action-btn danger" onclick="hapusUser(\'' + u.uid + '\', \'' + u.nama.replace(/'/g, "") + '\')">Hapus</button>' +
+                        '</td>' +
+                    '</tr>';
+                }).join("");
+            }).catch(function (error) {
+                document.getElementById("userTableBody").innerHTML =
+                    '<tr><td colspan="4" class="empty-state">Gagal memuat: ' + error.message + '</td></tr>';
+            });
+        }
+
+        function bukaModalTambah() {
+            document.getElementById("inputUsername").value = "";
+            document.getElementById("inputPassword").value = "";
+            document.getElementById("inputNamaUser").value = "";
+            document.getElementById("inputRoleUser").value = "kasir";
+            document.getElementById("formErrorTambah").style.display = "none";
+            document.getElementById("modalTambah").classList.add("open");
+        }
+
+        function tutupModalTambah() {
+            document.getElementById("modalTambah").classList.remove("open");
+        }
+
+        /* =====================================================
+           TAMBAH USER: pakai "secondary app" Firebase supaya
+           proses createUser TIDAK menggantikan sesi login admin
+           yang sedang aktif (keterbatasan bawaan Firebase Auth
+           kalau dibuat lewat SDK client biasa).
+        ====================================================== */
+        function simpanUserBaru() {
+            const username = document.getElementById("inputUsername").value.trim();
+            const password = document.getElementById("inputPassword").value;
+            const nama = document.getElementById("inputNamaUser").value.trim();
+            const role = document.getElementById("inputRoleUser").value;
+            const outlet = document.getElementById("inputOutletUser").value;
+            const errBox = document.getElementById("formErrorTambah");
+            const btn = document.getElementById("btnSimpanTambah");
+
+            if (!username || !password || !nama || !outlet) {
+                errBox.textContent = "Semua kolom wajib diisi.";
+                errBox.style.display = "block";
+                return;
+            }
+
+            if (password.length < 6) {
+                errBox.textContent = "Password minimal 6 karakter.";
+                errBox.style.display = "block";
+                return;
+            }
+
+            const email = username.trim().toLowerCase() + "@omaopa.internal";
+
+            btn.disabled = true;
+            btn.textContent = "Menyimpan...";
+
+            // App kedua, terpisah dari sesi login admin yang sedang aktif
+            const secondaryApp = firebase.initializeApp(firebaseConfig, "SecondaryApp_" + Date.now());
+            const secondaryAuth = secondaryApp.auth();
+
+            secondaryAuth.createUserWithEmailAndPassword(email, password)
+                .then(function (userCredential) {
+                    const uid = userCredential.user.uid;
+
+                    // Tulis data profil ke Firestore pakai koneksi utama (bukan secondary)
+                    return db.collection("users").doc(uid).set({
+                        nama: nama,
+                        role: role,
+                        outlet: outlet
+                    });
+                })
+                .then(function () {
+                    // Selesai, sign out & hapus app kedua supaya tidak menumpuk di memori
+                    return secondaryAuth.signOut();
+                })
+                .then(function () {
+                    return secondaryApp.delete();
+                })
+                .then(function () {
+                    tutupModalTambah();
+                    loadDaftarUser();
+                })
+                .catch(function (error) {
+                    let pesan = error.message;
+                    if (error.code === "auth/email-already-in-use") {
+                        pesan = "Username ini sudah dipakai. Coba username lain.";
+                    }
+                    errBox.textContent = pesan;
+                    errBox.style.display = "block";
+                })
+                .finally(function () {
+                    btn.disabled = false;
+                    btn.textContent = "Simpan";
+                });
+        }
+
+        function bukaModalEdit(uid) {
+            db.collection("users").doc(uid).get().then(function (doc) {
+                if (!doc.exists) return;
+                const u = doc.data();
+
+                editingUid = uid;
+                document.getElementById("editNamaUser").value = u.nama || "";
+                document.getElementById("editRoleUser").value = u.role || "kasir";
+                document.getElementById("editOutletUser").value = u.outlet || "";
+                document.getElementById("formErrorEdit").style.display = "none";
+                document.getElementById("modalEdit").classList.add("open");
+            });
+        }
+
+        function tutupModalEdit() {
+            document.getElementById("modalEdit").classList.remove("open");
+        }
+
+        function simpanEditUser() {
+            const nama = document.getElementById("editNamaUser").value.trim();
+            const role = document.getElementById("editRoleUser").value;
+            const outlet = document.getElementById("editOutletUser").value;
+            const errBox = document.getElementById("formErrorEdit");
+
+            if (!nama || !outlet) {
+                errBox.textContent = "Nama dan outlet wajib diisi.";
+                errBox.style.display = "block";
+                return;
+            }
+
+            db.collection("users").doc(editingUid).update({
+                nama: nama, role: role, outlet: outlet
+            }).then(function () {
+                tutupModalEdit();
+                loadDaftarUser();
+            }).catch(function (error) {
+                errBox.textContent = "Gagal menyimpan: " + error.message;
+                errBox.style.display = "block";
+            });
+        }
+
+        /* =====================================================
+           HAPUS USER: hanya menghapus data profil di Firestore.
+           Akun Authentication-nya TIDAK ikut terhapus (keterbatasan
+           SDK client, butuh Admin SDK/Cloud Functions untuk itu).
+           User tetap bisa "login" tapi tidak dapat data profil,
+           jadi otomatis ditolak sistem (lihat index.html).
+        ====================================================== */
+        function hapusUser(uid, nama) {
+            if (!confirm('Hapus data user "' + nama + '"?\n\nCatatan: akun loginnya (Authentication) TIDAK otomatis terhapus, hanya profil di Firestore. Kalau ingin benar-benar memblokir akses, hapus juga manual lewat Firebase Console > Authentication.')) {
+                return;
+            }
+
+            db.collection("users").doc(uid).delete().then(function () {
+                loadDaftarUser();
+            }).catch(function (error) {
+                alert("Gagal menghapus: " + error.message);
+            });
+        }
+    </script>
+
+</body>
+</html>
