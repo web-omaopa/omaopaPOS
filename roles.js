@@ -13,7 +13,7 @@
    "dibangun: false" berarti halaman belum ada filenya,
    akan tampil sebagai "Segera hadir" di Beranda. */
 const HALAMAN_INFO = {
-    kasir:      { href: "kasir.html",      icon: "🧾", title: "Kasir",           desc: "Buat transaksi penjualan",        dibangun: true },
+    kasir:      { href: "POS.html",      icon: "🧾", title: "Kasir",           desc: "Buat transaksi penjualan",        dibangun: true },
     stok:       { href: "stok.html",       icon: "📦", title: "Stok",            desc: "Lihat & pantau stok outlet",      dibangun: true },
     alokasi:    { href: "alokasi.html",    icon: "📋", title: "Alokasi Stok",    desc: "Bagi stok harian per outlet",     dibangun: true },
     master:     { href: "master.html",     icon: "🗂️", title: "Data Master",     desc: "Kelola outlet, produk, & user",   dibangun: true },
