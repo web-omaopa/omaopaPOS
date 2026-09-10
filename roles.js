@@ -32,7 +32,7 @@ const ROLE_PERMISSIONS = {
     management: ["kasir", "approval-stok", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
     admin:      ["kasir", "approval-stok", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
     owner:      ["kasir", "approval-stok", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
-    kasir:      ["kasir", "terima-stok", "stok", "transfer"],
+    kasir:      ["kasir", "terima-stok", "stok", "transfer", "pengaturan"],
     forecaster: ["stok", "alokasi", "transfer", "laporan"]
 };
 
