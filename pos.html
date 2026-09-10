@@ -180,15 +180,7 @@
         let kategoriAktif = "Semua";
         let produkUntukTopping = null;
 
-        const DAFTAR_TOPPING = [
-            { nama: "Choco Crispy", harga: 2000 },
-            { nama: "Keju Parut", harga: 2000 },
-            { nama: "Oreo", harga: 2500 },
-            { nama: "Almond", harga: 3000 },
-            { nama: "Mesis", harga: 1500 }
-        ];
-
-        const KATEGORI_PAKAI_TOPPING = ["malmil", "ogura"];
+        let daftarTopping = [];
 
         auth.onAuthStateChanged(function (user) {
             if (!user) { window.location.href = "index.html"; return; }
@@ -222,7 +214,19 @@
             document.getElementById("sidebarContainer").innerHTML = renderSidebar(currentUser, "kasir");
             if (!jagaAksesHalaman(currentUser.role, "kasir")) return;
             renderMainContent();
+            loadTopping();
             loadProducts();
+        }
+
+        function loadTopping() {
+            db.collection("products")
+                .where("status", "==", "aktif")
+                .where("kategori", "==", "Topping")
+                .get()
+                .then(function (snapshot) {
+                    daftarTopping = [];
+                    snapshot.forEach(function (doc) { daftarTopping.push(Object.assign({ id: doc.id }, doc.data())); });
+                });
         }
 
         function renderMainContent() {
@@ -276,7 +280,7 @@
 
         function renderKategoriTabs() {
             const kategoriSet = new Set();
-            allProducts.forEach(function (p) { if (p.kategori) kategoriSet.add(p.kategori); });
+            allProducts.forEach(function (p) { if (p.kategori && p.kategori !== "Topping") kategoriSet.add(p.kategori); });
             const kategoriList = ["Semua"].concat(Array.from(kategoriSet).sort());
 
             const container = document.getElementById("kategoriTabs");
@@ -296,6 +300,7 @@
             const keyword = (document.getElementById("searchBox").value || "").toLowerCase();
 
             const filtered = allProducts.filter(function (p) {
+                if (p.kategori === "Topping") return false;
                 const cocokKategori = kategoriAktif === "Semua" || p.kategori === kategoriAktif;
                 const cocokKeyword = p.nama.toLowerCase().includes(keyword);
                 return cocokKategori && cocokKeyword;
@@ -337,10 +342,7 @@
         }
 
         function klikProduk(product) {
-            const kategoriLower = (product.kategori || "").toLowerCase();
-            const butuhTopping = KATEGORI_PAKAI_TOPPING.some(function (k) { return kategoriLower.includes(k); });
-
-            if (butuhTopping) {
+            if (product.butuhTopping) {
                 bukaModalTopping(product);
             } else {
                 tambahKeKeranjang(product, []);
@@ -352,13 +354,18 @@
             document.getElementById("modalToppingNama").textContent = "Topping untuk " + product.nama;
 
             const container = document.getElementById("toppingOptionsList");
-            container.innerHTML = DAFTAR_TOPPING.map(function (t, i) {
-                return '<label class="topping-option">' +
-                    '<input type="checkbox" value="' + i + '">' +
-                    '<span class="t-nama">' + t.nama + '</span>' +
-                    '<span class="t-harga">+Rp ' + t.harga.toLocaleString("id-ID") + '</span>' +
-                '</label>';
-            }).join("");
+
+            if (daftarTopping.length === 0) {
+                container.innerHTML = '<div class="empty-state">Belum ada topping. Tambahkan lewat Pengaturan &gt; Topping.</div>';
+            } else {
+                container.innerHTML = daftarTopping.map(function (t, i) {
+                    return '<label class="topping-option">' +
+                        '<input type="checkbox" value="' + i + '">' +
+                        '<span class="t-nama">' + t.nama + '</span>' +
+                        '<span class="t-harga">+Rp ' + Number(t.harga).toLocaleString("id-ID") + '</span>' +
+                    '</label>';
+                }).join("");
+            }
 
             document.getElementById("modalTopping").classList.add("open");
         }
@@ -370,7 +377,7 @@
 
         function konfirmasiTopping() {
             const checkboxes = document.querySelectorAll("#toppingOptionsList input[type=checkbox]:checked");
-            const toppingTerpilih = Array.from(checkboxes).map(function (cb) { return DAFTAR_TOPPING[Number(cb.value)]; });
+            const toppingTerpilih = Array.from(checkboxes).map(function (cb) { return daftarTopping[Number(cb.value)]; });
 
             tambahKeKeranjang(produkUntukTopping, toppingTerpilih);
             tutupModalTopping();
