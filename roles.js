@@ -18,14 +18,10 @@ const HALAMAN_INFO = {
     "approval-stok":{ href: "approval-stok.html",  icon: "✅", title: "Approval Stok",   desc: "Setujui laporan stok dari kasir",   dibangun: true },
     stok:           { href: "stok.html",           icon: "📦", title: "Stok",            desc: "Lihat & pantau stok outlet",        dibangun: true },
     alokasi:        { href: "alokasi.html",        icon: "📋", title: "Rencana Alokasi", desc: "Plot rencana kue harian per outlet", dibangun: true },
-    master:         { href: "master.html",         icon: "🗂️", title: "Data Master",     desc: "Kelola outlet, produk, & user",     dibangun: true },
-    produk:         { href: "produk.html",         icon: "🥐", title: "Produk",          desc: "Kelola daftar & harga produk",      dibangun: true, hub: true },
-    outlet:         { href: "outlet.html",         icon: "🏬", title: "Kelola Outlet",   desc: "Kelola 28 outlet & pembagian area", dibangun: true, hub: true },
-    user:           { href: "user.html",           icon: "👤", title: "Kelola User",     desc: "Tambah & atur akun pengguna",       dibangun: true, hub: true },
     transfer:       { href: "transfer.html",       icon: "🚚", title: "Transfer Outlet", desc: "Pindahkan stok antar outlet",       dibangun: false },
     riwayat:        { href: "riwayat.html",        icon: "🕘", title: "Riwayat",         desc: "Riwayat transaksi & transfer",      dibangun: false },
     laporan:        { href: "laporan.html",        icon: "📊", title: "Laporan",         desc: "Analisis penjualan & stok",         dibangun: false },
-    pengaturan:     { href: "pengaturan.html",     icon: "⚙️", title: "Pengaturan",      desc: "Kelola outlet, user, & sistem",     dibangun: false }
+    pengaturan:     { href: "pengaturan.html",     icon: "⚙️", title: "Pengaturan",      desc: "Kelola produk, outlet, & user",     dibangun: true }
 };
 
 /* Daftar role dan halaman apa saja yang boleh mereka akses.
@@ -33,9 +29,9 @@ const HALAMAN_INFO = {
    Contoh menambah role baru: cukup tambah baris baru di sini,
    tidak perlu ubah kode di halaman manapun. */
 const ROLE_PERMISSIONS = {
-    management: ["kasir", "approval-stok", "stok", "produk", "outlet", "user", "alokasi", "transfer", "riwayat", "laporan", "pengaturan"],
-    admin:      ["kasir", "approval-stok", "stok", "produk", "outlet", "user", "alokasi", "transfer", "riwayat", "laporan", "pengaturan"],
-    owner:      ["kasir", "approval-stok", "stok", "produk", "outlet", "user", "alokasi", "transfer", "riwayat", "laporan", "pengaturan"],
+    management: ["kasir", "approval-stok", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
+    admin:      ["kasir", "approval-stok", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
+    owner:      ["kasir", "approval-stok", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
     kasir:      ["kasir", "terima-stok", "stok", "transfer"],
     forecaster: ["stok", "alokasi", "transfer", "laporan"]
 };
@@ -59,21 +55,13 @@ function getHalamanUntukRole(role) {
 }
 
 /* Render HTML sidebar navigasi, otomatis menyesuaikan role user.
-   Dipakai bersama oleh beranda.html, pos.html, stok.html, produk.html
+   Dipakai bersama oleh beranda.html, pos.html, stok.html, pengaturan.html
    supaya tampilan & perilaku sidebar konsisten di semua halaman.
-   activeKey: "beranda" | "kasir" | "stok" | "produk" | dst */
+   activeKey: "beranda" | "kasir" | "stok" | "pengaturan" | dst */
 function renderSidebar(currentUser, activeKey) {
     const halamanDiizinkan = getHalamanUntukRole(currentUser.role);
-
-    // Halaman "hub" (outlet, produk, user) tidak tampil satu-satu di sidebar,
-    // tapi digabung jadi satu menu "Data Master" yang mengarah ke master.html
-    const sudahDibangun = halamanDiizinkan.filter(function (h) { return h.dibangun && !h.hub; });
+    const sudahDibangun = halamanDiizinkan.filter(function (h) { return h.dibangun; });
     const belumDibangun = halamanDiizinkan.filter(function (h) { return !h.dibangun; });
-    const adaAksesHub = halamanDiizinkan.some(function (h) { return h.hub && h.dibangun; });
-
-    // Kunci halaman yang dianggap "masih di dalam" Data Master,
-    // supaya menu tetap ter-highlight aktif walau sedang di outlet.html/produk.html/user.html
-    const hubActiveKeys = ["master", "outlet", "produk", "user"];
 
     let html = '<div class="brand">🥯 Oma Opa</div>';
 
@@ -84,11 +72,6 @@ function renderSidebar(currentUser, activeKey) {
         const activeClass = h.key === activeKey ? " active" : "";
         html += '<a href="' + h.href + '" class="nav-item' + activeClass + '">' + h.icon + '  ' + h.title + '</a>';
     });
-
-    if (adaAksesHub) {
-        const isActive = hubActiveKeys.indexOf(activeKey) !== -1;
-        html += '<a href="master.html" class="nav-item' + (isActive ? " active" : "") + '">🗂️  Data Master</a>';
-    }
 
     if (belumDibangun.length > 0) {
         html += '<div class="nav-divider"></div>';
