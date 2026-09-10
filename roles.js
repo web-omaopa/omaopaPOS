@@ -65,8 +65,13 @@ function renderSidebar(currentUser, activeKey) {
 
     let html = '<div class="brand">🥯 Oma Opa</div>';
 
-    html += '<a href="beranda.html" class="nav-item' + (activeKey === "beranda" ? " active" : "") + '">🏠  Beranda</a>';
-    html += '<div class="nav-divider"></div>';
+    // Kasir langsung kerja di halaman utamanya (pos.html), tidak perlu
+    // menu Beranda terpisah. Role lain (admin/owner/forecaster/dst)
+    // tetap punya Beranda sebagai halaman ringkasan/navigasi awal.
+    if (currentUser.role !== "kasir") {
+        html += '<a href="beranda.html" class="nav-item' + (activeKey === "beranda" ? " active" : "") + '">🏠  Beranda</a>';
+        html += '<div class="nav-divider"></div>';
+    }
 
     sudahDibangun.forEach(function (h) {
         const activeClass = h.key === activeKey ? " active" : "";
