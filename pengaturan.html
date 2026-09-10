@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oma Opa POS - Pengaturan</title>
+
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+    <script src="roles.js"></script>
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, Helvetica, sans-serif; background: #fff8ed; color: #4b2b1d; }
+        .app-layout { display: flex; min-height: 100vh; }
+        .sidebar { width: 190px; flex-shrink: 0; background: #fffdf9; border-right: 1px solid #eadfd2; padding: 20px 14px; display: flex; flex-direction: column; }
+        .sidebar .brand { font-weight: 800; font-size: 15px; color: #5a2d1c; margin-bottom: 18px; }
+        .sidebar .nav-item { display: block; padding: 9px 12px; border-radius: 8px; font-size: 12px; color: #765f51; text-decoration: none; margin-bottom: 4px; }
+        .sidebar .nav-item:hover { background: #fbf1e3; }
+        .sidebar .nav-item.active { background: #fcecd2; color: #a8570c; font-weight: 700; }
+        .sidebar .nav-item.disabled { color: #c9beb0; pointer-events: none; }
+        .sidebar .nav-divider { border-top: 1px solid #eadfd2; margin: 14px 0 10px; }
+        .sidebar .nav-label { font-size: 10px; font-weight: 700; color: #b0a89c; text-transform: uppercase; padding: 0 12px; margin-bottom: 6px; }
+        .sidebar .user-block { margin-top: auto; padding-top: 14px; border-top: 1px solid #eadfd2; }
+        .sidebar .user-name { font-size: 12px; font-weight: 700; }
+        .sidebar .user-role { font-size: 10px; color: #8a796e; margin-bottom: 8px; }
+        .sidebar .logout-link { font-size: 11px; color: #c0392b; background: none; border: none; cursor: pointer; padding: 0; }
+        .content { flex: 1; padding: 24px 28px; max-width: 900px; }
+        .page-title { font-size: 18px; font-weight: 700; margin-bottom: 14px; }
+        .inner-tabs { display: flex; gap: 6px; margin-bottom: 20px; border-bottom: 1px solid #eadfd2; }
+        .inner-tab-btn { padding: 10px 16px; border: none; background: none; cursor: pointer; font-size: 13px; font-weight: 700; color: #8a796e; font-family: inherit; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+        .inner-tab-btn.active { color: #e87913; border-bottom-color: #f39a16; }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+        .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+        .add-btn { background: #f39a16; color: white; border: none; border-radius: 6px; padding: 8px 14px; font-size: 12px; font-weight: 700; cursor: pointer; }
+        .add-btn:hover { background: #e98b08; }
+        table { width: 100%; border-collapse: collapse; background: #fffdf9; border: 1px solid #eadfd2; border-radius: 10px; overflow: hidden; font-size: 12px; margin-bottom: 16px; }
+        thead th { text-align: left; padding: 10px 14px; background: #fcf3e6; color: #765f51; font-weight: 700; font-size: 11px; }
+        tbody td { padding: 10px 14px; border-top: 1px solid #f2e9dd; }
+        .badge { font-size: 10px; padding: 3px 9px; border-radius: 20px; font-weight: 700; }
+        .badge-aktif { background: #e5f4e6; color: #1e7d32; }
+        .badge-nonaktif { background: #f1eee8; color: #765f51; }
+        .role-badge { background: #fcf3e6; color: #b06d09; }
+        .action-btn { border: none; background: none; cursor: pointer; font-size: 11px; color: #e87913; margin-right: 8px; }
+        .action-btn.danger { color: #c0392b; }
+        .loading-state, .empty-state { text-align: center; color: #8a796e; font-size: 12px; padding: 30px 0; }
+        .area-title { font-size: 12px; font-weight: 700; color: #b06d09; text-transform: uppercase; margin: 16px 0 8px; }
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(75, 43, 29, 0.35); align-items: center; justify-content: center; z-index: 10; }
+        .modal-overlay.open { display: flex; }
+        .modal-box { background: #fffdf9; border-radius: 10px; padding: 22px; width: 100%; max-width: 360px; max-height: 90vh; overflow-y: auto; }
+        .modal-box h3 { font-size: 14px; margin-bottom: 4px; }
+        .modal-box .modal-hint { font-size: 10px; color: #8a796e; margin-bottom: 10px; }
+        .modal-box label { display: block; font-size: 11px; font-weight: 700; margin-bottom: 5px; margin-top: 10px; }
+        .modal-box input, .modal-box select { width: 100%; height: 36px; border: 1px solid #e8ddd2; border-radius: 6px; padding: 0 10px; font-size: 12px; }
+        .modal-box .field-hint { font-size: 10px; color: #8a796e; margin-top: 4px; }
+        .modal-actions { display: flex; gap: 8px; margin-top: 18px; }
+        .modal-actions button { flex: 1; height: 36px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; }
+        .btn-save { background: #f39a16; color: white; border: none; }
+        .btn-cancel { background: none; border: 1px solid #eadfd2; color: #765f51; }
+        .err-text { font-size: 10px; color: #c0392b; margin-top: 4px; display: none; }
+        .denied-state { text-align: center; color: #8a796e; font-size: 12px; padding: 40px 0; }
+    </style>
+</head>
+<body>
+
+    <div class="app-layout">
+        <div class="sidebar" id="sidebarContainer"></div>
+        <div class="content" id="mainContent">
+            <div class="loading-state">Memeriksa akses...</div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modalProduk">
+        <div class="modal-box">
+            <h3 id="modalProdukTitle">Tambah Produk</h3>
+            <label>Nama Produk</label>
+            <input type="text" id="pInputNama" placeholder="Malmil Cheese">
+            <label>Harga (Rp)</label>
+            <input type="number" id="pInputHarga" placeholder="15000">
+            <label>Kategori</label>
+            <input type="text" id="pInputKategori" placeholder="Malmil / Ogura / Chiffon">
+            <label>Status</label>
+            <select id="pInputStatus"><option value="aktif">Aktif</option><option value="nonaktif">Nonaktif</option></select>
+            <label>Tipe Alokasi Stok</label>
+            <select id="pInputResetHarian">
+                <option value="true">Reset harian (kue basah)</option>
+                <option value="false">Akumulasi (tahan lama)</option>
+            </select>
+            <label>URL Gambar (opsional)</label>
+            <input type="text" id="pInputGambar" placeholder="https://...">
+            <div class="err-text" id="pFormError"></div>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="Produk_tutupModal()">Batal</button>
+                <button class="btn-save" onclick="Produk_simpan()">Simpan</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modalOutlet">
+        <div class="modal-box">
+            <h3>Tambah Outlet</h3>
+            <label>Nama Outlet</label>
+            <input type="text" id="oInputNama" placeholder="Jakal UII">
+            <div class="field-hint">Nama ini jadi ID permanen, tidak bisa diganti nanti.</div>
+            <label>Area</label>
+            <select id="oInputArea"><option>Area 1</option><option>Area 2</option><option>Area 3</option></select>
+            <div class="err-text" id="oFormError"></div>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="Outlet_tutupModal()">Batal</button>
+                <button class="btn-save" onclick="Outlet_simpan()">Simpan</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modalUserTambah">
+        <div class="modal-box">
+            <h3>Tambah User Baru</h3>
+            <div class="modal-hint">Membuat akun login (Authentication) sekaligus profil (Firestore).</div>
+            <label>Username</label>
+            <input type="text" id="uInputUsername" placeholder="URNKASIR1JAKAL">
+            <label>Password</label>
+            <input type="text" id="uInputPassword" placeholder="Minimal 6 karakter">
+            <label>Nama Lengkap</label>
+            <input type="text" id="uInputNama" placeholder="Kasir 1 Jakal">
+            <label>Role</label>
+            <select id="uInputRole"></select>
+            <label>Outlet</label>
+            <select id="uInputOutlet"></select>
+            <div class="err-text" id="uFormErrorTambah"></div>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="User_tutupModalTambah()">Batal</button>
+                <button class="btn-save" id="uBtnSimpanTambah" onclick="User_simpanBaru()">Simpan</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modalUserEdit">
+        <div class="modal-box">
+            <h3>Edit User</h3>
+            <div class="modal-hint">Untuk ganti password, lakukan lewat Firebase Console.</div>
+            <label>Nama Lengkap</label>
+            <input type="text" id="uEditNama">
+            <label>Role</label>
+            <select id="uEditRole"></select>
+            <label>Outlet</label>
+            <select id="uEditOutlet"></select>
+            <div class="err-text" id="uFormErrorEdit"></div>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="User_tutupModalEdit()">Batal</button>
+                <button class="btn-save" onclick="User_simpanEdit()">Simpan</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyC5nxXV7YPTEq160fLoqBBKtvwaHBQljfc",
+            authDomain: "omaopa-pos.firebaseapp.com",
+            projectId: "omaopa-pos",
+            storageBucket: "omaopa-pos.firebasestorage.app",
+            messagingSenderId: "101370933916",
+            appId: "1:101370933916:web:129ebea30dd9e59508f359"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        let currentUser = null;
+        const ROLE_LIST = ["management", "admin", "owner", "kasir", "forecaster"];
+
+        auth.onAuthStateChanged(function (user) {
+            if (!user) { window.location.href = "index.html"; return; }
+
+            const savedUser = sessionStorage.getItem("omaopa_user");
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                mulai();
+            } else {
+                db.collection("users").doc(user.uid).get().then(function (doc) {
+                    if (doc.exists) {
+                        currentUser = doc.data();
+                        currentUser.uid = user.uid;
+                        sessionStorage.setItem("omaopa_user", JSON.stringify(currentUser));
+                        mulai();
+                    } else {
+                        window.location.href = "index.html";
+                    }
+                });
+            }
+        });
+
+        function logout() {
+            auth.signOut().then(function () {
+                sessionStorage.removeItem("omaopa_user");
+                window.location.href = "index.html";
+            });
+        }
+
+        function mulai() {
+            document.getElementById("sidebarContainer").innerHTML = renderSidebar(currentUser, "pengaturan");
+
+            if (!jagaAksesHalaman(currentUser.role, "pengaturan")) return;
+
+            document.getElementById("mainContent").innerHTML =
+                '<div class="page-title">Pengaturan</div>' +
+                '<div class="inner-tabs">' +
+                    '<button class="inner-tab-btn active" id="innerTab_produk" onclick="pindahTabDalam(\'produk\')">Produk</button>' +
+                    '<button class="inner-tab-btn" id="innerTab_outlet" onclick="pindahTabDalam(\'outlet\')">Outlet</button>' +
+                    '<button class="inner-tab-btn" id="innerTab_user" onclick="pindahTabDalam(\'user\')">User</button>' +
+                '</div>' +
+
+                '<div class="tab-panel active" id="panel_produk">' +
+                    '<div class="header-row"><h3></h3><button class="add-btn" onclick="Produk_bukaModalTambah()">+ Tambah Produk</button></div>' +
+                    '<table><thead><tr><th>Nama</th><th>Kategori</th><th style="text-align:right;">Harga</th><th style="text-align:right;">Status</th><th>Alokasi</th><th></th></tr></thead>' +
+                    '<tbody id="produkTableBody"><tr><td colspan="6" class="loading-state">Memuat...</td></tr></tbody></table>' +
+                '</div>' +
+
+                '<div class="tab-panel" id="panel_outlet">' +
+                    '<div class="header-row"><h3></h3><button class="add-btn" onclick="Outlet_bukaModalTambah()">+ Tambah Outlet</button></div>' +
+                    '<div id="outletContainer"><div class="loading-state">Memuat...</div></div>' +
+                '</div>' +
+
+                '<div class="tab-panel" id="panel_user">' +
+                    '<div class="header-row"><h3></h3><button class="add-btn" onclick="User_bukaModalTambah()">+ Tambah User</button></div>' +
+                    '<table><thead><tr><th>Nama</th><th>Role</th><th>Outlet</th><th></th></tr></thead>' +
+                    '<tbody id="userTableBody"><tr><td colspan="4" class="loading-state">Memuat...</td></tr></tbody></table>' +
+                '</div>';
+
+            Produk_load();
+        }
+
+        function pindahTabDalam(nama) {
+            document.querySelectorAll(".tab-panel").forEach(function (el) { el.classList.remove("active"); });
+            document.querySelectorAll(".inner-tab-btn").forEach(function (el) { el.classList.remove("active"); });
+            document.getElementById("panel_" + nama).classList.add("active");
+            document.getElementById("innerTab_" + nama).classList.add("active");
+
+            if (nama === "outlet") Outlet_load();
+            if (nama === "user") { User_isiDropdownRole(); User_loadOutletDropdown(); User_load(); }
+        }
+
+        let Produk_editingId = null;
+
+        function Produk_load() {
+            db.collection("products").get().then(function (snapshot) {
+                const tbody = document.getElementById("produkTableBody");
+                if (snapshot.empty) { tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Belum ada produk.</td></tr>'; return; }
+
+                let rows = [];
+                snapshot.forEach(function (doc) { rows.push(Object.assign({ id: doc.id }, doc.data())); });
+
+                tbody.innerHTML = rows.map(function (p) {
+                    return '<tr><td>' + p.nama + '</td><td>' + (p.kategori || "-") + '</td>' +
+                        '<td style="text-align:right;">Rp ' + Number(p.harga).toLocaleString("id-ID") + '</td>' +
+                        '<td style="text-align:right;"><span class="badge badge-' + p.status + '">' + (p.status === "aktif" ? "Aktif" : "Nonaktif") + '</span></td>' +
+                        '<td style="font-size:11px; color:#8a796e;">' + (p.resetHarian === false ? "Akumulasi" : "Reset harian") + '</td>' +
+                        '<td style="text-align:right; white-space:nowrap;">' +
+                            '<button class="action-btn" onclick="Produk_bukaModalEdit(\'' + p.id + '\')">Edit</button>' +
+                            '<button class="action-btn danger" onclick="Produk_hapus(\'' + p.id + '\', \'' + p.nama.replace(/'/g, "") + '\')">Hapus</button></td></tr>';
+                }).join("");
+            });
+        }
+
+        function Produk_bukaModalTambah() {
+            Produk_editingId = null;
+            document.getElementById("modalProdukTitle").textContent = "Tambah Produk";
+            document.getElementById("pInputNama").value = "";
+            document.getElementById("pInputHarga").value = "";
+            document.getElementById("pInputKategori").value = "";
+            document.getElementById("pInputStatus").value = "aktif";
+            document.getElementById("pInputResetHarian").value = "true";
+            document.getElementById("pInputGambar").value = "";
+            document.getElementById("pFormError").style.display = "none";
+            document.getElementById("modalProduk").classList.add("open");
+        }
+
+        function Produk_bukaModalEdit(id) {
+            db.collection("products").doc(id).get().then(function (doc) {
+                const p = doc.data();
+                Produk_editingId = id;
+                document.getElementById("modalProdukTitle").textContent = "Edit Produk";
+                document.getElementById("pInputNama").value = p.nama;
+                document.getElementById("pInputHarga").value = p.harga;
+                document.getElementById("pInputKategori").value = p.kategori || "";
+                document.getElementById("pInputStatus").value = p.status;
+                document.getElementById("pInputResetHarian").value = p.resetHarian === false ? "false" : "true";
+                document.getElementById("pInputGambar").value = p.gambarUrl || "";
+                document.getElementById("pFormError").style.display = "none";
+                document.getElementById("modalProduk").classList.add("open");
+            });
+        }
+
+        function Produk_tutupModal() { document.getElementById("modalProduk").classList.remove("open"); }
+
+        function Produk_simpan() {
+            const nama = document.getElementById("pInputNama").value.trim();
+            const harga = Number(document.getElementById("pInputHarga").value);
+            const kategori = document.getElementById("pInputKategori").value.trim();
+            const status = document.getElementById("pInputStatus").value;
+            const resetHarian = document.getElementById("pInputResetHarian").value === "true";
+            const gambarUrl = document.getElementById("pInputGambar").value.trim();
+            const errBox = document.getElementById("pFormError");
+
+            if (!nama || !harga || harga <= 0) { errBox.textContent = "Nama dan harga wajib diisi."; errBox.style.display = "block"; return; }
+
+            const data = { nama: nama, harga: harga, kategori: kategori, status: status, resetHarian: resetHarian, gambarUrl: gambarUrl };
+            const p = Produk_editingId ? db.collection("products").doc(Produk_editingId).update(data) : db.collection("products").add(data);
+            p.then(function () { Produk_tutupModal(); Produk_load(); });
+        }
+
+        function Produk_hapus(id, nama) {
+            if (!confirm('Hapus produk "' + nama + '"?')) return;
+            db.collection("products").doc(id).delete().then(function () { Produk_load(); });
+        }
+
+        function Outlet_load() {
+            db.collection("outlets").get().then(function (snapshot) {
+                const container = document.getElementById("outletContainer");
+                if (snapshot.empty) { container.innerHTML = '<div class="empty-state">Belum ada outlet.</div>'; return; }
+
+                const perArea = { "Area 1": [], "Area 2": [], "Area 3": [] };
+                snapshot.forEach(function (doc) {
+                    const area = doc.data().area || "Area 1";
+                    if (!perArea[area]) perArea[area] = [];
+                    perArea[area].push(doc.id);
+                });
+
+                let html = "";
+                Object.keys(perArea).forEach(function (area) {
+                    const outlets = perArea[area];
+                    if (outlets.length === 0) return;
+                    outlets.sort();
+                    html += '<div class="area-title">' + area + ' (' + outlets.length + ')</div>';
+                    html += '<table><thead><tr><th>Nama Outlet</th><th></th></tr></thead><tbody>';
+                    outlets.forEach(function (o) {
+                        html += '<tr><td>' + o + '</td><td style="text-align:right;"><button class="action-btn danger" onclick="Outlet_hapus(\'' + o + '\')">Hapus</button></td></tr>';
+                    });
+                    html += '</tbody></table>';
+                });
+                container.innerHTML = html;
+            });
+        }
+
+        function Outlet_bukaModalTambah() {
+            document.getElementById("oInputNama").value = "";
+            document.getElementById("oInputArea").value = "Area 1";
+            document.getElementById("oFormError").style.display = "none";
+            document.getElementById("modalOutlet").classList.add("open");
+        }
+
+        function Outlet_tutupModal() { document.getElementById("modalOutlet").classList.remove("open"); }
+
+        function Outlet_simpan() {
+            const nama = document.getElementById("oInputNama").value.trim();
+            const area = document.getElementById("oInputArea").value;
+            const errBox = document.getElementById("oFormError");
+            if (!nama) { errBox.textContent = "Nama outlet wajib diisi."; errBox.style.display = "block"; return; }
+
+            const ref = db.collection("outlets").doc(nama);
+            ref.get().then(function (doc) {
+                if (doc.exists) { errBox.textContent = "Outlet ini sudah ada."; errBox.style.display = "block"; return; }
+                return ref.set({ area: area }).then(function () { Outlet_tutupModal(); Outlet_load(); });
+            });
+        }
+
+        function Outlet_hapus(nama) {
+            if (!confirm('Hapus outlet "' + nama + '"?')) return;
+            db.collection("outlets").doc(nama).collection("stock").get().then(function (snap) {
+                const batch = db.batch();
+                snap.forEach(function (d) { batch.delete(d.ref); });
+                batch.delete(db.collection("outlets").doc(nama));
+                return batch.commit();
+            }).then(function () { Outlet_load(); });
+        }
+
+        let User_editingUid = null;
+
+        function User_isiDropdownRole() {
+            const optionsHtml = ROLE_LIST.map(function (r) { return '<option value="' + r + '">' + r + '</option>'; }).join("");
+            document.getElementById("uInputRole").innerHTML = optionsHtml;
+            document.getElementById("uEditRole").innerHTML = optionsHtml;
+        }
+
+        function User_loadOutletDropdown() {
+            db.collection("outlets").get().then(function (snapshot) {
+                let outlets = [];
+                snapshot.forEach(function (doc) { outlets.push(doc.id); });
+                outlets.sort();
+                const optionsHtml = outlets.map(function (o) { return '<option value="' + o + '">' + o + '</option>'; }).join("");
+                document.getElementById("uInputOutlet").innerHTML = optionsHtml;
+                document.getElementById("uEditOutlet").innerHTML = optionsHtml;
+            });
+        }
+
+        function User_load() {
+            db.collection("users").get().then(function (snapshot) {
+                const tbody = document.getElementById("userTableBody");
+                if (snapshot.empty) { tbody.innerHTML = '<tr><td colspan="4" class="empty-state">Belum ada user.</td></tr>'; return; }
+
+                let rows = [];
+                snapshot.forEach(function (doc) {
+                    const u = doc.data();
+                    rows.push({ uid: doc.id, nama: u.nama || "-", role: u.role || "-", outlet: u.outlet || "-" });
+                });
+                rows.sort(function (a, b) { return a.nama.localeCompare(b.nama); });
+
+                tbody.innerHTML = rows.map(function (u) {
+                    return '<tr><td>' + u.nama + '</td><td><span class="badge role-badge">' + u.role + '</span></td><td>' + u.outlet + '</td>' +
+                        '<td style="text-align:right; white-space:nowrap;">' +
+                            '<button class="action-btn" onclick="User_bukaModalEdit(\'' + u.uid + '\')">Edit</button>' +
+                            '<button class="action-btn danger" onclick="User_hapus(\'' + u.uid + '\', \'' + u.nama.replace(/'/g, "") + '\')">Hapus</button></td></tr>';
+                }).join("");
+            });
+        }
+
+        function User_bukaModalTambah() {
+            document.getElementById("uInputUsername").value = "";
+            document.getElementById("uInputPassword").value = "";
+            document.getElementById("uInputNama").value = "";
+            document.getElementById("uInputRole").value = "kasir";
+            document.getElementById("uFormErrorTambah").style.display = "none";
+            document.getElementById("modalUserTambah").classList.add("open");
+        }
+
+        function User_tutupModalTambah() { document.getElementById("modalUserTambah").classList.remove("open"); }
+
+        function User_simpanBaru() {
+            const username = document.getElementById("uInputUsername").value.trim();
+            const password = document.getElementById("uInputPassword").value;
+            const nama = document.getElementById("uInputNama").value.trim();
+            const role = document.getElementById("uInputRole").value;
+            const outlet = document.getElementById("uInputOutlet").value;
+            const errBox = document.getElementById("uFormErrorTambah");
+            const btn = document.getElementById("uBtnSimpanTambah");
+
+            if (!username || !password || !nama || !outlet) { errBox.textContent = "Semua kolom wajib diisi."; errBox.style.display = "block"; return; }
+            if (password.length < 6) { errBox.textContent = "Password minimal 6 karakter."; errBox.style.display = "block"; return; }
+
+            const email = username.trim().toLowerCase() + "@omaopa.internal";
+            btn.disabled = true; btn.textContent = "Menyimpan...";
+
+            const secondaryApp = firebase.initializeApp(firebaseConfig, "SecondaryApp_" + Date.now());
+            const secondaryAuth = secondaryApp.auth();
+
+            secondaryAuth.createUserWithEmailAndPassword(email, password)
+                .then(function (cred) {
+                    return db.collection("users").doc(cred.user.uid).set({ nama: nama, role: role, outlet: outlet });
+                })
+                .then(function () { return secondaryAuth.signOut(); })
+                .then(function () { return secondaryApp.delete(); })
+                .then(function () { User_tutupModalTambah(); User_load(); })
+                .catch(function (error) {
+                    errBox.textContent = error.code === "auth/email-already-in-use" ? "Username sudah dipakai." : error.message;
+                    errBox.style.display = "block";
+                })
+                .finally(function () { btn.disabled = false; btn.textContent = "Simpan"; });
+        }
+
+        function User_bukaModalEdit(uid) {
+            db.collection("users").doc(uid).get().then(function (doc) {
+                const u = doc.data();
+                User_editingUid = uid;
+                document.getElementById("uEditNama").value = u.nama || "";
+                document.getElementById("uEditRole").value = u.role || "kasir";
+                document.getElementById("uEditOutlet").value = u.outlet || "";
+                document.getElementById("uFormErrorEdit").style.display = "none";
+                document.getElementById("modalUserEdit").classList.add("open");
+            });
+        }
+
+        function User_tutupModalEdit() { document.getElementById("modalUserEdit").classList.remove("open"); }
+
+        function User_simpanEdit() {
+            const nama = document.getElementById("uEditNama").value.trim();
+            const role = document.getElementById("uEditRole").value;
+            const outlet = document.getElementById("uEditOutlet").value;
+            const errBox = document.getElementById("uFormErrorEdit");
+            if (!nama || !outlet) { errBox.textContent = "Nama dan outlet wajib diisi."; errBox.style.display = "block"; return; }
+
+            db.collection("users").doc(User_editingUid).update({ nama: nama, role: role, outlet: outlet })
+                .then(function () { User_tutupModalEdit(); User_load(); });
+        }
+
+        function User_hapus(uid, nama) {
+            if (!confirm('Hapus data user "' + nama + '"? Akun login TIDAK ikut terhapus otomatis.')) return;
+            db.collection("users").doc(uid).delete().then(function () { User_load(); });
+        }
+    </script>
+
+</body>
+</html>
