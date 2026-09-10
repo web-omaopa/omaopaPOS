@@ -551,9 +551,13 @@
                             JSON.stringify(userData)
                         );
 
-                        // Arahkan ke Beranda; menu yang tampil di sana
-                        // otomatis menyesuaikan role user (kasir vs admin/owner)
-                        window.location.href = "beranda.html";
+                        // Kasir langsung ke halaman kerja utamanya (pos.html),
+                        // role lain diarahkan ke Beranda sebagai halaman ringkasan
+                        if (userData.role === "kasir") {
+                            window.location.href = "pos.html";
+                        } else {
+                            window.location.href = "beranda.html";
+                        }
 
                     } else {
 
