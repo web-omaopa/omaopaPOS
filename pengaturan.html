@@ -47,6 +47,22 @@
         .action-btn.danger { color: #c0392b; }
         .loading-state, .empty-state { text-align: center; color: #8a796e; font-size: 12px; padding: 30px 0; }
         .area-title { font-size: 12px; font-weight: 700; color: #b06d09; text-transform: uppercase; margin: 16px 0 8px; }
+
+        .kategori-section { margin-bottom: 20px; }
+        .kategori-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+        .kategori-chip {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: #fcf3e6; color: #b06d09; font-size: 12px; font-weight: 700;
+            padding: 6px 6px 6px 12px; border-radius: 20px;
+        }
+        .kategori-chip button {
+            border: none; background: none; color: #b06d09; cursor: pointer;
+            font-size: 14px; line-height: 1; padding: 0 4px;
+        }
+        .btn-tambah-kategori {
+            border: 1px dashed #eadfd2; background: none; color: #765f51;
+            font-size: 12px; padding: 6px 14px; border-radius: 20px; cursor: pointer;
+        }
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(75, 43, 29, 0.35); align-items: center; justify-content: center; z-index: 10; }
         .modal-overlay.open { display: flex; }
         .modal-box { background: #fffdf9; border-radius: 10px; padding: 22px; width: 100%; max-width: 360px; max-height: 90vh; overflow-y: auto; }
@@ -80,7 +96,7 @@
             <label>Harga (Rp)</label>
             <input type="number" id="pInputHarga" placeholder="15000">
             <label>Kategori</label>
-            <input type="text" id="pInputKategori" placeholder="Malmil / Ogura / Chiffon">
+            <select id="pInputKategori"><option value="">Pilih kategori...</option></select>
             <label>Status</label>
             <select id="pInputStatus"><option value="aktif">Aktif</option><option value="nonaktif">Nonaktif</option></select>
             <label>Tipe Alokasi Stok</label>
@@ -90,6 +106,11 @@
             </select>
             <label>URL Gambar (opsional)</label>
             <input type="text" id="pInputGambar" placeholder="https://...">
+            <label>Butuh Pilih Topping?</label>
+            <select id="pInputButuhTopping">
+                <option value="false">Tidak</option>
+                <option value="true">Ya (muncul pilihan topping saat diklik di Kasir)</option>
+            </select>
             <div class="err-text" id="pFormError"></div>
             <div class="modal-actions">
                 <button class="btn-cancel" onclick="Produk_tutupModal()">Batal</button>
@@ -169,6 +190,7 @@
         const db = firebase.firestore();
 
         let currentUser = null;
+        let daftarKategoriProduk = [];
         const ROLE_LIST = ["management", "admin", "owner", "kasir", "forecaster"];
 
         auth.onAuthStateChanged(function (user) {
@@ -213,8 +235,12 @@
                 '</div>' +
 
                 '<div class="tab-panel active" id="panel_produk">' +
+                    '<div class="kategori-section">' +
+                        '<div class="kategori-chips" id="kategoriChipsContainer"><div class="loading-state">Memuat kategori...</div></div>' +
+                        '<button class="btn-tambah-kategori" onclick="Kategori_tambah()">+ Tambah Kategori</button>' +
+                    '</div>' +
                     '<div class="header-row"><h3></h3><button class="add-btn" onclick="Produk_bukaModalTambah()">+ Tambah Produk</button></div>' +
-                    '<table><thead><tr><th>Nama</th><th>Kategori</th><th style="text-align:right;">Harga</th><th style="text-align:right;">Status</th><th>Alokasi</th><th></th></tr></thead>' +
+                    '<table><thead><tr><th>Nama</th><th>Kategori</th><th style="text-align:right;">Harga</th><th style="text-align:right;">Status</th><th>Topping</th><th></th></tr></thead>' +
                     '<tbody id="produkTableBody"><tr><td colspan="6" class="loading-state">Memuat...</td></tr></tbody></table>' +
                 '</div>' +
 
@@ -230,6 +256,64 @@
                 '</div>';
 
             Produk_load();
+            Kategori_load();
+        }
+
+        /* =====================================================
+           KATEGORI PRODUK
+           Disimpan di collection "kategori_produk", Document ID
+           = nama kategori (sama pola dengan outlets). Dropdown
+           kategori di form Produk otomatis ambil dari daftar ini.
+        ====================================================== */
+        function Kategori_load() {
+            db.collection("kategori_produk").get().then(function (snapshot) {
+                daftarKategoriProduk = [];
+                snapshot.forEach(function (doc) { daftarKategoriProduk.push(doc.id); });
+                daftarKategoriProduk.sort();
+                renderKategoriChips();
+            });
+        }
+
+        function renderKategoriChips() {
+            const container = document.getElementById("kategoriChipsContainer");
+            if (!container) return;
+
+            if (daftarKategoriProduk.length === 0) {
+                container.innerHTML = '<span style="font-size:12px; color:#8a796e;">Belum ada kategori. Klik "+ Tambah Kategori".</span>';
+                return;
+            }
+
+            container.innerHTML = daftarKategoriProduk.map(function (k) {
+                return '<span class="kategori-chip">' + k +
+                    '<button onclick="Kategori_hapus(\'' + k.replace(/'/g, "") + '\')" title="Hapus kategori">&times;</button></span>';
+            }).join("");
+        }
+
+        function Kategori_tambah() {
+            const nama = prompt("Nama kategori baru (misal: Malmil, Ogura, Chiffon):", "");
+            if (!nama || !nama.trim()) return;
+
+            const namaBersih = nama.trim();
+            db.collection("kategori_produk").doc(namaBersih).set({}).then(function () {
+                Kategori_load();
+            });
+        }
+
+        function Kategori_hapus(nama) {
+            if (!confirm('Hapus kategori "' + nama + '"? Produk yang sudah memakai kategori ini TIDAK ikut berubah otomatis.')) return;
+
+            db.collection("kategori_produk").doc(nama).delete().then(function () {
+                Kategori_load();
+            });
+        }
+
+        function isiDropdownKategori(selectedValue) {
+            const select = document.getElementById("pInputKategori");
+            const optionsHtml = daftarKategoriProduk.map(function (k) {
+                return '<option value="' + k + '">' + k + '</option>';
+            }).join("");
+            select.innerHTML = '<option value="">Pilih kategori...</option>' + optionsHtml;
+            select.value = selectedValue || "";
         }
 
         function pindahTabDalam(nama) {
@@ -256,7 +340,7 @@
                     return '<tr><td>' + p.nama + '</td><td>' + (p.kategori || "-") + '</td>' +
                         '<td style="text-align:right;">Rp ' + Number(p.harga).toLocaleString("id-ID") + '</td>' +
                         '<td style="text-align:right;"><span class="badge badge-' + p.status + '">' + (p.status === "aktif" ? "Aktif" : "Nonaktif") + '</span></td>' +
-                        '<td style="font-size:11px; color:#8a796e;">' + (p.resetHarian === false ? "Akumulasi" : "Reset harian") + '</td>' +
+                        '<td style="font-size:11px; color:#8a796e;">' + (p.butuhTopping ? "Ya" : "Tidak") + '</td>' +
                         '<td style="text-align:right; white-space:nowrap;">' +
                             '<button class="action-btn" onclick="Produk_bukaModalEdit(\'' + p.id + '\')">Edit</button>' +
                             '<button class="action-btn danger" onclick="Produk_hapus(\'' + p.id + '\', \'' + p.nama.replace(/'/g, "") + '\')">Hapus</button></td></tr>';
@@ -269,10 +353,11 @@
             document.getElementById("modalProdukTitle").textContent = "Tambah Produk";
             document.getElementById("pInputNama").value = "";
             document.getElementById("pInputHarga").value = "";
-            document.getElementById("pInputKategori").value = "";
+            isiDropdownKategori("");
             document.getElementById("pInputStatus").value = "aktif";
             document.getElementById("pInputResetHarian").value = "true";
             document.getElementById("pInputGambar").value = "";
+            document.getElementById("pInputButuhTopping").value = "false";
             document.getElementById("pFormError").style.display = "none";
             document.getElementById("modalProduk").classList.add("open");
         }
@@ -284,10 +369,11 @@
                 document.getElementById("modalProdukTitle").textContent = "Edit Produk";
                 document.getElementById("pInputNama").value = p.nama;
                 document.getElementById("pInputHarga").value = p.harga;
-                document.getElementById("pInputKategori").value = p.kategori || "";
+                isiDropdownKategori(p.kategori || "");
                 document.getElementById("pInputStatus").value = p.status;
                 document.getElementById("pInputResetHarian").value = p.resetHarian === false ? "false" : "true";
                 document.getElementById("pInputGambar").value = p.gambarUrl || "";
+                document.getElementById("pInputButuhTopping").value = p.butuhTopping ? "true" : "false";
                 document.getElementById("pFormError").style.display = "none";
                 document.getElementById("modalProduk").classList.add("open");
             });
@@ -302,11 +388,12 @@
             const status = document.getElementById("pInputStatus").value;
             const resetHarian = document.getElementById("pInputResetHarian").value === "true";
             const gambarUrl = document.getElementById("pInputGambar").value.trim();
+            const butuhTopping = document.getElementById("pInputButuhTopping").value === "true";
             const errBox = document.getElementById("pFormError");
 
             if (!nama || !harga || harga <= 0) { errBox.textContent = "Nama dan harga wajib diisi."; errBox.style.display = "block"; return; }
 
-            const data = { nama: nama, harga: harga, kategori: kategori, status: status, resetHarian: resetHarian, gambarUrl: gambarUrl };
+            const data = { nama: nama, harga: harga, kategori: kategori, status: status, resetHarian: resetHarian, gambarUrl: gambarUrl, butuhTopping: butuhTopping };
             const p = Produk_editingId ? db.collection("products").doc(Produk_editingId).update(data) : db.collection("products").add(data);
             p.then(function () { Produk_tutupModal(); Produk_load(); });
         }
