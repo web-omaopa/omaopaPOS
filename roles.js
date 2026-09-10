@@ -13,17 +13,19 @@
    "dibangun: false" berarti halaman belum ada filenya,
    akan tampil sebagai "Segera hadir" di Beranda. */
 const HALAMAN_INFO = {
-    kasir:      { href: "POS.html",      icon: "🧾", title: "Kasir",           desc: "Buat transaksi penjualan",        dibangun: true },
-    stok:       { href: "stok.html",       icon: "📦", title: "Stok",            desc: "Lihat & pantau stok outlet",      dibangun: true },
-    alokasi:    { href: "alokasi.html",    icon: "📋", title: "Alokasi Stok",    desc: "Bagi stok harian per outlet",     dibangun: true },
-    master:     { href: "master.html",     icon: "🗂️", title: "Data Master",     desc: "Kelola outlet, produk, & user",   dibangun: true },
-    produk:     { href: "produk.html",     icon: "🥐", title: "Produk",          desc: "Kelola daftar & harga produk",    dibangun: true, hub: true },
-    outlet:     { href: "outlet.html",     icon: "🏬", title: "Kelola Outlet",   desc: "Kelola 28 outlet & pembagian area", dibangun: true, hub: true },
-    user:       { href: "user.html",       icon: "👤", title: "Kelola User",     desc: "Tambah & atur akun pengguna",     dibangun: true, hub: true },
-    transfer:   { href: "transfer.html",   icon: "🚚", title: "Transfer Outlet", desc: "Pindahkan stok antar outlet",     dibangun: false },
-    riwayat:    { href: "riwayat.html",    icon: "🕘", title: "Riwayat",         desc: "Riwayat transaksi & transfer",    dibangun: false },
-    laporan:    { href: "laporan.html",    icon: "📊", title: "Laporan",         desc: "Analisis penjualan & stok",       dibangun: false },
-    pengaturan: { href: "pengaturan.html", icon: "⚙️", title: "Pengaturan",      desc: "Kelola outlet, user, & sistem",   dibangun: false }
+    kasir:          { href: "pos.html",            icon: "🧾", title: "Kasir",           desc: "Buat transaksi penjualan",          dibangun: true },
+    "terima-stok":  { href: "terima-stok.html",    icon: "📥", title: "Terima Stok",     desc: "Lapor stok kue yang diterima outlet", dibangun: true },
+    "approval-stok":{ href: "approval-stok.html",  icon: "✅", title: "Approval Stok",   desc: "Setujui laporan stok dari kasir",   dibangun: true },
+    stok:           { href: "stok.html",           icon: "📦", title: "Stok",            desc: "Lihat & pantau stok outlet",        dibangun: true },
+    alokasi:        { href: "alokasi.html",        icon: "📋", title: "Rencana Alokasi", desc: "Plot rencana kue harian per outlet", dibangun: true },
+    master:         { href: "master.html",         icon: "🗂️", title: "Data Master",     desc: "Kelola outlet, produk, & user",     dibangun: true },
+    produk:         { href: "produk.html",         icon: "🥐", title: "Produk",          desc: "Kelola daftar & harga produk",      dibangun: true, hub: true },
+    outlet:         { href: "outlet.html",         icon: "🏬", title: "Kelola Outlet",   desc: "Kelola 28 outlet & pembagian area", dibangun: true, hub: true },
+    user:           { href: "user.html",           icon: "👤", title: "Kelola User",     desc: "Tambah & atur akun pengguna",       dibangun: true, hub: true },
+    transfer:       { href: "transfer.html",       icon: "🚚", title: "Transfer Outlet", desc: "Pindahkan stok antar outlet",       dibangun: false },
+    riwayat:        { href: "riwayat.html",        icon: "🕘", title: "Riwayat",         desc: "Riwayat transaksi & transfer",      dibangun: false },
+    laporan:        { href: "laporan.html",        icon: "📊", title: "Laporan",         desc: "Analisis penjualan & stok",         dibangun: false },
+    pengaturan:     { href: "pengaturan.html",     icon: "⚙️", title: "Pengaturan",      desc: "Kelola outlet, user, & sistem",     dibangun: false }
 };
 
 /* Daftar role dan halaman apa saja yang boleh mereka akses.
@@ -31,10 +33,10 @@ const HALAMAN_INFO = {
    Contoh menambah role baru: cukup tambah baris baru di sini,
    tidak perlu ubah kode di halaman manapun. */
 const ROLE_PERMISSIONS = {
-    management: ["kasir", "stok", "produk", "outlet", "user", "alokasi", "transfer", "riwayat", "laporan", "pengaturan"],
-    admin:      ["kasir", "stok", "produk", "outlet", "user", "alokasi", "transfer", "riwayat", "laporan", "pengaturan"],
-    owner:      ["kasir", "stok", "produk", "outlet", "user", "alokasi", "transfer", "riwayat", "laporan", "pengaturan"],
-    kasir:      ["kasir", "stok", "transfer"],
+    management: ["kasir", "approval-stok", "stok", "produk", "outlet", "user", "alokasi", "transfer", "riwayat", "laporan", "pengaturan"],
+    admin:      ["kasir", "approval-stok", "stok", "produk", "outlet", "user", "alokasi", "transfer", "riwayat", "laporan", "pengaturan"],
+    owner:      ["kasir", "approval-stok", "stok", "produk", "outlet", "user", "alokasi", "transfer", "riwayat", "laporan", "pengaturan"],
+    kasir:      ["kasir", "terima-stok", "stok", "transfer"],
     forecaster: ["stok", "alokasi", "transfer", "laporan"]
 };
 
@@ -57,7 +59,7 @@ function getHalamanUntukRole(role) {
 }
 
 /* Render HTML sidebar navigasi, otomatis menyesuaikan role user.
-   Dipakai bersama oleh beranda.html, kasir.html, stok.html, produk.html
+   Dipakai bersama oleh beranda.html, pos.html, stok.html, produk.html
    supaya tampilan & perilaku sidebar konsisten di semua halaman.
    activeKey: "beranda" | "kasir" | "stok" | "produk" | dst */
 function renderSidebar(currentUser, activeKey) {
