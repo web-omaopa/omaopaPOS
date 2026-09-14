@@ -15,8 +15,8 @@
 
         body {
             font-family: Arial, Helvetica, sans-serif;
-            background: #fff8ed;
-            color: #4b2b1d;
+            background: #ffffff;
+            color: #1f2937;
         }
 
         .app-layout { display: flex; min-height: 100vh; }
@@ -25,8 +25,8 @@
         .sidebar {
             width: 190px;
             flex-shrink: 0;
-            background: #fffdf9;
-            border-right: 1px solid #eadfd2;
+            background: #ffffff;
+            border-right: 1px solid #dde3ea;
             padding: 20px 14px;
             display: flex;
             flex-direction: column;
@@ -35,7 +35,7 @@
         .sidebar .brand {
             font-weight: 800;
             font-size: 15px;
-            color: #5a2d1c;
+            color: #12305C;
             margin-bottom: 18px;
         }
 
@@ -44,33 +44,33 @@
             padding: 9px 12px;
             border-radius: 8px;
             font-size: 12px;
-            color: #765f51;
+            color: #52606d;
             text-decoration: none;
             margin-bottom: 4px;
         }
 
-        .sidebar .nav-item:hover { background: #fbf1e3; }
+        .sidebar .nav-item:hover { background: #1B3F73; }
 
         .sidebar .nav-item.active {
-            background: #fcecd2;
-            color: #a8570c;
+            background: #E4EBFA;
+            color: #12305C;
             font-weight: 700;
         }
 
         .sidebar .nav-item.disabled {
-            color: #c9beb0;
+            color: #a8b3c2;
             pointer-events: none;
         }
 
         .sidebar .nav-divider {
-            border-top: 1px solid #eadfd2;
+            border-top: 1px solid #dde3ea;
             margin: 14px 0 10px;
         }
 
         .sidebar .nav-label {
             font-size: 10px;
             font-weight: 700;
-            color: #b0a89c;
+            color: #9aa5b1;
             text-transform: uppercase;
             padding: 0 12px;
             margin-bottom: 6px;
@@ -79,11 +79,11 @@
         .sidebar .user-block {
             margin-top: auto;
             padding-top: 14px;
-            border-top: 1px solid #eadfd2;
+            border-top: 1px solid #dde3ea;
         }
 
-        .sidebar .user-name { font-size: 12px; font-weight: 700; }
-        .sidebar .user-role { font-size: 10px; color: #8a796e; margin-bottom: 8px; }
+        .sidebar .user-name { font-size: 12px; font-weight: 700; color: #ffffff; }
+        .sidebar .user-role { font-size: 10px; color: #8AA0C7; margin-bottom: 8px; }
 
         .sidebar .logout-link {
             font-size: 11px;
@@ -101,7 +101,7 @@
             max-width: 720px;
         }
 
-        .greeting p:first-child { font-size: 13px; color: #765f51; }
+        .greeting p:first-child { font-size: 13px; color: #52606d; }
         .greeting h1 { font-size: 20px; margin: 4px 0 4px; }
 
         .role-tag {
@@ -110,7 +110,7 @@
             font-weight: 700;
             padding: 3px 10px;
             border-radius: 20px;
-            background: #fcf3e6;
+            background: #f1f4f8;
             color: #b06d09;
             text-transform: uppercase;
         }
@@ -118,7 +118,7 @@
         .section-label {
             font-size: 11px;
             font-weight: 700;
-            color: #8a796e;
+            color: #6b7280;
             text-transform: uppercase;
             margin-top: 28px;
             margin-bottom: 8px;
@@ -131,19 +131,19 @@
         }
 
         .quick-card {
-            background: #fffdf9;
-            border: 1px solid #eadfd2;
+            background: #ffffff;
+            border: 1px solid #dde3ea;
             border-radius: 12px;
             padding: 18px 16px;
             text-decoration: none;
-            color: #4b2b1d;
+            color: #1f2937;
             display: block;
         }
 
-        .quick-card:hover { border-color: #f39a16; }
+        .quick-card:hover { border-color: #12305C; }
         .quick-card .icon { font-size: 22px; }
         .quick-card .title { font-size: 13px; font-weight: 700; margin-top: 8px; }
-        .quick-card .desc { font-size: 11px; color: #8a796e; margin-top: 2px; }
+        .quick-card .desc { font-size: 11px; color: #6b7280; margin-top: 2px; }
     </style>
 </head>
 <body>
@@ -223,7 +223,7 @@
 
             if (sudahDibangun.length === 0) {
                 container.innerHTML =
-                    '<p style="font-size:12px; color:#8a796e; margin-top:20px;">Belum ada menu yang tersedia untuk peran Anda. Hubungi admin.</p>';
+                    '<p style="font-size:12px; color:#6b7280; margin-top:20px;">Belum ada menu yang tersedia untuk peran Anda. Hubungi admin.</p>';
                 return;
             }
 
