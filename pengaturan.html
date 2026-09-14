@@ -322,6 +322,9 @@
                 snapshot.forEach(function (doc) { daftarKategoriProduk.push(doc.id); });
                 daftarKategoriProduk.sort();
                 renderKategoriChips();
+            }).catch(function (error) {
+                const container = document.getElementById("kategoriChipsContainer");
+                if (container) container.innerHTML = '<span style="font-size:12px; color:#c0392b;">Gagal memuat kategori: ' + error.message + '</span>';
             });
         }
 
@@ -347,6 +350,8 @@
             const namaBersih = nama.trim();
             db.collection("kategori_produk").doc(namaBersih).set({}).then(function () {
                 Kategori_load();
+            }).catch(function (error) {
+                alert("Gagal menambah kategori: " + error.message);
             });
         }
 
