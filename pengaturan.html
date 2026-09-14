@@ -12,23 +12,24 @@
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: Arial, Helvetica, sans-serif; background: #fff8ed; color: #4b2b1d; }
+        body { font-family: Arial, Helvetica, sans-serif; background: #ffffff; color: #1f2937; }
         .app-layout { display: flex; min-height: 100vh; }
-        .sidebar { width: 190px; flex-shrink: 0; background: #fffdf9; border-right: 1px solid #eadfd2; padding: 20px 14px; display: flex; flex-direction: column; }
-        .sidebar .brand { font-weight: 800; font-size: 15px; color: #5a2d1c; margin-bottom: 18px; }
-        .sidebar .nav-item { display: block; padding: 9px 12px; border-radius: 8px; font-size: 12px; color: #765f51; text-decoration: none; margin-bottom: 4px; }
-        .sidebar .nav-item:hover { background: #fbf1e3; }
-        .sidebar .nav-item.active { background: #fcecd2; color: #a8570c; font-weight: 700; }
-        .sidebar .nav-item.disabled { color: #c9beb0; pointer-events: none; }
-        .sidebar .nav-divider { border-top: 1px solid #eadfd2; margin: 14px 0 10px; }
-        .sidebar .nav-label { font-size: 10px; font-weight: 700; color: #b0a89c; text-transform: uppercase; padding: 0 12px; margin-bottom: 6px; }
-        .sidebar .user-block { margin-top: auto; padding-top: 14px; border-top: 1px solid #eadfd2; }
-        .sidebar .user-name { font-size: 12px; font-weight: 700; }
-        .sidebar .user-role { font-size: 10px; color: #8a796e; margin-bottom: 8px; }
-        .sidebar .logout-link { font-size: 11px; color: #c0392b; background: none; border: none; cursor: pointer; padding: 0; }
+        .sidebar { width: 190px; flex-shrink: 0; background: #12305C; border-right: 1px solid #0B2245; padding: 20px 14px; display: flex; flex-direction: column; }
+        .sidebar .brand { font-weight: 800; font-size: 15px; color: #ffffff; margin-bottom: 18px; }
+        .sidebar-logo { display: block; max-width: 140px; height: auto; margin-bottom: 18px; }
+        .sidebar .nav-item { display: block; padding: 9px 12px; border-radius: 8px; font-size: 12px; color: #B8C7E0; text-decoration: none; margin-bottom: 4px; }
+        .sidebar .nav-item:hover { background: #1B3F73; }
+        .sidebar .nav-item.active { background: #ffffff; color: #12305C; font-weight: 700; }
+        .sidebar .nav-item.disabled { color: #5A6B8C; pointer-events: none; }
+        .sidebar .nav-divider { border-top: 1px solid rgba(255,255,255,0.15); margin: 14px 0 10px; }
+        .sidebar .nav-label { font-size: 10px; font-weight: 700; color: #8AA0C7; text-transform: uppercase; padding: 0 12px; margin-bottom: 6px; }
+        .sidebar .user-block { margin-top: auto; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.15); }
+        .sidebar .user-name { font-size: 12px; font-weight: 700; color: #ffffff; }
+        .sidebar .user-role { font-size: 10px; color: #8AA0C7; margin-bottom: 8px; }
+        .sidebar .logout-link { font-size: 11px; color: #FF8A80; background: none; border: none; cursor: pointer; padding: 0; }
         .content { flex: 1; padding: 24px 28px; max-width: 900px; }
         .page-title { font-size: 18px; font-weight: 700; margin-bottom: 14px; }
-        .breadcrumb { font-size: 11px; color: #8a796e; margin-bottom: 6px; }
+        .breadcrumb { font-size: 11px; color: #6b7280; margin-bottom: 6px; }
         .breadcrumb a { color: #b06d09; text-decoration: none; }
 
         .hub-grid {
@@ -39,35 +40,35 @@
         }
 
         .hub-card {
-            background: #fffdf9; border: 1px solid #eadfd2; border-radius: 12px;
+            background: #ffffff; border: 1px solid #dde3ea; border-radius: 12px;
             padding: 20px 18px; cursor: pointer; transition: 0.15s;
         }
-        .hub-card:hover { border-color: #f39a16; transform: translateY(-2px); }
+        .hub-card:hover { border-color: #12305C; transform: translateY(-2px); }
         .hub-icon { font-size: 24px; }
         .hub-title { font-size: 14px; font-weight: 700; margin-top: 10px; }
-        .hub-desc { font-size: 11px; color: #8a796e; margin-top: 3px; }
+        .hub-desc { font-size: 11px; color: #6b7280; margin-top: 3px; }
         .tab-panel { display: none; }
         .tab-panel.active { display: block; }
         .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-        .add-btn { background: #f39a16; color: white; border: none; border-radius: 6px; padding: 8px 14px; font-size: 12px; font-weight: 700; cursor: pointer; }
-        .add-btn:hover { background: #e98b08; }
-        table { width: 100%; border-collapse: collapse; background: #fffdf9; border: 1px solid #eadfd2; border-radius: 10px; overflow: hidden; font-size: 12px; margin-bottom: 16px; }
-        thead th { text-align: left; padding: 10px 14px; background: #fcf3e6; color: #765f51; font-weight: 700; font-size: 11px; }
-        tbody td { padding: 10px 14px; border-top: 1px solid #f2e9dd; }
+        .add-btn { background: #12305C; color: white; border: none; border-radius: 6px; padding: 8px 14px; font-size: 12px; font-weight: 700; cursor: pointer; }
+        .add-btn:hover { background: #0B2245; }
+        table { width: 100%; border-collapse: collapse; background: #ffffff; border: 1px solid #dde3ea; border-radius: 10px; overflow: hidden; font-size: 12px; margin-bottom: 16px; }
+        thead th { text-align: left; padding: 10px 14px; background: #f1f4f8; color: #52606d; font-weight: 700; font-size: 11px; }
+        tbody td { padding: 10px 14px; border-top: 1px solid #e8ecf1; }
         .badge { font-size: 10px; padding: 3px 9px; border-radius: 20px; font-weight: 700; }
         .badge-aktif { background: #e5f4e6; color: #1e7d32; }
-        .badge-nonaktif { background: #f1eee8; color: #765f51; }
-        .role-badge { background: #fcf3e6; color: #b06d09; }
+        .badge-nonaktif { background: #f1eee8; color: #52606d; }
+        .role-badge { background: #f1f4f8; color: #b06d09; }
         .action-btn { border: none; background: none; cursor: pointer; font-size: 11px; color: #e87913; margin-right: 8px; }
         .action-btn.danger { color: #c0392b; }
-        .loading-state, .empty-state { text-align: center; color: #8a796e; font-size: 12px; padding: 30px 0; }
+        .loading-state, .empty-state { text-align: center; color: #6b7280; font-size: 12px; padding: 30px 0; }
         .area-title { font-size: 12px; font-weight: 700; color: #b06d09; text-transform: uppercase; margin: 16px 0 8px; }
 
         .kategori-section { margin-bottom: 20px; }
         .kategori-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
         .kategori-chip {
             display: inline-flex; align-items: center; gap: 6px;
-            background: #fcf3e6; color: #b06d09; font-size: 12px; font-weight: 700;
+            background: #f1f4f8; color: #b06d09; font-size: 12px; font-weight: 700;
             padding: 6px 6px 6px 12px; border-radius: 20px;
         }
         .kategori-chip button {
@@ -75,23 +76,23 @@
             font-size: 14px; line-height: 1; padding: 0 4px;
         }
         .btn-tambah-kategori {
-            border: 1px dashed #eadfd2; background: none; color: #765f51;
+            border: 1px dashed #dde3ea; background: none; color: #52606d;
             font-size: 12px; padding: 6px 14px; border-radius: 20px; cursor: pointer;
         }
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(75, 43, 29, 0.35); align-items: center; justify-content: center; z-index: 10; }
         .modal-overlay.open { display: flex; }
-        .modal-box { background: #fffdf9; border-radius: 10px; padding: 22px; width: 100%; max-width: 360px; max-height: 90vh; overflow-y: auto; }
+        .modal-box { background: #ffffff; border-radius: 10px; padding: 22px; width: 100%; max-width: 360px; max-height: 90vh; overflow-y: auto; }
         .modal-box h3 { font-size: 14px; margin-bottom: 4px; }
-        .modal-box .modal-hint { font-size: 10px; color: #8a796e; margin-bottom: 10px; }
+        .modal-box .modal-hint { font-size: 10px; color: #6b7280; margin-bottom: 10px; }
         .modal-box label { display: block; font-size: 11px; font-weight: 700; margin-bottom: 5px; margin-top: 10px; }
-        .modal-box input, .modal-box select { width: 100%; height: 36px; border: 1px solid #e8ddd2; border-radius: 6px; padding: 0 10px; font-size: 12px; }
-        .modal-box .field-hint { font-size: 10px; color: #8a796e; margin-top: 4px; }
+        .modal-box input, .modal-box select { width: 100%; height: 36px; border: 1px solid #d1d5db; border-radius: 6px; padding: 0 10px; font-size: 12px; }
+        .modal-box .field-hint { font-size: 10px; color: #6b7280; margin-top: 4px; }
         .modal-actions { display: flex; gap: 8px; margin-top: 18px; }
         .modal-actions button { flex: 1; height: 36px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; }
-        .btn-save { background: #f39a16; color: white; border: none; }
-        .btn-cancel { background: none; border: 1px solid #eadfd2; color: #765f51; }
+        .btn-save { background: #12305C; color: white; border: none; }
+        .btn-cancel { background: none; border: 1px solid #dde3ea; color: #52606d; }
         .err-text { font-size: 10px; color: #c0392b; margin-top: 4px; display: none; }
-        .denied-state { text-align: center; color: #8a796e; font-size: 12px; padding: 40px 0; }
+        .denied-state { text-align: center; color: #6b7280; font-size: 12px; padding: 40px 0; }
     </style>
 </head>
 <body>
@@ -112,6 +113,9 @@
             <input type="number" id="pInputHarga" placeholder="15000">
             <label>Kategori</label>
             <select id="pInputKategori"><option value="">Pilih kategori...</option></select>
+            <label>Satuan (opsional)</label>
+            <input type="text" id="pInputSatuan" placeholder="pcs, gram, kg, dll">
+            <div class="field-hint">Kosongkan untuk pakai default "pcs". Untuk topping biasanya "gram".</div>
             <label>Status</label>
             <select id="pInputStatus"><option value="aktif">Aktif</option><option value="nonaktif">Nonaktif</option></select>
             <label>Tipe Alokasi Stok</label>
@@ -256,7 +260,7 @@
         function renderHubPengaturan() {
             document.getElementById("mainContent").innerHTML =
                 '<div class="page-title">Pengaturan</div>' +
-                '<p style="font-size:12px; color:#8a796e; margin-top:-10px; margin-bottom:20px;">Pilih bagian yang mau diatur.</p>' +
+                '<p style="font-size:12px; color:#6b7280; margin-top:-10px; margin-bottom:20px;">Pilih bagian yang mau diatur.</p>' +
                 '<div class="hub-grid">' +
                     '<div class="hub-card" onclick="bukaSection(\'produk\')">' +
                         '<div class="hub-icon">🥐</div>' +
@@ -338,7 +342,7 @@
             if (!container) return;
 
             if (daftarKategoriProduk.length === 0) {
-                container.innerHTML = '<span style="font-size:12px; color:#8a796e;">Belum ada kategori. Klik "+ Tambah Kategori".</span>';
+                container.innerHTML = '<span style="font-size:12px; color:#6b7280;">Belum ada kategori. Klik "+ Tambah Kategori".</span>';
                 return;
             }
 
@@ -388,10 +392,10 @@
                 snapshot.forEach(function (doc) { rows.push(Object.assign({ id: doc.id }, doc.data())); });
 
                 tbody.innerHTML = rows.map(function (p) {
-                    return '<tr><td>' + p.nama + '</td><td>' + (p.kategori || "-") + '</td>' +
+                    return '<tr><td>' + p.nama + '<div style="font-size:10px; color:#a89a8c;">satuan: ' + (p.satuan || "pcs") + '</div></td><td>' + (p.kategori || "-") + '</td>' +
                         '<td style="text-align:right;">Rp ' + Number(p.harga).toLocaleString("id-ID") + '</td>' +
                         '<td style="text-align:right;"><span class="badge badge-' + p.status + '">' + (p.status === "aktif" ? "Aktif" : "Nonaktif") + '</span></td>' +
-                        '<td style="font-size:11px; color:#8a796e;">' + (p.butuhTopping ? "Ya" : "Tidak") + '</td>' +
+                        '<td style="font-size:11px; color:#6b7280;">' + (p.butuhTopping ? "Ya" : "Tidak") + '</td>' +
                         '<td style="text-align:right; white-space:nowrap;">' +
                             '<button class="action-btn" onclick="Produk_bukaModalEdit(\'' + p.id + '\')">Edit</button>' +
                             '<button class="action-btn danger" onclick="Produk_hapus(\'' + p.id + '\', \'' + p.nama.replace(/'/g, "") + '\')">Hapus</button></td></tr>';
@@ -405,6 +409,7 @@
             document.getElementById("pInputNama").value = "";
             document.getElementById("pInputHarga").value = "";
             isiDropdownKategori("");
+            document.getElementById("pInputSatuan").value = "";
             document.getElementById("pInputStatus").value = "aktif";
             document.getElementById("pInputResetHarian").value = "true";
             document.getElementById("pInputGambar").value = "";
@@ -421,6 +426,7 @@
                 document.getElementById("pInputNama").value = p.nama;
                 document.getElementById("pInputHarga").value = p.harga;
                 isiDropdownKategori(p.kategori || "");
+                document.getElementById("pInputSatuan").value = p.satuan || "";
                 document.getElementById("pInputStatus").value = p.status;
                 document.getElementById("pInputResetHarian").value = p.resetHarian === false ? "false" : "true";
                 document.getElementById("pInputGambar").value = p.gambarUrl || "";
@@ -436,6 +442,7 @@
             const nama = document.getElementById("pInputNama").value.trim();
             const harga = Number(document.getElementById("pInputHarga").value);
             const kategori = document.getElementById("pInputKategori").value.trim();
+            const satuan = document.getElementById("pInputSatuan").value.trim() || "pcs";
             const status = document.getElementById("pInputStatus").value;
             const resetHarian = document.getElementById("pInputResetHarian").value === "true";
             const gambarUrl = document.getElementById("pInputGambar").value.trim();
@@ -444,7 +451,7 @@
 
             if (!nama || !harga || harga <= 0) { errBox.textContent = "Nama dan harga wajib diisi."; errBox.style.display = "block"; return; }
 
-            const data = { nama: nama, harga: harga, kategori: kategori, status: status, resetHarian: resetHarian, gambarUrl: gambarUrl, butuhTopping: butuhTopping };
+            const data = { nama: nama, harga: harga, kategori: kategori, status: status, resetHarian: resetHarian, gambarUrl: gambarUrl, butuhTopping: butuhTopping, satuan: satuan };
             const p = Produk_editingId ? db.collection("products").doc(Produk_editingId).update(data) : db.collection("products").add(data);
             p.then(function () { Produk_tutupModal(); Produk_load(); });
         }
@@ -475,10 +482,10 @@
                     html += '<div class="area-title">' + area + ' (' + outlets.length + ')</div>';
                     html += '<table><thead><tr><th>Nama Outlet</th><th>Alamat</th><th></th></tr></thead><tbody>';
                     outlets.forEach(function (o) {
-                        const alamatText = o.alamat ? o.alamat : '<span style="color:#c9beb0;">-</span>';
+                        const alamatText = o.alamat ? o.alamat : '<span style="color:#a8b3c2;">-</span>';
                         const mapsIcon = o.linkMaps ? ' <a href="' + o.linkMaps + '" target="_blank" style="color:#e87913;">(Maps)</a>' : '';
                         html += '<tr><td>' + o.nama + '</td>' +
-                            '<td style="font-size:11px; color:#765f51;">' + alamatText + mapsIcon + '</td>' +
+                            '<td style="font-size:11px; color:#52606d;">' + alamatText + mapsIcon + '</td>' +
                             '<td style="text-align:right; white-space:nowrap;">' +
                                 '<button class="action-btn" onclick="Outlet_bukaModalEdit(\'' + o.nama + '\')">Edit</button>' +
                                 '<button class="action-btn danger" onclick="Outlet_hapus(\'' + o.nama + '\')">Hapus</button></td></tr>';
