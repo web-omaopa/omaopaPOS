@@ -32,7 +32,7 @@ const ROLE_PERMISSIONS = {
     management: ["kasir", "approval-stok", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
     admin:      ["kasir", "approval-stok", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
     owner:      ["kasir", "approval-stok", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
-    kasir:      ["kasir", "terima-stok", "stok", "transfer", "pengaturan"],
+    kasir:      ["kasir", "terima-stok", "stok", "transfer"],
     forecaster: ["stok", "alokasi", "transfer", "laporan"]
 };
 
@@ -63,7 +63,7 @@ function renderSidebar(currentUser, activeKey) {
     const sudahDibangun = halamanDiizinkan.filter(function (h) { return h.dibangun; });
     const belumDibangun = halamanDiizinkan.filter(function (h) { return !h.dibangun; });
 
-    let html = '<div class="brand">🥯 Oma Opa</div>';
+    let html = '<img src="logo.png" alt="Oma Opa" class="sidebar-logo">';
 
     // Kasir langsung kerja di halaman utamanya (pos.html), tidak perlu
     // menu Beranda terpisah. Role lain (admin/owner/forecaster/dst)
