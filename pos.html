@@ -280,7 +280,7 @@
 
         function renderKategoriTabs() {
             const kategoriSet = new Set();
-            allProducts.forEach(function (p) { if (p.kategori && p.kategori !== "Topping") kategoriSet.add(p.kategori); });
+            allProducts.forEach(function (p) { if (p.kategori) kategoriSet.add(p.kategori); });
             const kategoriList = ["Semua"].concat(Array.from(kategoriSet).sort());
 
             const container = document.getElementById("kategoriTabs");
@@ -300,7 +300,6 @@
             const keyword = (document.getElementById("searchBox").value || "").toLowerCase();
 
             const filtered = allProducts.filter(function (p) {
-                if (p.kategori === "Topping") return false;
                 const cocokKategori = kategoriAktif === "Semua" || p.kategori === kategoriAktif;
                 const cocokKeyword = p.nama.toLowerCase().includes(keyword);
                 return cocokKategori && cocokKeyword;
@@ -356,7 +355,7 @@
             const container = document.getElementById("toppingOptionsList");
 
             if (daftarTopping.length === 0) {
-                container.innerHTML = '<div class="empty-state">Belum ada topping. Tambahkan lewat Pengaturan &gt; Topping.</div>';
+                container.innerHTML = '<div class="empty-state">Belum ada produk berkategori "Topping". Tambahkan lewat Pengaturan &gt; Produk, pilih kategori "Topping".</div>';
             } else {
                 container.innerHTML = daftarTopping.map(function (t, i) {
                     return '<label class="topping-option">' +
