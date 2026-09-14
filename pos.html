@@ -318,22 +318,29 @@
             }
 
             products.forEach(function (p) {
+                const isTopping = p.kategori === "Topping";
                 const stok = stockMap[p.id] !== undefined ? stockMap[p.id] : 0;
+
+                // Topping tidak dilacak stoknya sama sekali, selalu dianggap tersedia
+                const habis = !isTopping && stok <= 0;
+
                 const card = document.createElement("div");
-                card.className = "product-card" + (stok <= 0 ? " disabled" : "");
+                card.className = "product-card" + (habis ? " disabled" : "");
 
                 const gambarHtml = p.gambarUrl
                     ? '<img src="' + p.gambarUrl + '" alt="' + p.nama + '">'
                     : "🥐";
 
+                const teksStok = isTopping ? "" : (habis ? "Stok habis" : "Stok: " + stok + " " + (p.satuan || "pcs"));
+
                 card.innerHTML =
                     '<div class="img-area">' + gambarHtml + '</div>' +
                     '<div class="info">' +
                         '<div class="name">' + p.nama + '</div>' +
-                        '<div class="stok' + (stok <= 0 ? ' habis' : '') + '">' + (stok <= 0 ? "Stok habis" : "Stok: " + stok) + '</div>' +
+                        (teksStok ? '<div class="stok' + (habis ? ' habis' : '') + '">' + teksStok + '</div>' : '') +
                     '</div>';
 
-                if (stok > 0) {
+                if (isTopping || stok > 0) {
                     card.onclick = function () { klikProduk(p); };
                 }
                 grid.appendChild(card);
@@ -388,16 +395,19 @@
         }
 
         function tambahKeKeranjang(product, toppings) {
-            const stokTersedia = stockMap[product.id] || 0;
+            const isTopping = product.kategori === "Topping";
             const cartKey = buatCartKey(product.id, toppings);
 
-            const totalProdukIniDiKeranjang = Object.values(cart)
-                .filter(function (item) { return item.productId === product.id; })
-                .reduce(function (sum, item) { return sum + item.qty; }, 0);
+            if (!isTopping) {
+                const stokTersedia = stockMap[product.id] || 0;
+                const totalProdukIniDiKeranjang = Object.values(cart)
+                    .filter(function (item) { return item.productId === product.id; })
+                    .reduce(function (sum, item) { return sum + item.qty; }, 0);
 
-            if (totalProdukIniDiKeranjang >= stokTersedia) {
-                tampilkanPesan("Stok " + product.nama + " tidak mencukupi.", "error");
-                return;
+                if (totalProdukIniDiKeranjang >= stokTersedia) {
+                    tampilkanPesan("Stok " + product.nama + " tidak mencukupi.", "error");
+                    return;
+                }
             }
 
             const hargaToppingTotal = toppings.reduce(function (sum, t) { return sum + t.harga; }, 0);
@@ -408,7 +418,8 @@
             } else {
                 cart[cartKey] = {
                     productId: product.id, nama: product.nama, hargaSatuan: hargaSatuan,
-                    hargaDasar: product.harga, toppings: toppings, qty: 1
+                    hargaDasar: product.harga, toppings: toppings, qty: 1,
+                    lacakStok: !isTopping
                 };
             }
             renderCart();
@@ -427,7 +438,7 @@
 
             if (newQty <= 0) {
                 delete cart[cartKey];
-            } else if (delta > 0 && totalProdukIni >= stokTersedia) {
+            } else if (item.lacakStok !== false && delta > 0 && totalProdukIni >= stokTersedia) {
                 tampilkanPesan("Stok tidak mencukupi.", "error");
                 return;
             } else {
@@ -503,6 +514,7 @@
             const totalPerProduk = {};
             entries.forEach(function (entry) {
                 const item = entry[1];
+                if (item.lacakStok === false) return; // topping tidak dilacak stoknya
                 totalPerProduk[item.productId] = (totalPerProduk[item.productId] || 0) + item.qty;
             });
 
