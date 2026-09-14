@@ -142,6 +142,11 @@
             <div class="field-hint">Nama ini jadi ID permanen, tidak bisa diganti nanti.</div>
             <label>Area</label>
             <select id="oInputArea"><option>Area 1</option><option>Area 2</option><option>Area 3</option></select>
+            <label>Alamat (opsional)</label>
+            <input type="text" id="oInputAlamat" placeholder="Jl. Kaliurang KM 14, Sleman">
+            <label>Link Google Maps (opsional)</label>
+            <input type="text" id="oInputMaps" placeholder="https://maps.app.goo.gl/...">
+            <div class="field-hint">Buka Google Maps, cari lokasi, klik "Bagikan" untuk salin link.</div>
             <div class="err-text" id="oFormError"></div>
             <div class="modal-actions">
                 <button class="btn-cancel" onclick="Outlet_tutupModal()">Batal</button>
@@ -456,20 +461,27 @@
 
                 const perArea = { "Area 1": [], "Area 2": [], "Area 3": [] };
                 snapshot.forEach(function (doc) {
-                    const area = doc.data().area || "Area 1";
+                    const data = doc.data();
+                    const area = data.area || "Area 1";
                     if (!perArea[area]) perArea[area] = [];
-                    perArea[area].push(doc.id);
+                    perArea[area].push({ nama: doc.id, alamat: data.alamat || "", linkMaps: data.linkMaps || "" });
                 });
 
                 let html = "";
                 Object.keys(perArea).forEach(function (area) {
                     const outlets = perArea[area];
                     if (outlets.length === 0) return;
-                    outlets.sort();
+                    outlets.sort(function (a, b) { return a.nama.localeCompare(b.nama); });
                     html += '<div class="area-title">' + area + ' (' + outlets.length + ')</div>';
-                    html += '<table><thead><tr><th>Nama Outlet</th><th></th></tr></thead><tbody>';
+                    html += '<table><thead><tr><th>Nama Outlet</th><th>Alamat</th><th></th></tr></thead><tbody>';
                     outlets.forEach(function (o) {
-                        html += '<tr><td>' + o + '</td><td style="text-align:right;"><button class="action-btn danger" onclick="Outlet_hapus(\'' + o + '\')">Hapus</button></td></tr>';
+                        const alamatText = o.alamat ? o.alamat : '<span style="color:#c9beb0;">-</span>';
+                        const mapsIcon = o.linkMaps ? ' <a href="' + o.linkMaps + '" target="_blank" style="color:#e87913;">(Maps)</a>' : '';
+                        html += '<tr><td>' + o.nama + '</td>' +
+                            '<td style="font-size:11px; color:#765f51;">' + alamatText + mapsIcon + '</td>' +
+                            '<td style="text-align:right; white-space:nowrap;">' +
+                                '<button class="action-btn" onclick="Outlet_bukaModalEdit(\'' + o.nama + '\')">Edit</button>' +
+                                '<button class="action-btn danger" onclick="Outlet_hapus(\'' + o.nama + '\')">Hapus</button></td></tr>';
                     });
                     html += '</tbody></table>';
                 });
@@ -477,11 +489,33 @@
             });
         }
 
+        let Outlet_editingNama = null;
+
         function Outlet_bukaModalTambah() {
+            Outlet_editingNama = null;
+            document.querySelector("#modalOutlet h3").textContent = "Tambah Outlet";
             document.getElementById("oInputNama").value = "";
+            document.getElementById("oInputNama").disabled = false;
             document.getElementById("oInputArea").value = "Area 1";
+            document.getElementById("oInputAlamat").value = "";
+            document.getElementById("oInputMaps").value = "";
             document.getElementById("oFormError").style.display = "none";
             document.getElementById("modalOutlet").classList.add("open");
+        }
+
+        function Outlet_bukaModalEdit(nama) {
+            db.collection("outlets").doc(nama).get().then(function (doc) {
+                const data = doc.data();
+                Outlet_editingNama = nama;
+                document.querySelector("#modalOutlet h3").textContent = "Edit Outlet";
+                document.getElementById("oInputNama").value = nama;
+                document.getElementById("oInputNama").disabled = true;
+                document.getElementById("oInputArea").value = data.area || "Area 1";
+                document.getElementById("oInputAlamat").value = data.alamat || "";
+                document.getElementById("oInputMaps").value = data.linkMaps || "";
+                document.getElementById("oFormError").style.display = "none";
+                document.getElementById("modalOutlet").classList.add("open");
+            });
         }
 
         function Outlet_tutupModal() { document.getElementById("modalOutlet").classList.remove("open"); }
@@ -489,13 +523,24 @@
         function Outlet_simpan() {
             const nama = document.getElementById("oInputNama").value.trim();
             const area = document.getElementById("oInputArea").value;
+            const alamat = document.getElementById("oInputAlamat").value.trim();
+            const linkMaps = document.getElementById("oInputMaps").value.trim();
             const errBox = document.getElementById("oFormError");
             if (!nama) { errBox.textContent = "Nama outlet wajib diisi."; errBox.style.display = "block"; return; }
+
+            const data = { area: area, alamat: alamat, linkMaps: linkMaps };
+
+            if (Outlet_editingNama) {
+                // Mode edit: hanya update data, nama outlet (ID) tidak berubah
+                db.collection("outlets").doc(Outlet_editingNama).update(data)
+                    .then(function () { Outlet_tutupModal(); Outlet_load(); });
+                return;
+            }
 
             const ref = db.collection("outlets").doc(nama);
             ref.get().then(function (doc) {
                 if (doc.exists) { errBox.textContent = "Outlet ini sudah ada."; errBox.style.display = "block"; return; }
-                return ref.set({ area: area }).then(function () { Outlet_tutupModal(); Outlet_load(); });
+                return ref.set(data).then(function () { Outlet_tutupModal(); Outlet_load(); });
             });
         }
 
