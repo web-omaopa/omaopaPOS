@@ -136,24 +136,9 @@
         .modal-actions button { flex: 1; height: 40px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; }
         .btn-cancel { background: none; border: 1px solid #dde3ea; color: #52606d; }
         .btn-save { background: #12305C; color: white; border: none; }
-
-        /* ===== SIDEBAR COLLAPSE ===== */
-        .sidebar { transition: width 0.2s ease, padding 0.2s ease; overflow: hidden; }
-        .sidebar.collapsed { width: 0 !important; padding: 20px 0 !important; }
-        .sidebar.collapsed > * { display: none; }
-
-        .toggle-sidebar-btn {
-            position: fixed; top: 16px; left: 16px; z-index: 50;
-            width: 34px; height: 34px; border-radius: 8px;
-            background: #12305C; color: #ffffff; border: none;
-            cursor: pointer; font-size: 15px;
-            display: flex; align-items: center; justify-content: center;
-        }
     </style>
 </head>
 <body>
-
-    <button class="toggle-sidebar-btn" onclick="toggleSidebar()">☰</button>
 
     <div class="app-layout">
         <div class="sidebar" id="sidebarContainer"></div>
@@ -176,12 +161,6 @@
     </div>
 
     <script>
-        function toggleSidebar() {
-            const sb = document.getElementById("sidebarContainer");
-            const collapsed = sb.classList.toggle("collapsed");
-            localStorage.setItem("omaopa_sidebar_collapsed", collapsed ? "1" : "0");
-        }
-
         const firebaseConfig = {
             apiKey: "AIzaSyC5nxXV7YPTEq160fLoqBBKtvwaHBQljfc",
             authDomain: "omaopa-pos.firebaseapp.com",
@@ -234,9 +213,6 @@
 
         function mulaiHalaman() {
             document.getElementById("sidebarContainer").innerHTML = renderSidebar(currentUser, "kasir");
-            if (localStorage.getItem("omaopa_sidebar_collapsed") === "1") {
-                document.getElementById("sidebarContainer").classList.add("collapsed");
-            }
             if (!jagaAksesHalaman(currentUser.role, "kasir")) return;
             renderMainContent();
             loadTopping();
