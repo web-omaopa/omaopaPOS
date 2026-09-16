@@ -8,6 +8,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-storage-compat.js"></script>
     <script src="roles.js"></script>
 
     <style>
@@ -93,9 +94,24 @@
         .btn-cancel { background: none; border: 1px solid #dde3ea; color: #52606d; }
         .err-text { font-size: 10px; color: #c0392b; margin-top: 4px; display: none; }
         .denied-state { text-align: center; color: #6b7280; font-size: 12px; padding: 40px 0; }
+
+        /* ===== SIDEBAR COLLAPSE ===== */
+        .sidebar { transition: width 0.2s ease, padding 0.2s ease; overflow: hidden; }
+        .sidebar.collapsed { width: 0 !important; padding: 20px 0 !important; }
+        .sidebar.collapsed > * { display: none; }
+
+        .toggle-sidebar-btn {
+            position: fixed; top: 16px; left: 16px; z-index: 50;
+            width: 34px; height: 34px; border-radius: 8px;
+            background: #12305C; color: #ffffff; border: none;
+            cursor: pointer; font-size: 15px;
+            display: flex; align-items: center; justify-content: center;
+        }
     </style>
 </head>
 <body>
+
+    <button class="toggle-sidebar-btn" onclick="toggleSidebar()">☰</button>
 
     <div class="app-layout">
         <div class="sidebar" id="sidebarContainer"></div>
@@ -125,6 +141,9 @@
             </select>
             <label>URL Gambar (opsional)</label>
             <input type="text" id="pInputGambar" placeholder="https://...">
+            <div class="field-hint">Atau upload langsung dari komputer:</div>
+            <input type="file" id="pInputFileGambar" accept="image/*" style="margin-top:6px;" onchange="Produk_uploadGambar(this)">
+            <div id="pUploadStatus" style="font-size:10px; color:#52606d; margin-top:4px;"></div>
             <label>Butuh Pilih Topping?</label>
             <select id="pInputButuhTopping">
                 <option value="false">Tidak</option>
@@ -200,6 +219,12 @@
     </div>
 
     <script>
+        function toggleSidebar() {
+            const sb = document.getElementById("sidebarContainer");
+            const collapsed = sb.classList.toggle("collapsed");
+            localStorage.setItem("omaopa_sidebar_collapsed", collapsed ? "1" : "0");
+        }
+
         const firebaseConfig = {
             apiKey: "AIzaSyC5nxXV7YPTEq160fLoqBBKtvwaHBQljfc",
             authDomain: "omaopa-pos.firebaseapp.com",
@@ -212,6 +237,7 @@
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.firestore();
+        const storage = firebase.storage();
 
         let currentUser = null;
         let daftarKategoriProduk = [];
@@ -247,6 +273,9 @@
 
         function mulai() {
             document.getElementById("sidebarContainer").innerHTML = renderSidebar(currentUser, "pengaturan");
+            if (localStorage.getItem("omaopa_sidebar_collapsed") === "1") {
+                document.getElementById("sidebarContainer").classList.add("collapsed");
+            }
 
             if (!jagaAksesHalaman(currentUser.role, "pengaturan")) return;
 
@@ -403,6 +432,38 @@
             });
         }
 
+        /* =====================================================
+           UPLOAD FOTO KE FIREBASE STORAGE
+           Dipanggil otomatis saat user pilih file di input.
+           Hasil URL-nya langsung mengisi kolom "URL Gambar".
+        ====================================================== */
+        function Produk_uploadGambar(fileInput) {
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            const statusBox = document.getElementById("pUploadStatus");
+            statusBox.textContent = "Mengupload...";
+            statusBox.style.color = "#52606d";
+
+            // Nama file dibuat unik supaya tidak saling menimpa
+            const namaFile = Date.now() + "_" + file.name.replace(/[^a-zA-Z0-9._-]/g, "");
+            const ref = storage.ref("products/" + namaFile);
+
+            ref.put(file)
+                .then(function (snapshot) {
+                    return snapshot.ref.getDownloadURL();
+                })
+                .then(function (url) {
+                    document.getElementById("pInputGambar").value = url;
+                    statusBox.textContent = "Berhasil diupload \u2713";
+                    statusBox.style.color = "#1e7d32";
+                })
+                .catch(function (error) {
+                    statusBox.textContent = "Gagal upload: " + error.message;
+                    statusBox.style.color = "#c0392b";
+                });
+        }
+
         function Produk_bukaModalTambah() {
             Produk_editingId = null;
             document.getElementById("modalProdukTitle").textContent = "Tambah Produk";
@@ -413,6 +474,8 @@
             document.getElementById("pInputStatus").value = "aktif";
             document.getElementById("pInputResetHarian").value = "true";
             document.getElementById("pInputGambar").value = "";
+            document.getElementById("pInputFileGambar").value = "";
+            document.getElementById("pUploadStatus").textContent = "";
             document.getElementById("pInputButuhTopping").value = "false";
             document.getElementById("pFormError").style.display = "none";
             document.getElementById("modalProduk").classList.add("open");
