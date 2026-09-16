@@ -24,18 +24,19 @@
         .sidebar {
             width: 190px;
             flex-shrink: 0;
-            background: #ffffff;
-            border-right: 1px solid #dde3ea;
+            background: #12305C;
+            border-right: 1px solid #0B2245;
             padding: 20px 14px;
             display: flex;
             flex-direction: column;
         }
 
         .sidebar .brand { font-weight: 800; font-size: 15px; color: #ffffff; margin-bottom: 18px; }
+        .sidebar-logo { display: block; max-width: 140px; height: auto; margin-bottom: 18px; }
 
         .sidebar .nav-item {
             display: block; padding: 9px 12px; border-radius: 8px;
-            font-size: 12px; color: #52606d; text-decoration: none; margin-bottom: 4px;
+            font-size: 12px; color: #B8C7E0; text-decoration: none; margin-bottom: 4px;
         }
 
         .sidebar .nav-item:hover { background: #1B3F73; }
@@ -45,7 +46,7 @@
         .sidebar .nav-divider { border-top: 1px solid rgba(255,255,255,0.15); margin: 14px 0 10px; }
 
         .sidebar .nav-label {
-            font-size: 10px; font-weight: 700; color: #9aa5b1;
+            font-size: 10px; font-weight: 700; color: #8AA0C7;
             text-transform: uppercase; padding: 0 12px; margin-bottom: 6px;
         }
 
@@ -54,7 +55,7 @@
         .sidebar .user-role { font-size: 10px; color: #8AA0C7; margin-bottom: 8px; }
 
         .sidebar .logout-link {
-            font-size: 11px; color: #c0392b; background: none;
+            font-size: 11px; color: #FF8A80; background: none;
             border: none; cursor: pointer; padding: 0;
         }
 
@@ -92,9 +93,24 @@
 
         .loading-state, .empty-state { text-align: center; color: #6b7280; font-size: 12px; padding: 30px 0; }
         .denied-state { text-align: center; color: #6b7280; font-size: 12px; padding: 40px 0; }
+
+        /* ===== SIDEBAR COLLAPSE ===== */
+        .sidebar { transition: width 0.2s ease, padding 0.2s ease; overflow: hidden; }
+        .sidebar.collapsed { width: 0 !important; padding: 20px 0 !important; }
+        .sidebar.collapsed > * { display: none; }
+
+        .toggle-sidebar-btn {
+            position: fixed; top: 16px; left: 16px; z-index: 50;
+            width: 34px; height: 34px; border-radius: 8px;
+            background: #12305C; color: #ffffff; border: none;
+            cursor: pointer; font-size: 15px;
+            display: flex; align-items: center; justify-content: center;
+        }
     </style>
 </head>
 <body>
+
+    <button class="toggle-sidebar-btn" onclick="toggleSidebar()">☰</button>
 
     <div class="app-layout">
         <div class="sidebar" id="sidebarContainer"></div>
@@ -121,6 +137,12 @@
     </div>
 
     <script>
+        function toggleSidebar() {
+            const sb = document.getElementById("sidebarContainer");
+            const collapsed = sb.classList.toggle("collapsed");
+            localStorage.setItem("omaopa_sidebar_collapsed", collapsed ? "1" : "0");
+        }
+
         const firebaseConfig = {
             apiKey: "AIzaSyC5nxXV7YPTEq160fLoqBBKtvwaHBQljfc",
             authDomain: "omaopa-pos.firebaseapp.com",
@@ -172,6 +194,9 @@
         function mulaiHalaman() {
             document.getElementById("sidebarContainer").innerHTML =
                 renderSidebar(currentUser, "stok");
+            if (localStorage.getItem("omaopa_sidebar_collapsed") === "1") {
+                document.getElementById("sidebarContainer").classList.add("collapsed");
+            }
 
             if (!jagaAksesHalaman(currentUser.role, "stok")) return;
 
