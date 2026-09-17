@@ -348,6 +348,14 @@
                             '<span>' + waktu + '</span><span class="status-tag status-' + d.status + '">' + statusLabel + '</span></div>' +
                             '<div style="color:#6b7280;">' + d.items.length + ' menu dilaporkan</div></div>';
                     }).join("");
+                })
+                .catch(function (error) {
+                    const container = document.getElementById("riwayatListLapor");
+                    container.innerHTML = '<div class="empty-state" style="color:#c0392b;">Gagal memuat: ' + error.message +
+                        (error.code === "failed-precondition"
+                            ? '<br><br>Index Firestore belum dibuat. Cek Console browser (F12) untuk link buat index otomatis.'
+                            : '') +
+                        '</div>';
                 });
         }
 
@@ -390,6 +398,14 @@
                                 '<button class="btn-acc" onclick="Approval_acc(\'' + doc.id + '\')">ACC & Update Stok</button>' +
                             '</div></div>';
                     }).join("");
+                })
+                .catch(function (error) {
+                    const container = document.getElementById("approvalContainer");
+                    container.innerHTML = '<div class="empty-state" style="color:#c0392b;">Gagal memuat: ' + error.message +
+                        (error.code === "failed-precondition"
+                            ? '<br><br>Ini biasanya berarti index Firestore belum dibuat. Cek Console browser (F12), cari link biru untuk buat index otomatis.'
+                            : '') +
+                        '</div>';
                 });
         }
 
