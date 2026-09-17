@@ -301,7 +301,9 @@
             const keyword = (document.getElementById("searchBox").value || "").toLowerCase();
 
             const filtered = allProducts.filter(function (p) {
-                const cocokKategori = kategoriAktif === "Semua" || p.kategori === kategoriAktif;
+                const cocokKategori = kategoriAktif === "Semua"
+                    ? p.kategori !== "Topping"
+                    : p.kategori === kategoriAktif;
                 const cocokKeyword = p.nama.toLowerCase().includes(keyword);
                 return cocokKategori && cocokKeyword;
             });
@@ -335,7 +337,7 @@
                 const teksStok = isTopping ? "" : (habis ? "Stok habis" : "Stok: " + stok + " " + (p.satuan || "pcs"));
 
                 card.innerHTML =
-                    '<div class="img-area">' + gambarHtml + '</div>' +
+                    (isTopping ? "" : '<div class="img-area">' + gambarHtml + '</div>') +
                     '<div class="info">' +
                         '<div class="name">' + p.nama + '</div>' +
                         (teksStok ? '<div class="stok' + (habis ? ' habis' : '') + '">' + teksStok + '</div>' : '') +
