@@ -132,6 +132,25 @@
             }
         });
 
+        /* =====================================================
+           Tampilkan pesan error query, DENGAN link yang benar-benar
+           bisa diklik (bukan cuma teks biasa) kalau errornya soal
+           index Firestore yang belum dibuat.
+        ====================================================== */
+        function tampilkanErrorQuery(container, error) {
+            const urlMatch = error.message.match(/(https?:\/\/[^\s]+)/);
+
+            let html = '<div class="empty-state" style="color:#c0392b;">Gagal memuat: ' + error.message.replace(/https?:\/\/[^\s]+/, "") + '</div>';
+
+            if (urlMatch) {
+                html += '<div class="empty-state" style="margin-top:8px;">' +
+                    '<a href="' + urlMatch[1] + '" target="_blank" style="color:#12305C; font-weight:700;">' +
+                    'Klik di sini untuk buat index otomatis \u2192</a></div>';
+            }
+
+            container.innerHTML = html;
+        }
+
         function logout() {
             auth.signOut().then(function () {
                 sessionStorage.removeItem("omaopa_user");
@@ -350,12 +369,7 @@
                     }).join("");
                 })
                 .catch(function (error) {
-                    const container = document.getElementById("riwayatListLapor");
-                    container.innerHTML = '<div class="empty-state" style="color:#c0392b;">Gagal memuat: ' + error.message +
-                        (error.code === "failed-precondition"
-                            ? '<br><br>Index Firestore belum dibuat. Cek Console browser (F12) untuk link buat index otomatis.'
-                            : '') +
-                        '</div>';
+                    tampilkanErrorQuery(document.getElementById("riwayatListLapor"), error);
                 });
         }
 
@@ -400,12 +414,7 @@
                     }).join("");
                 })
                 .catch(function (error) {
-                    const container = document.getElementById("approvalContainer");
-                    container.innerHTML = '<div class="empty-state" style="color:#c0392b;">Gagal memuat: ' + error.message +
-                        (error.code === "failed-precondition"
-                            ? '<br><br>Ini biasanya berarti index Firestore belum dibuat. Cek Console browser (F12), cari link biru untuk buat index otomatis.'
-                            : '') +
-                        '</div>';
+                    tampilkanErrorQuery(document.getElementById("approvalContainer"), error);
                 });
         }
 
