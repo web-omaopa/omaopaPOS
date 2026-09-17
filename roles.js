@@ -14,10 +14,8 @@
    akan tampil sebagai "Segera hadir" di Beranda. */
 const HALAMAN_INFO = {
     kasir:          { href: "pos.html",            icon: "🧾", title: "Kasir",           desc: "Buat transaksi penjualan",          dibangun: true },
-    "terima-stok":  { href: "terima-stok.html",    icon: "📥", title: "Terima Stok",     desc: "Lapor stok kue yang diterima outlet", dibangun: true },
-    "approval-stok":{ href: "approval-stok.html",  icon: "✅", title: "Approval Stok",   desc: "Setujui laporan stok dari kasir",   dibangun: true },
     stok:           { href: "stok.html",           icon: "📦", title: "Stok",            desc: "Lihat & pantau stok outlet",        dibangun: true },
-    alokasi:        { href: "alokasi.html",        icon: "📋", title: "Rencana Alokasi", desc: "Plot rencana kue harian per outlet", dibangun: true },
+    alokasi:        { href: "alokasi.html",        icon: "📋", title: "Manajemen Menu", desc: "Rencana, lapor & approval stok", dibangun: true },
     transfer:       { href: "transfer.html",       icon: "🚚", title: "Transfer Outlet", desc: "Pindahkan stok antar outlet",       dibangun: false },
     riwayat:        { href: "riwayat.html",        icon: "🕘", title: "Riwayat",         desc: "Riwayat transaksi & transfer",      dibangun: false },
     laporan:        { href: "laporan.html",        icon: "📊", title: "Laporan",         desc: "Analisis penjualan & stok",         dibangun: false },
@@ -29,10 +27,10 @@ const HALAMAN_INFO = {
    Contoh menambah role baru: cukup tambah baris baru di sini,
    tidak perlu ubah kode di halaman manapun. */
 const ROLE_PERMISSIONS = {
-    management: ["kasir", "approval-stok", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
-    admin:      ["kasir", "approval-stok", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
-    owner:      ["kasir", "approval-stok", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
-    kasir:      ["kasir", "terima-stok", "stok", "transfer"],
+    management: ["kasir", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
+    admin:      ["kasir", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
+    owner:      ["kasir", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
+    kasir:      ["kasir", "alokasi", "stok", "transfer"],
     forecaster: ["stok", "alokasi", "transfer", "laporan"]
 };
 
