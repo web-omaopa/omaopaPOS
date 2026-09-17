@@ -30,8 +30,7 @@ const ROLE_PERMISSIONS = {
     management: ["kasir", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
     admin:      ["kasir", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
     owner:      ["kasir", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
-    kasir:      ["kasir", "alokasi", "stok", "transfer"],
-    forecaster: ["stok", "alokasi", "transfer", "laporan"]
+    kasir:      ["kasir", "alokasi", "stok", "transfer"]
 };
 
 /* Cek apakah sebuah role boleh mengakses halaman tertentu.
