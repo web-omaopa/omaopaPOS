@@ -108,7 +108,6 @@
 
         let currentUser = null;
         let daftarProduk = [];
-        let rencanaMap = {};
         let kategoriAktif = "Semua";
 
         auth.onAuthStateChanged(function (user) {
@@ -167,8 +166,6 @@
 
             if (currentUser.role === "kasir") {
                 tampilanKasir();
-            } else if (currentUser.role === "forecaster") {
-                tampilanForecaster();
             } else {
                 // admin, owner, management
                 tampilanApproval();
@@ -176,107 +173,8 @@
         }
 
         /* =====================================================================
-           TAMPILAN 1: FORECASTER (buat rencana/plot, TIDAK sentuh stok resmi)
-        ========================================================================= */
-        function tampilanForecaster() {
-            document.getElementById("mainContent").innerHTML =
-                '<div class="header-row">' +
-                    '<h2>Manajemen Menu \u2013 Rencana</h2>' +
-                    '<p>Plot rencana jumlah kue hari ini. Ini BARU RENCANA untuk acuan packing\u2014stok resmi baru berlaku setelah kasir lapor & admin ACC.</p>' +
-                '</div>' +
-                '<div class="header-outlet">\ud83d\udccd Outlet: ' + currentUser.outlet + '</div>' +
-                '<input type="text" class="search-box" id="searchBox" placeholder="Cari menu...">' +
-                '<div class="kategori-tabs" id="kategoriTabs"></div>' +
-                '<div class="msg-box" id="msgBox"></div>' +
-                '<div id="produkList"><div class="loading-state">Memuat menu...</div></div>' +
-                '<button class="submit-btn" id="submitBtn" onclick="Forecaster_simpan()" disabled>Simpan Rencana</button>';
-
-            document.getElementById("searchBox").addEventListener("input", Forecaster_renderTampil);
-
-            db.collection("products").where("status", "==", "aktif").get().then(function (snapshot) {
-                if (snapshot.empty) {
-                    document.getElementById("produkList").innerHTML = '<div class="empty-state">Belum ada produk aktif.</div>';
-                    return;
-                }
-                daftarProduk = [];
-                snapshot.forEach(function (doc) { daftarProduk.push(Object.assign({ id: doc.id }, doc.data())); });
-                daftarProduk.sort(function (a, b) {
-                    return (a.kategori || "").localeCompare(b.kategori || "") || a.nama.localeCompare(b.nama);
-                });
-                Forecaster_renderTabs();
-                Forecaster_renderTampil();
-                document.getElementById("submitBtn").disabled = false;
-            });
-        }
-
-        function Forecaster_renderTabs() {
-            const set = new Set();
-            daftarProduk.forEach(function (p) { if (p.kategori) set.add(p.kategori); });
-            const list = ["Semua"].concat(Array.from(set).sort());
-            document.getElementById("kategoriTabs").innerHTML = list.map(function (k) {
-                return '<button class="kategori-tab' + (k === kategoriAktif ? ' active' : '') +
-                    '" onclick="Forecaster_pilihKategori(\'' + k.replace(/'/g, "") + '\')">' + k + '</button>';
-            }).join("");
-        }
-
-        function Forecaster_pilihKategori(k) {
-            kategoriAktif = k;
-            Forecaster_renderTabs();
-            Forecaster_renderTampil();
-        }
-
-        function Forecaster_renderTampil() {
-            const keyword = (document.getElementById("searchBox").value || "").toLowerCase();
-            const filtered = daftarProduk.filter(function (p) {
-                const cocokKategori = kategoriAktif === "Semua" || p.kategori === kategoriAktif;
-                return cocokKategori && p.nama.toLowerCase().includes(keyword);
-            });
-
-            const container = document.getElementById("produkList");
-            if (filtered.length === 0) { container.innerHTML = '<div class="empty-state">Menu tidak ditemukan</div>'; return; }
-
-            container.innerHTML = filtered.map(function (p) {
-                const isReset = p.resetHarian !== false;
-                return '<div class="product-row"><div class="info"><div class="nama">' + p.nama +
-                    '<span class="tipe-badge ' + (isReset ? "tipe-reset" : "tipe-akumulasi") + '">' + (isReset ? "Reset" : "Tambah") + '</span></div>' +
-                    '<div class="meta">' + (p.kategori || "-") + '</div></div>' +
-                    '<input type="number" min="0" class="qty-input" id="qty_' + p.id + '" placeholder="0"></div>';
-            }).join("");
-        }
-
-        function Forecaster_simpan() {
-            const outlet = currentUser.outlet;
-            const submitBtn = document.getElementById("submitBtn");
-
-            const inputan = daftarProduk
-                .map(function (p) {
-                    const el = document.getElementById("qty_" + p.id);
-                    return { produk: p, jumlahRencana: el ? Number(el.value) : 0 };
-                })
-                .filter(function (item) { return item.jumlahRencana > 0; });
-
-            if (inputan.length === 0) { tampilkanPesan("Isi minimal satu jumlah menu.", "error"); return; }
-
-            submitBtn.disabled = true; submitBtn.textContent = "Menyimpan...";
-
-            const rencanaRef = db.collection("rencana_alokasi").doc(outlet);
-            const batch = db.batch();
-            inputan.forEach(function (item) {
-                batch.set(rencanaRef.collection("items").doc(item.produk.id), {
-                    namaProduk: item.produk.nama, jumlahRencana: item.jumlahRencana,
-                    olehUid: currentUser.uid, olehNama: currentUser.nama,
-                    waktu: firebase.firestore.FieldValue.serverTimestamp()
-                });
-            });
-
-            batch.commit()
-                .then(function () { tampilkanPesan("Rencana berhasil disimpan (" + inputan.length + " menu).", "success"); })
-                .catch(function (error) { tampilkanPesan("Gagal: " + error.message, "error"); })
-                .finally(function () { submitBtn.disabled = false; submitBtn.textContent = "Simpan Rencana"; });
-        }
-
         /* =====================================================================
-           TAMPILAN 2: KASIR (lapor kue aktual yang diterima)
+           TAMPILAN: KASIR (lapor kue aktual yang diterima)
         ========================================================================= */
         function tampilanKasir() {
             document.getElementById("mainContent").innerHTML =
@@ -291,12 +189,7 @@
                 '<h3 style="font-size:13px; margin-top:26px; margin-bottom:10px;">Riwayat Laporan Saya</h3>' +
                 '<div id="riwayatListLapor"><div class="loading-state">Memuat riwayat...</div></div>';
 
-            db.collection("rencana_alokasi").doc(currentUser.outlet).collection("items").get().then(function (snapshot) {
-                rencanaMap = {};
-                snapshot.forEach(function (doc) { rencanaMap[doc.id] = doc.data().jumlahRencana; });
-                Kasir_loadProduk();
-            });
-
+            Kasir_loadProduk();
             Kasir_loadRiwayat();
         }
 
@@ -310,9 +203,7 @@
 
                 const container = document.getElementById("produkListLapor");
                 container.innerHTML = daftarProduk.map(function (p) {
-                    const rencana = rencanaMap[p.id];
                     return '<div class="product-row"><div class="info"><div class="nama">' + p.nama +
-                        (rencana !== undefined ? '<span class="rencana-tag">Rencana: ' + rencana + '</span>' : '') +
                         '</div><div class="meta">' + (p.kategori || "-") + '</div></div>' +
                         '<input type="number" min="0" class="qty-input" id="qtyLapor_' + p.id + '" placeholder="0"></div>';
                 }).join("");
@@ -329,7 +220,6 @@
                 const jumlahDiterima = el ? Number(el.value) : 0;
                 return {
                     productId: p.id, nama: p.nama, resetHarian: p.resetHarian !== false,
-                    jumlahRencana: rencanaMap[p.id] !== undefined ? rencanaMap[p.id] : null,
                     jumlahDiterima: jumlahDiterima
                 };
             }).filter(function (item) { return item.jumlahDiterima > 0; });
@@ -399,10 +289,10 @@
                         return '<div class="laporan-card">' +
                             '<div class="laporan-header"><div><div class="outlet">' + d.outlet + '</div>' +
                             '<div class="meta">Dilaporkan oleh ' + d.kasirNama + ' \u00b7 ' + waktu + '</div></div></div>' +
-                            '<table class="item-table"><thead><tr><th>Menu</th><th>Rencana</th><th>Diterima</th><th>Tipe</th></tr></thead><tbody>' +
+                            '<table class="item-table"><thead><tr><th>Menu</th><th>Diterima</th><th>Tipe</th></tr></thead><tbody>' +
                             d.items.map(function (item) {
                                 const isReset = item.resetHarian !== false;
-                                return '<tr><td>' + item.nama + '</td><td>' + (item.jumlahRencana ?? "-") + '</td>' +
+                                return '<tr><td>' + item.nama + '</td>' +
                                     '<td><strong>' + item.jumlahDiterima + '</strong></td>' +
                                     '<td><span class="tipe-badge ' + (isReset ? "tipe-reset" : "tipe-akumulasi") + '">' + (isReset ? "Reset" : "Tambah") + '</span></td></tr>';
                             }).join("") +
