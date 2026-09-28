@@ -110,8 +110,9 @@
             <h3 id="modalProdukTitle">Tambah Produk</h3>
             <label>Nama Produk</label>
             <input type="text" id="pInputNama" placeholder="Malmil Cheese">
-            <label>Harga (Rp)</label>
+            <label>Harga Offline (Rp)</label>
             <input type="number" id="pInputHarga" placeholder="15000">
+            <div class="field-hint">Ini harga dasar untuk penjualan Offline, dan jadi harga default untuk mode lain kalau tidak diisi harga khusus di bawah.</div>
             <label>Kategori</label>
             <select id="pInputKategori"><option value="">Pilih kategori...</option></select>
             <label>Satuan (opsional)</label>
@@ -134,6 +135,9 @@
                 <option value="false">Tidak</option>
                 <option value="true">Ya (muncul pilihan topping saat diklik di Kasir)</option>
             </select>
+            <label style="margin-top:10px;">Harga per Mode Penjualan</label>
+            <div class="field-hint">Centang kalau produk ini dijual lewat mode tsb. Kosongkan harga untuk otomatis ikut Harga Offline.</div>
+            <div id="modeHargaContainer" style="margin-top:6px;"></div>
             <div class="err-text" id="pFormError"></div>
             <div class="modal-actions">
                 <button class="btn-cancel" onclick="Produk_tutupModal()">Batal</button>
@@ -220,6 +224,7 @@
 
         let currentUser = null;
         let daftarKategoriProduk = [];
+        let daftarModePenjualan = [];
         const ROLE_LIST = ["management", "admin", "owner", "kasir", "forecaster"];
 
         auth.onAuthStateChanged(function (user) {
@@ -297,11 +302,17 @@
             if (nama === "produk") {
                 kontenHtml =
                     '<div class="kategori-section">' +
+                        '<div class="field-hint" style="margin-bottom:4px;">Kategori Produk</div>' +
                         '<div class="kategori-chips" id="kategoriChipsContainer"><div class="loading-state">Memuat kategori...</div></div>' +
                         '<button class="btn-tambah-kategori" onclick="Kategori_tambah()">+ Tambah Kategori</button>' +
                     '</div>' +
-                    '<div class="header-row"><h3></h3><button class="add-btn" onclick="Produk_bukaModalTambah()">+ Tambah Produk</button></div>' +
-                    '<table><thead><tr><th>Nama</th><th>Kategori</th><th style="text-align:right;">Harga</th><th style="text-align:right;">Status</th><th>Topping</th><th></th></tr></thead>' +
+                    '<div class="kategori-section" style="margin-top:16px;">' +
+                        '<div class="field-hint" style="margin-bottom:4px;">Mode Penjualan (Offline selalu ada &amp; tidak perlu ditambahkan)</div>' +
+                        '<div class="kategori-chips" id="modeChipsContainer"><div class="loading-state">Memuat mode...</div></div>' +
+                        '<button class="btn-tambah-kategori" onclick="ModePenjualan_tambah()">+ Tambah Mode Penjualan</button>' +
+                    '</div>' +
+                    '<div class="header-row" style="margin-top:16px;"><h3></h3><button class="add-btn" onclick="Produk_bukaModalTambah()">+ Tambah Produk</button></div>' +
+                    '<table><thead><tr><th>Nama</th><th>Kategori</th><th style="text-align:right;">Harga Offline</th><th style="text-align:right;">Status</th><th>Topping</th><th></th></tr></thead>' +
                     '<tbody id="produkTableBody"><tr><td colspan="6" class="loading-state">Memuat...</td></tr></tbody></table>';
             } else if (nama === "outlet") {
                 kontenHtml =
@@ -319,7 +330,7 @@
                 '<div class="page-title" style="margin-bottom:14px;">' + judul + '</div>' +
                 kontenHtml;
 
-            if (nama === "produk") { Produk_load(); Kategori_load(); }
+            if (nama === "produk") { Produk_load(); Kategori_load(); ModePenjualan_load(); }
             if (nama === "outlet") Outlet_load();
             if (nama === "user") { User_isiDropdownRole(); User_loadOutletDropdown(); User_load(); }
         }
@@ -377,6 +388,63 @@
             });
         }
 
+        /* =====================================================
+           MODE PENJUALAN (Offline, GoFood, GrabFood, ShopeeFood, dll)
+           Disimpan di collection "mode_penjualan", Document ID =
+           nama mode. "Offline" TIDAK disimpan di sini (selalu ada
+           secara implisit, pakai field harga dasar produk).
+        ====================================================== */
+        function ModePenjualan_load() {
+            db.collection("mode_penjualan").get().then(function (snapshot) {
+                daftarModePenjualan = [];
+                snapshot.forEach(function (doc) { daftarModePenjualan.push(doc.id); });
+                daftarModePenjualan.sort();
+                renderModeChips();
+            }).catch(function (error) {
+                const container = document.getElementById("modeChipsContainer");
+                if (container) container.innerHTML = '<span style="font-size:12px; color:#c0392b;">Gagal memuat mode: ' + error.message + '</span>';
+            });
+        }
+
+        function renderModeChips() {
+            const container = document.getElementById("modeChipsContainer");
+            if (!container) return;
+
+            const semuaLabel = '<span class="kategori-chip" style="background:#eef1f5; color:#6b7280;">Offline (dasar)</span>';
+
+            if (daftarModePenjualan.length === 0) {
+                container.innerHTML = semuaLabel + ' <span style="font-size:12px; color:#6b7280;">Belum ada mode lain. Klik "+ Tambah Mode Penjualan".</span>';
+                return;
+            }
+
+            container.innerHTML = semuaLabel + " " + daftarModePenjualan.map(function (m) {
+                return '<span class="kategori-chip">' + m +
+                    '<button onclick="ModePenjualan_hapus(\'' + m.replace(/'/g, "") + '\')" title="Hapus mode">&times;</button></span>';
+            }).join("");
+        }
+
+        function ModePenjualan_tambah() {
+            const nama = prompt("Nama mode penjualan baru (misal: GoFood, GrabFood, ShopeeFood):", "");
+            if (!nama || !nama.trim()) return;
+
+            const namaBersih = nama.trim();
+            if (namaBersih.toLowerCase() === "offline") { alert('"Offline" sudah ada secara otomatis, tidak perlu ditambahkan.'); return; }
+
+            db.collection("mode_penjualan").doc(namaBersih).set({}).then(function () {
+                ModePenjualan_load();
+            }).catch(function (error) {
+                alert("Gagal menambah mode: " + error.message);
+            });
+        }
+
+        function ModePenjualan_hapus(nama) {
+            if (!confirm('Hapus mode penjualan "' + nama + '"? Harga khusus mode ini di tiap produk TIDAK ikut terhapus otomatis (cuma tidak dipakai lagi).')) return;
+
+            db.collection("mode_penjualan").doc(nama).delete().then(function () {
+                ModePenjualan_load();
+            });
+        }
+
         function isiDropdownKategori(selectedValue) {
             const select = document.getElementById("pInputKategori");
             const optionsHtml = daftarKategoriProduk.map(function (k) {
@@ -387,6 +455,51 @@
         }
 
         let Produk_editingId = null;
+
+        /* =====================================================
+           Render baris "Tersedia + Harga" per mode penjualan di
+           dalam modal Tambah/Edit Produk. modeHargaExisting adalah
+           field modeHarga produk (kalau edit) atau {} (kalau tambah
+           baru, default semua mode dicentang tersedia).
+        ====================================================== */
+        function renderModeHargaInputs(modeHargaExisting) {
+            const container = document.getElementById("modeHargaContainer");
+            if (!container) return;
+
+            if (daftarModePenjualan.length === 0) {
+                container.innerHTML = '<div style="font-size:11px; color:#6b7280;">Belum ada mode penjualan selain Offline. Tambahkan dulu lewat "+ Tambah Mode Penjualan" di atas.</div>';
+                return;
+            }
+
+            container.innerHTML = daftarModePenjualan.map(function (m) {
+                const cfg = (modeHargaExisting && modeHargaExisting[m]) || {};
+                const tersedia = cfg.tersedia !== false; // default tercentang
+                const hargaVal = (cfg.harga !== undefined && cfg.harga !== null) ? cfg.harga : "";
+                const modeIdAman = m.replace(/[^a-zA-Z0-9]/g, "_");
+
+                return '<div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">' +
+                    '<label style="display:flex; align-items:center; gap:5px; font-size:11px; font-weight:500; width:110px; flex-shrink:0;">' +
+                        '<input type="checkbox" id="modeTersedia_' + modeIdAman + '" data-mode="' + m + '"' + (tersedia ? " checked" : "") + '> ' + m +
+                    '</label>' +
+                    '<input type="number" id="modeHarga_' + modeIdAman + '" placeholder="Ikuti Harga Offline" value="' + hargaVal + '" style="flex:1; height:32px; font-size:12px;">' +
+                '</div>';
+            }).join("");
+        }
+
+        /* Ambil isi form modeHarga sekarang jadi object siap simpan */
+        function ambilModeHargaDariForm() {
+            const hasil = {};
+            daftarModePenjualan.forEach(function (m) {
+                const modeIdAman = m.replace(/[^a-zA-Z0-9]/g, "_");
+                const cbEl = document.getElementById("modeTersedia_" + modeIdAman);
+                const hargaEl = document.getElementById("modeHarga_" + modeIdAman);
+                if (!cbEl) return;
+
+                const hargaVal = hargaEl && hargaEl.value !== "" ? Number(hargaEl.value) : null;
+                hasil[m] = { tersedia: cbEl.checked, harga: hargaVal };
+            });
+            return hasil;
+        }
 
         function Produk_load() {
             db.collection("products").get().then(function (snapshot) {
@@ -454,6 +567,7 @@
             document.getElementById("pUploadStatus").textContent = "";
             document.getElementById("pInputButuhTopping").value = "false";
             document.getElementById("pFormError").style.display = "none";
+            renderModeHargaInputs({});
             document.getElementById("modalProduk").classList.add("open");
         }
 
@@ -471,6 +585,7 @@
                 document.getElementById("pInputGambar").value = p.gambarUrl || "";
                 document.getElementById("pInputButuhTopping").value = p.butuhTopping ? "true" : "false";
                 document.getElementById("pFormError").style.display = "none";
+                renderModeHargaInputs(p.modeHarga || {});
                 document.getElementById("modalProduk").classList.add("open");
             });
         }
@@ -490,7 +605,9 @@
 
             if (!nama || !harga || harga <= 0) { errBox.textContent = "Nama dan harga wajib diisi."; errBox.style.display = "block"; return; }
 
-            const data = { nama: nama, harga: harga, kategori: kategori, status: status, resetHarian: resetHarian, gambarUrl: gambarUrl, butuhTopping: butuhTopping, satuan: satuan };
+            const modeHarga = ambilModeHargaDariForm();
+
+            const data = { nama: nama, harga: harga, kategori: kategori, status: status, resetHarian: resetHarian, gambarUrl: gambarUrl, butuhTopping: butuhTopping, satuan: satuan, modeHarga: modeHarga };
             const p = Produk_editingId ? db.collection("products").doc(Produk_editingId).update(data) : db.collection("products").add(data);
             p.then(function () { Produk_tutupModal(); Produk_load(); });
         }
