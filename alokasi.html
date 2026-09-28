@@ -180,7 +180,7 @@
             document.getElementById("mainContent").innerHTML =
                 '<div class="header-row">' +
                     '<h2>Manajemen Menu \u2013 Lapor Stok</h2>' +
-                    '<p>Hitung fisik kue yang sampai di outlet, lalu kirim untuk di-ACC admin.</p>' +
+                    '<p>Hitung fisik kue yang sampai di outlet, lalu kirim. Stok POS langsung berubah saat itu juga, dan akan dikoreksi lagi kalau admin mengedit sebelum ACC.</p>' +
                 '</div>' +
                 '<div class="header-outlet">\ud83d\udccd Outlet: ' + currentUser.outlet + '</div>' +
                 '<div class="msg-box" id="msgBox"></div>' +
@@ -248,19 +248,50 @@
             if (sudahLaporHariIni) {
                 const lanjut = confirm(
                     "Anda sudah mengirim laporan stok hari ini.\n" +
-                    "Yakin ingin mengirim laporan baru? Admin akan membaca laporan TERBARU ini sebagai data yang berlaku."
+                    "Yakin ingin mengirim laporan baru? Stok POS akan langsung mengikuti laporan TERBARU ini."
                 );
                 if (!lanjut) return;
             }
 
             submitBtn.disabled = true; submitBtn.textContent = "Mengirim...";
 
-            db.collection("laporan_stok").add({
-                outlet: currentUser.outlet, items: items, status: "pending", catatan: catatan,
-                kasirUid: currentUser.uid, kasirNama: currentUser.nama,
-                waktuLapor: firebase.firestore.FieldValue.serverTimestamp()
+            /* =====================================================
+               Stok POS langsung diupdate SEKARANG (tentatif) supaya
+               kasir bisa langsung jualan sesuai fisik yang diterima,
+               tidak perlu menunggu admin ACC. Baseline stok SEBELUM
+               laporan ini (stokSebelumLaporan) disimpan di tiap item
+               supaya nanti kalau admin edit angka & ACC, koreksinya
+               dihitung dari baseline yang benar (bukan dobel-tambah).
+            ====================================================== */
+            const outletRef = db.collection("outlets").doc(currentUser.outlet);
+            const stockRefs = items.map(function (item) { return outletRef.collection("stock").doc(item.productId); });
+
+            Promise.all(stockRefs.map(function (ref) { return ref.get(); })).then(function (stockDocs) {
+                const batch = db.batch();
+                const itemsDenganBaseline = items.map(function (item, i) {
+                    const isReset = item.resetHarian !== false;
+                    const stokSebelum = stockDocs[i].exists ? (stockDocs[i].data().jumlah || 0) : 0;
+                    const stokBaru = isReset ? item.jumlahDiterima : (stokSebelum + item.jumlahDiterima);
+
+                    batch.set(stockRefs[i], {
+                        jumlah: stokBaru,
+                        minStok: stockDocs[i].exists && stockDocs[i].data().minStok !== undefined ? stockDocs[i].data().minStok : 5,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    }, { merge: true });
+
+                    return Object.assign({}, item, { stokSebelumLaporan: stokSebelum });
+                });
+
+                const laporanRef = db.collection("laporan_stok").doc();
+                batch.set(laporanRef, {
+                    outlet: currentUser.outlet, items: itemsDenganBaseline, status: "pending", catatan: catatan,
+                    kasirUid: currentUser.uid, kasirNama: currentUser.nama,
+                    waktuLapor: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                return batch.commit();
             }).then(function () {
-                tampilkanPesan("Laporan berhasil dikirim, menunggu ACC admin.", "success");
+                tampilkanPesan("Laporan terkirim, stok POS langsung diperbarui. Menunggu ACC admin.", "success");
                 daftarProduk.forEach(function (p) { const el = document.getElementById("qtyLapor_" + p.id); if (el) el.value = ""; });
                 if (catatanEl) catatanEl.value = "";
                 Kasir_loadRiwayat();
@@ -303,7 +334,7 @@
             document.getElementById("mainContent").innerHTML =
                 '<div class="header-row">' +
                     '<h2>Manajemen Menu \u2013 Approval</h2>' +
-                    '<p>Laporan stok dari kasir yang menunggu persetujuan. Setelah ACC, stok resmi langsung terupdate.</p>' +
+                    '<p>Stok POS sudah mengikuti laporan kasir ini. Edit angka kalau perlu koreksi, lalu ACC untuk mengunci sebagai stok resmi (atau Tolak untuk membatalkan &amp; kembalikan stok).</p>' +
                 '</div>' +
                 '<div id="approvalContainer"><div class="loading-state">Memuat...</div></div>';
 
@@ -386,8 +417,21 @@
                     const batch = db.batch();
                     itemsFinal.forEach(function (item, i) {
                         const isReset = item.resetHarian !== false;
-                        const stokLama = stockDocs[i].exists ? (stockDocs[i].data().jumlah || 0) : 0;
-                        const stokBaru = isReset ? item.jumlahDiterima : (stokLama + item.jumlahDiterima);
+
+                        /* =====================================================
+                           PENTING: baseline pakai stokSebelumLaporan (kondisi
+                           stok SEBELUM laporan kasir ini diterapkan), bukan
+                           stok saat ini — karena stok saat ini sudah berisi
+                           angka tentatif dari kasir. Kalau dipakai stok saat
+                           ini sebagai basis, tipe "akumulasi" bakal kehitung
+                           dobel. Fallback ke stok saat ini kalau laporan lama
+                           belum punya field stokSebelumLaporan.
+                        ====================================================== */
+                        const stokBaseline = item.stokSebelumLaporan !== undefined
+                            ? item.stokSebelumLaporan
+                            : (stockDocs[i].exists ? (stockDocs[i].data().jumlah || 0) : 0);
+                        const stokSaatIni = stockDocs[i].exists ? (stockDocs[i].data().jumlah || 0) : 0;
+                        const stokBaru = isReset ? item.jumlahDiterima : (stokBaseline + item.jumlahDiterima);
 
                         batch.set(stockRefs[i], {
                             jumlah: stokBaru,
@@ -396,10 +440,10 @@
                         }, { merge: true });
 
                         batch.set(db.collection("alokasi_log").doc(), {
-                            sumber: "kasir-lapor", laporanId: laporanId, outlet: data.outlet,
+                            sumber: "acc-admin", laporanId: laporanId, outlet: data.outlet,
                             productId: item.productId, namaProduk: item.nama,
                             tipe: isReset ? "reset" : "akumulasi", jumlahInput: item.jumlahDiterima,
-                            stokSebelum: stokLama, stokSesudah: stokBaru,
+                            stokSebelum: stokSaatIni, stokSesudah: stokBaru,
                             olehUid: currentUser.uid, olehNama: currentUser.nama,
                             waktu: firebase.firestore.FieldValue.serverTimestamp()
                         });
@@ -419,11 +463,37 @@
             const alasan = prompt("Alasan penolakan (opsional):", "");
             if (alasan === null) return;
 
-            db.collection("laporan_stok").doc(laporanId).update({
-                status: "ditolak", catatanAdmin: alasan || "",
-                olehAdminUid: currentUser.uid, olehAdminNama: currentUser.nama,
-                waktuDiproses: firebase.firestore.FieldValue.serverTimestamp()
-            }).then(function () { Approval_load(); });
+            const laporanRef = db.collection("laporan_stok").doc(laporanId);
+
+            /* =====================================================
+               Karena stok POS sudah sempat diubah tentatif waktu
+               kasir kirim laporan, kalau laporan ini DITOLAK maka
+               stok dikembalikan ke kondisi SEBELUM laporan tadi
+               (stokSebelumLaporan), supaya tidak nyangkut angka
+               yang tidak pernah disetujui admin.
+            ====================================================== */
+            laporanRef.get().then(function (doc) {
+                const data = doc.data();
+                const outletRef = db.collection("outlets").doc(data.outlet);
+                const batch = db.batch();
+
+                data.items.forEach(function (item) {
+                    if (item.stokSebelumLaporan === undefined) return; // laporan lama, tidak ada baseline, jangan diutak-atik
+                    batch.set(outletRef.collection("stock").doc(item.productId), {
+                        jumlah: item.stokSebelumLaporan,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    }, { merge: true });
+                });
+
+                batch.update(laporanRef, {
+                    status: "ditolak", catatanAdmin: alasan || "",
+                    olehAdminUid: currentUser.uid, olehAdminNama: currentUser.nama,
+                    waktuDiproses: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                return batch.commit();
+            }).then(function () { Approval_load(); })
+              .catch(function (error) { alert("Gagal menolak laporan: " + error.message); });
         }
 
         /* ===================================================================== */
