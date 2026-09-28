@@ -54,6 +54,15 @@
         }
         .kategori-tab.active { background: #12305C; border-color: #12305C; color: white; }
 
+        .mode-label { font-size: 10px; font-weight: 700; color: #8AA0C7; text-transform: uppercase; margin-bottom: 6px; }
+        .mode-tabs { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+        .mode-tab {
+            padding: 7px 14px; border-radius: 8px; border: 1px solid #f0c07a;
+            background: #fff8ec; font-size: 12px; font-weight: 700; color: #b06d09;
+            cursor: pointer;
+        }
+        .mode-tab.active { background: #b06d09; border-color: #b06d09; color: white; }
+
         .pos-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 18px; align-items: start; }
         @media (max-width: 900px) { .pos-grid { grid-template-columns: 1fr; } }
 
@@ -183,6 +192,15 @@
 
         let daftarTopping = [];
 
+        /* =====================================================
+           MODE PENJUALAN (Offline, GoFood, GrabFood, ShopeeFood, dll)
+           "Offline" selalu ada (pakai field harga dasar produk).
+           Mode lain dikelola admin di Pengaturan > Produk, disimpan
+           di collection "mode_penjualan".
+        ====================================================== */
+        let modeAktif = "Offline";
+        let daftarModePenjualan = [];
+
         auth.onAuthStateChanged(function (user) {
             if (!user) { window.location.href = "index.html"; return; }
 
@@ -216,6 +234,7 @@
             document.getElementById("sidebarContainer").innerHTML = renderSidebar(currentUser, "kasir");
             if (!jagaAksesHalaman(currentUser.role, "kasir")) return;
             renderMainContent();
+            loadModePenjualan();
             loadTopping();
             loadProducts();
         }
@@ -231,8 +250,74 @@
                 });
         }
 
+        function loadModePenjualan() {
+            db.collection("mode_penjualan").get().then(function (snapshot) {
+                daftarModePenjualan = [];
+                snapshot.forEach(function (doc) { daftarModePenjualan.push(doc.id); });
+                daftarModePenjualan.sort();
+                renderModeTabs();
+            }).catch(function () {
+                daftarModePenjualan = [];
+                renderModeTabs();
+            });
+        }
+
+        function renderModeTabs() {
+            const container = document.getElementById("modeTabs");
+            if (!container) return;
+
+            const semuaMode = ["Offline"].concat(daftarModePenjualan);
+            container.innerHTML = semuaMode.map(function (m) {
+                return '<button class="mode-tab' + (m === modeAktif ? ' active' : '') +
+                    '" onclick="pilihMode(\'' + m.replace(/'/g, "") + '\')">' + m + '</button>';
+            }).join("");
+        }
+
+        function pilihMode(mode) {
+            if (mode === modeAktif) return;
+
+            const cartTidakKosong = Object.keys(cart).length > 0;
+            if (cartTidakKosong) {
+                const lanjut = confirm(
+                    "Ganti mode penjualan ke \"" + mode + "\" akan mengosongkan keranjang (harga bisa beda tiap mode). Lanjutkan?"
+                );
+                if (!lanjut) return;
+                cart = {};
+                renderCart();
+            }
+
+            modeAktif = mode;
+            renderModeTabs();
+            renderProdukTampil();
+        }
+
+        /* =====================================================
+           Harga & ketersediaan produk mengikuti mode aktif.
+           - Offline: selalu tersedia, pakai field harga dasar.
+           - Mode lain: tersedia kalau modeHarga[mode].tersedia !== false
+             (kalau produk belum pernah diatur untuk mode ini sama
+             sekali, dianggap tetap tersedia & ikut harga Offline).
+             Harga ikut modeHarga[mode].harga kalau diisi, kalau
+             kosong/tidak ada otomatis ikut harga Offline.
+        ====================================================== */
+        function tersediaDiMode(p, mode) {
+            if (mode === "Offline") return true;
+            const cfg = p.modeHarga && p.modeHarga[mode];
+            if (!cfg) return true; // belum pernah diatur untuk mode ini, dianggap tetap tersedia
+            return cfg.tersedia !== false;
+        }
+
+        function hargaUntukMode(p, mode) {
+            if (mode === "Offline") return Number(p.harga) || 0;
+            const cfg = p.modeHarga && p.modeHarga[mode];
+            if (cfg && cfg.harga !== null && cfg.harga !== undefined && cfg.harga !== "") return Number(cfg.harga);
+            return Number(p.harga) || 0;
+        }
+
         function renderMainContent() {
             document.getElementById("mainContent").innerHTML =
+                '<div class="mode-label">Mode Penjualan</div>' +
+                '<div class="mode-tabs" id="modeTabs"></div>' +
                 '<div class="top-row">' +
                     '<input type="text" class="search-box" id="searchBox" placeholder="Cari produk...">' +
                 '</div>' +
@@ -326,7 +411,8 @@
                     ? p.kategori !== "Topping"
                     : p.kategori === kategoriAktif;
                 const cocokKeyword = p.nama.toLowerCase().includes(keyword);
-                return cocokKategori && cocokKeyword;
+                const cocokMode = tersediaDiMode(p, modeAktif);
+                return cocokKategori && cocokKeyword && cocokMode;
             });
 
             renderProductGrid(filtered);
@@ -356,11 +442,13 @@
                     : "🥐";
 
                 const teksStok = isTopping ? "" : (habis ? "Stok habis" : "Stok: " + stok + " " + (p.satuan || "pcs"));
+                const hargaTampil = hargaUntukMode(p, modeAktif);
 
                 card.innerHTML =
                     (isTopping ? "" : '<div class="img-area">' + gambarHtml + '</div>') +
                     '<div class="info">' +
                         '<div class="name">' + p.nama + '</div>' +
+                        '<div class="stok" style="font-weight:700; color:#12305C;">Rp ' + hargaTampil.toLocaleString("id-ID") + '</div>' +
                         (teksStok ? '<div class="stok' + (habis ? ' habis' : '') + '">' + teksStok + '</div>' : '') +
                     '</div>';
 
@@ -392,7 +480,7 @@
                     return '<label class="topping-option">' +
                         '<input type="checkbox" value="' + i + '">' +
                         '<span class="t-nama">' + t.nama + '</span>' +
-                        '<span class="t-harga">+Rp ' + Number(t.harga).toLocaleString("id-ID") + '</span>' +
+                        '<span class="t-harga">+Rp ' + hargaUntukMode(t, modeAktif).toLocaleString("id-ID") + '</span>' +
                     '</label>';
                 }).join("");
             }
@@ -434,15 +522,16 @@
                 }
             }
 
-            const hargaToppingTotal = toppings.reduce(function (sum, t) { return sum + t.harga; }, 0);
-            const hargaSatuan = product.harga + hargaToppingTotal;
+            const hargaProdukMode = hargaUntukMode(product, modeAktif);
+            const hargaToppingTotal = toppings.reduce(function (sum, t) { return sum + hargaUntukMode(t, modeAktif); }, 0);
+            const hargaSatuan = hargaProdukMode + hargaToppingTotal;
 
             if (cart[cartKey]) {
                 cart[cartKey].qty += 1;
             } else {
                 cart[cartKey] = {
                     productId: product.id, nama: product.nama, hargaSatuan: hargaSatuan,
-                    hargaDasar: product.harga, toppings: toppings, qty: 1,
+                    hargaDasar: hargaProdukMode, toppings: toppings, qty: 1,
                     lacakStok: !isTopping
                 };
             }
@@ -573,7 +662,8 @@
 
                     transaction.set(db.collection("transactions").doc(), {
                         outlet: currentUser.outlet, kasirUid: currentUser.uid, kasirNama: currentUser.nama,
-                        items: itemsUntukTransaksi, total: total, metodeBayar: metodeBayar, status: "aktif",
+                        items: itemsUntukTransaksi, total: total, metodeBayar: metodeBayar,
+                        modePenjualan: modeAktif, status: "aktif",
                         waktu: firebase.firestore.FieldValue.serverTimestamp()
                     });
                 });
