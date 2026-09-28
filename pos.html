@@ -205,6 +205,7 @@
         });
 
         function logout() {
+            if (stockUnsubscribe) { stockUnsubscribe(); stockUnsubscribe = null; }
             auth.signOut().then(function () {
                 sessionStorage.removeItem("omaopa_user");
                 window.location.href = "index.html";
@@ -268,15 +269,35 @@
                         grid.innerHTML = '<div class="empty-state">Belum ada produk aktif.</div>';
                         return;
                     }
-                    return db.collection("outlets").doc(currentUser.outlet).collection("stock").get();
-                })
-                .then(function (stockSnapshot) {
-                    stockMap = {};
-                    if (stockSnapshot) stockSnapshot.forEach(function (doc) { stockMap[doc.id] = doc.data().jumlah || 0; });
-                    renderKategoriTabs();
-                    renderProdukTampil();
+                    dengarkanStok();
                 })
                 .catch(function (error) { grid.innerHTML = '<div class="empty-state">Gagal memuat: ' + error.message + '</div>'; });
+        }
+
+        /* =====================================================
+           STOK REALTIME: pakai onSnapshot (bukan get() sekali)
+           supaya begitu admin klik ACC di halaman Manajemen Menu,
+           stok di POS langsung berubah otomatis tanpa perlu
+           refresh manual. Laporan kasir sendiri TIDAK menyentuh
+           koleksi stok ini sama sekali (baru berubah setelah admin
+           ACC), jadi angka yang tampil di POS selalu angka resmi
+           yang sudah disetujui admin.
+        ====================================================== */
+        let stockUnsubscribe = null;
+
+        function dengarkanStok() {
+            if (stockUnsubscribe) { stockUnsubscribe(); stockUnsubscribe = null; }
+
+            stockUnsubscribe = db.collection("outlets").doc(currentUser.outlet).collection("stock")
+                .onSnapshot(function (snapshot) {
+                    stockMap = {};
+                    snapshot.forEach(function (doc) { stockMap[doc.id] = doc.data().jumlah || 0; });
+                    renderKategoriTabs();
+                    renderProdukTampil();
+                }, function (error) {
+                    document.getElementById("productGrid").innerHTML =
+                        '<div class="empty-state">Gagal memuat stok: ' + error.message + '</div>';
+                });
         }
 
         function renderKategoriTabs() {
