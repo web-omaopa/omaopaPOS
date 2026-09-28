@@ -185,6 +185,10 @@
                 '<div class="header-outlet">\ud83d\udccd Outlet: ' + currentUser.outlet + '</div>' +
                 '<div class="msg-box" id="msgBox"></div>' +
                 '<div id="produkListLapor"><div class="loading-state">Memuat menu...</div></div>' +
+                '<div style="margin-top:14px;">' +
+                    '<label style="display:block; font-size:12px; font-weight:700; margin-bottom:6px;">Catatan (opsional)</label>' +
+                    '<textarea id="catatanLapor" placeholder="Contoh: 5 Malmil Cheese datang penyok, dll." style="width:100%; min-height:64px; padding:10px 12px; border:1px solid #d1d5db; border-radius:6px; font-size:12px; font-family:inherit; resize:vertical;"></textarea>' +
+                '</div>' +
                 '<button class="submit-btn" id="submitBtnLapor" onclick="Kasir_kirim()" disabled>Kirim Laporan ke Admin</button>' +
                 '<h3 style="font-size:13px; margin-top:26px; margin-bottom:10px;">Riwayat Laporan Saya</h3>' +
                 '<div id="riwayatListLapor"><div class="loading-state">Memuat riwayat...</div></div>';
@@ -212,6 +216,8 @@
             });
         }
 
+        let riwayatKasirCache = [];
+
         function Kasir_kirim() {
             const submitBtn = document.getElementById("submitBtnLapor");
 
@@ -226,15 +232,37 @@
 
             if (items.length === 0) { tampilkanPesan("Isi minimal satu jumlah menu.", "error"); return; }
 
+            const catatanEl = document.getElementById("catatanLapor");
+            const catatan = catatanEl ? catatanEl.value.trim() : "";
+
+            /* =====================================================
+               Kalau hari ini kasir sudah pernah kirim laporan
+               (dicek dari cache riwayat yang sudah dimuat), tanya
+               konfirmasi dulu sebelum kirim laporan baru lagi.
+            ====================================================== */
+            const hariIni = new Date().toDateString();
+            const sudahLaporHariIni = riwayatKasirCache.some(function (d) {
+                return d.waktuLapor && d.waktuLapor.toDate().toDateString() === hariIni;
+            });
+
+            if (sudahLaporHariIni) {
+                const lanjut = confirm(
+                    "Anda sudah mengirim laporan stok hari ini.\n" +
+                    "Yakin ingin mengirim laporan baru? Admin akan membaca laporan TERBARU ini sebagai data yang berlaku."
+                );
+                if (!lanjut) return;
+            }
+
             submitBtn.disabled = true; submitBtn.textContent = "Mengirim...";
 
             db.collection("laporan_stok").add({
-                outlet: currentUser.outlet, items: items, status: "pending",
+                outlet: currentUser.outlet, items: items, status: "pending", catatan: catatan,
                 kasirUid: currentUser.uid, kasirNama: currentUser.nama,
                 waktuLapor: firebase.firestore.FieldValue.serverTimestamp()
             }).then(function () {
                 tampilkanPesan("Laporan berhasil dikirim, menunggu ACC admin.", "success");
                 daftarProduk.forEach(function (p) { const el = document.getElementById("qtyLapor_" + p.id); if (el) el.value = ""; });
+                if (catatanEl) catatanEl.value = "";
                 Kasir_loadRiwayat();
             }).catch(function (error) {
                 tampilkanPesan("Gagal: " + error.message, "error");
@@ -247,6 +275,9 @@
             db.collection("laporan_stok").where("kasirUid", "==", currentUser.uid).orderBy("waktuLapor", "desc").limit(10).get()
                 .then(function (snapshot) {
                     const container = document.getElementById("riwayatListLapor");
+
+                    riwayatKasirCache = snapshot.docs.map(function (doc) { return doc.data(); });
+
                     if (snapshot.empty) { container.innerHTML = '<div class="empty-state">Belum ada laporan.</div>'; return; }
 
                     container.innerHTML = snapshot.docs.map(function (doc) {
@@ -255,7 +286,9 @@
                         const statusLabel = d.status === "pending" ? "Menunggu ACC" : (d.status === "disetujui" ? "Disetujui" : "Ditolak");
                         return '<div class="riwayat-item"><div style="display:flex; justify-content:space-between; margin-bottom:4px;">' +
                             '<span>' + waktu + '</span><span class="status-tag status-' + d.status + '">' + statusLabel + '</span></div>' +
-                            '<div style="color:#6b7280;">' + d.items.length + ' menu dilaporkan</div></div>';
+                            '<div style="color:#6b7280;">' + d.items.length + ' menu dilaporkan</div>' +
+                            (d.catatan ? '<div style="color:#8a796e; margin-top:4px; font-style:italic;">📝 ' + d.catatan + '</div>' : '') +
+                            '</div>';
                     }).join("");
                 })
                 .catch(function (error) {
@@ -283,17 +316,36 @@
                     const container = document.getElementById("approvalContainer");
                     if (snapshot.empty) { container.innerHTML = '<div class="empty-state">Tidak ada laporan yang menunggu ACC.</div>'; return; }
 
-                    container.innerHTML = snapshot.docs.map(function (doc) {
+                    /* =====================================================
+                       Dedupe: kalau 1 outlet ada beberapa laporan pending,
+                       cuma tampilkan yang PALING BARU (waktuLapor terbesar).
+                       Karena query sudah orderBy waktuLapor asc, cukup timpa
+                       entri per outlet setiap kali ketemu yang lebih baru.
+                    ====================================================== */
+                    const terbaruPerOutlet = {};
+                    snapshot.docs.forEach(function (doc) {
+                        const d = doc.data();
+                        terbaruPerOutlet[d.outlet] = doc; // yang belakangan (lebih baru) menimpa yang lama
+                    });
+                    const daftarLaporan = Object.values(terbaruPerOutlet).sort(function (a, b) {
+                        const ta = a.data().waktuLapor ? a.data().waktuLapor.toMillis() : 0;
+                        const tb = b.data().waktuLapor ? b.data().waktuLapor.toMillis() : 0;
+                        return ta - tb;
+                    });
+
+                    container.innerHTML = daftarLaporan.map(function (doc) {
                         const d = doc.data();
                         const waktu = d.waktuLapor ? d.waktuLapor.toDate().toLocaleString("id-ID") : "-";
                         return '<div class="laporan-card">' +
                             '<div class="laporan-header"><div><div class="outlet">' + d.outlet + '</div>' +
-                            '<div class="meta">Dilaporkan oleh ' + d.kasirNama + ' \u00b7 ' + waktu + '</div></div></div>' +
+                            '<div class="meta">Dilaporkan oleh ' + d.kasirNama + ' \u00b7 ' + waktu + '</div>' +
+                            (d.catatan ? '<div class="meta" style="margin-top:4px; font-style:italic;">\ud83d\udcdd ' + d.catatan + '</div>' : '') +
+                            '</div></div>' +
                             '<table class="item-table"><thead><tr><th>Menu</th><th>Diterima</th><th>Tipe</th></tr></thead><tbody>' +
                             d.items.map(function (item) {
                                 const isReset = item.resetHarian !== false;
                                 return '<tr><td>' + item.nama + '</td>' +
-                                    '<td><strong>' + item.jumlahDiterima + '</strong></td>' +
+                                    '<td><input type="number" min="0" class="qty-input" style="width:70px; height:32px;" id="acc_' + doc.id + '_' + item.productId + '" value="' + item.jumlahDiterima + '"></td>' +
                                     '<td><span class="tipe-badge ' + (isReset ? "tipe-reset" : "tipe-akumulasi") + '">' + (isReset ? "Reset" : "Tambah") + '</span></td></tr>';
                             }).join("") +
                             '</tbody></table>' +
@@ -314,12 +366,25 @@
             const laporanRef = db.collection("laporan_stok").doc(laporanId);
             laporanRef.get().then(function (doc) {
                 const data = doc.data();
+
+                /* =====================================================
+                   Ambil jumlah dari input yang mungkin sudah diedit admin
+                   di kartu approval (id: acc_{laporanId}_{productId}).
+                   Kalau inputnya tidak ketemu (mis. sudah tertimpa render
+                   lain), fallback ke nilai asli dari laporan kasir.
+                ====================================================== */
+                const itemsFinal = data.items.map(function (item) {
+                    const el = document.getElementById("acc_" + laporanId + "_" + item.productId);
+                    const jumlahEdited = el && el.value !== "" ? Number(el.value) : item.jumlahDiterima;
+                    return Object.assign({}, item, { jumlahDiterima: jumlahEdited });
+                });
+
                 const outletRef = db.collection("outlets").doc(data.outlet);
-                const stockRefs = data.items.map(function (item) { return outletRef.collection("stock").doc(item.productId); });
+                const stockRefs = itemsFinal.map(function (item) { return outletRef.collection("stock").doc(item.productId); });
 
                 return Promise.all(stockRefs.map(function (ref) { return ref.get(); })).then(function (stockDocs) {
                     const batch = db.batch();
-                    data.items.forEach(function (item, i) {
+                    itemsFinal.forEach(function (item, i) {
                         const isReset = item.resetHarian !== false;
                         const stokLama = stockDocs[i].exists ? (stockDocs[i].data().jumlah || 0) : 0;
                         const stokBaru = isReset ? item.jumlahDiterima : (stokLama + item.jumlahDiterima);
@@ -341,6 +406,7 @@
                     });
                     batch.update(laporanRef, {
                         status: "disetujui", olehAdminUid: currentUser.uid, olehAdminNama: currentUser.nama,
+                        items: itemsFinal,
                         waktuDiproses: firebase.firestore.FieldValue.serverTimestamp()
                     });
                     return batch.commit();
