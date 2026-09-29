@@ -766,7 +766,13 @@
 
             const data = { nama: nama, harga: harga, kategori: kategori, status: status, resetHarian: resetHarian, gambarUrl: gambarUrl, butuhTopping: butuhTopping, satuan: satuan, modeHarga: modeHarga };
             const p = Produk_editingId ? db.collection("products").doc(Produk_editingId).update(data) : db.collection("products").add(data);
-            p.then(function () { Produk_tutupModal(); Produk_load(); });
+            p.then(function () {
+                Produk_tutupModal();
+                Produk_load();
+            }).catch(function (error) {
+                errBox.textContent = "Gagal menyimpan: " + error.message;
+                errBox.style.display = "block";
+            });
         }
 
         function Produk_hapus(id, nama) {
