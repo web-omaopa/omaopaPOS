@@ -311,20 +311,43 @@
 
                     if (snapshot.empty) { container.innerHTML = '<div class="empty-state">Belum ada laporan.</div>'; return; }
 
-                    container.innerHTML = snapshot.docs.map(function (doc) {
+                    container.innerHTML = snapshot.docs.map(function (doc, i) {
                         const d = doc.data();
                         const waktu = d.waktuLapor ? d.waktuLapor.toDate().toLocaleString("id-ID") : "-";
                         const statusLabel = d.status === "pending" ? "Menunggu ACC" : (d.status === "disetujui" ? "Disetujui" : "Ditolak");
-                        return '<div class="riwayat-item"><div style="display:flex; justify-content:space-between; margin-bottom:4px;">' +
-                            '<span>' + waktu + '</span><span class="status-tag status-' + d.status + '">' + statusLabel + '</span></div>' +
-                            '<div style="color:#6b7280;">' + d.items.length + ' menu dilaporkan</div>' +
+
+                        const detailItems = (d.items || []).map(function (item) {
+                            return '<div style="display:flex; justify-content:space-between; padding:3px 0;">' +
+                                '<span>' + item.nama + '</span><span style="font-weight:700;">' + item.jumlahDiterima + '</span></div>';
+                        }).join("");
+
+                        return '<div class="riwayat-item" style="cursor:pointer;" onclick="toggleRiwayatDetail(' + i + ')">' +
+                            '<div style="display:flex; justify-content:space-between; margin-bottom:4px;">' +
+                                '<span>' + waktu + '</span><span class="status-tag status-' + d.status + '">' + statusLabel + '</span></div>' +
+                            '<div style="display:flex; justify-content:space-between; align-items:center; color:#6b7280;">' +
+                                '<span>' + d.items.length + ' menu dilaporkan</span>' +
+                                '<span id="riwayatChevron_' + i + '" style="color:#a89a8c; font-size:10px;">Lihat detail ▾</span>' +
+                            '</div>' +
                             (d.catatan ? '<div style="color:#8a796e; margin-top:4px; font-style:italic;">📝 ' + d.catatan + '</div>' : '') +
+                            '<div id="riwayatDetail_' + i + '" style="display:none; margin-top:8px; padding-top:8px; border-top:1px dashed #e8ecf1; font-size:11px;">' + detailItems + '</div>' +
                             '</div>';
                     }).join("");
                 })
                 .catch(function (error) {
                     tampilkanErrorQuery(document.getElementById("riwayatListLapor"), error);
                 });
+        }
+
+        /* Buka/tutup rincian produk & jumlah yang dilaporkan di satu
+           kartu Riwayat Laporan, tanpa perlu pindah halaman. */
+        function toggleRiwayatDetail(i) {
+            const detail = document.getElementById("riwayatDetail_" + i);
+            const chevron = document.getElementById("riwayatChevron_" + i);
+            if (!detail) return;
+
+            const terbuka = detail.style.display === "block";
+            detail.style.display = terbuka ? "none" : "block";
+            if (chevron) chevron.textContent = terbuka ? "Lihat detail ▾" : "Tutup detail ▴";
         }
 
         /* =====================================================================
