@@ -150,7 +150,7 @@
                 <option value="true">Ya (muncul pilihan topping saat diklik di Kasir)</option>
             </select>
             <label style="margin-top:10px;">Harga per Mode Penjualan</label>
-            <div class="field-hint">Centang kalau produk ini dijual lewat mode tsb. Kosongkan harga untuk otomatis ikut Harga Offline.</div>
+            <div class="field-hint">Isi harga = produk ini dijual di mode tsb dengan harga itu. Kosongkan = produk TIDAK dijual di mode tsb (tidak otomatis ikut Harga Offline).</div>
             <div id="modeHargaContainer" style="margin-top:6px;"></div>
             <div class="err-text" id="pFormError"></div>
             <div class="modal-actions">
@@ -610,10 +610,13 @@
         let Produk_editingId = null;
 
         /* =====================================================
-           Render baris "Tersedia + Harga" per mode penjualan di
-           dalam modal Tambah/Edit Produk. modeHargaExisting adalah
-           field modeHarga produk (kalau edit) atau {} (kalau tambah
-           baru, default semua mode dicentang tersedia).
+           Render baris "Harga" per mode penjualan di dalam modal
+           Tambah/Edit Produk. modeHargaExisting adalah field
+           modeHarga produk (kalau edit) atau {} (kalau tambah baru).
+
+           ATURAN: harga diisi = produk DIJUAL di mode itu, dengan
+           harga tsb. Harga dikosongkan = produk TIDAK dijual/TIDAK
+           tersedia di mode itu (bukan otomatis ikut Harga Offline).
         ====================================================== */
         function renderModeHargaInputs(modeHargaExisting) {
             const container = document.getElementById("modeHargaContainer");
@@ -628,15 +631,12 @@
 
             const barisMode = daftarModePenjualan.map(function (m) {
                 const cfg = (modeHargaExisting && modeHargaExisting[m]) || {};
-                const tersedia = cfg.tersedia !== false; // default tercentang
                 const hargaVal = (cfg.harga !== undefined && cfg.harga !== null) ? cfg.harga : "";
                 const modeIdAman = m.replace(/[^a-zA-Z0-9]/g, "_");
 
                 return '<div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">' +
-                    '<label style="display:flex; align-items:center; gap:5px; font-size:11px; font-weight:500; width:110px; flex-shrink:0;">' +
-                        '<input type="checkbox" id="modeTersedia_' + modeIdAman + '" data-mode="' + m + '"' + (tersedia ? " checked" : "") + '> ' + m +
-                    '</label>' +
-                    '<input type="number" id="modeHarga_' + modeIdAman + '" placeholder="Ikuti Harga Offline" value="' + hargaVal + '" style="flex:1; height:32px; font-size:12px;">' +
+                    '<label style="font-size:11px; font-weight:500; width:110px; flex-shrink:0;">' + m + '</label>' +
+                    '<input type="number" id="modeHarga_' + modeIdAman + '" placeholder="Kosongkan = tidak dijual di mode ini" value="' + hargaVal + '" style="flex:1; height:32px; font-size:12px;">' +
                 '</div>';
             }).join("");
 
@@ -648,12 +648,12 @@
             const hasil = {};
             daftarModePenjualan.forEach(function (m) {
                 const modeIdAman = m.replace(/[^a-zA-Z0-9]/g, "_");
-                const cbEl = document.getElementById("modeTersedia_" + modeIdAman);
                 const hargaEl = document.getElementById("modeHarga_" + modeIdAman);
-                if (!cbEl) return;
+                if (!hargaEl) return;
 
-                const hargaVal = hargaEl && hargaEl.value !== "" ? Number(hargaEl.value) : null;
-                hasil[m] = { tersedia: cbEl.checked, harga: hargaVal };
+                const hargaVal = hargaEl.value !== "" ? Number(hargaEl.value) : null;
+                const dijual = hargaVal !== null && hargaVal > 0;
+                hasil[m] = { tersedia: dijual, harga: dijual ? hargaVal : null };
             });
             return hasil;
         }
