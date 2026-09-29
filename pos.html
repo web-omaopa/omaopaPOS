@@ -54,15 +54,18 @@
         }
         .kategori-tab.active { background: #12305C; border-color: #12305C; color: white; }
 
-        .mode-section-cart { padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid #e8ecf1; }
+        .mode-section-cart {
+            background: #12305C; margin: -18px -18px 16px -18px; padding: 16px 18px;
+            border-radius: 14px 14px 0 0;
+        }
         .mode-grid { display: flex; flex-wrap: wrap; gap: 6px; }
         .mode-tile {
-            padding: 7px 14px; border-radius: 20px; border: 1.5px solid #b06d09;
-            background: #fff8ec; cursor: pointer; font-size: 11px; font-weight: 700;
-            color: #b06d09; font-family: inherit;
+            padding: 7px 14px; border-radius: 20px; border: 1.5px solid rgba(255,255,255,0.45);
+            background: transparent; cursor: pointer; font-size: 11px; font-weight: 700;
+            color: #ffffff; font-family: inherit;
         }
-        .mode-tile:hover { background: #fdeecb; }
-        .mode-tile.active { background: #12305C; border-color: #12305C; color: #ffffff; }
+        .mode-tile:hover { background: rgba(255,255,255,0.12); }
+        .mode-tile.active { background: #ffffff; border-color: #ffffff; color: #12305C; }
 
         .pos-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 18px; align-items: start; }
         @media (max-width: 900px) { .pos-grid { grid-template-columns: 1fr; } }
