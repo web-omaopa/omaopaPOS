@@ -94,6 +94,20 @@
         .btn-cancel { background: none; border: 1px solid #dde3ea; color: #52606d; }
         .err-text { font-size: 10px; color: #c0392b; margin-top: 4px; display: none; }
         .denied-state { text-align: center; color: #6b7280; font-size: 12px; padding: 40px 0; }
+
+        .mode-overlay { z-index: 20; }
+        .mode-popover-box { max-width: 320px; }
+        .preset-row { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 9px; border: 1px solid #e4e8ee; margin-bottom: 6px; }
+        .preset-row-disabled { opacity: 0.55; }
+        .preset-icon { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .preset-name { flex: 1; font-size: 12.5px; font-weight: 600; color: #374151; }
+        .preset-add-btn { width: 22px; height: 22px; border-radius: 6px; background: #12305C; color: #fff; border: none; font-size: 14px; font-weight: 700; line-height: 1; cursor: pointer; }
+        .mode-divider { display: flex; align-items: center; gap: 8px; margin: 12px 0 8px 0; }
+        .mode-divider-line { flex: 1; height: 1px; background: #e8ecf1; }
+        .mode-divider-text { font-size: 10px; color: #b7c0cc; font-weight: 700; }
+        .mode-custom-row { display: flex; gap: 6px; }
+        .mode-custom-row input { flex: 1; height: 34px; }
+        .mode-custom-add-btn { width: 34px; height: 34px; border-radius: 8px; background: #F1F4F8; border: 1px solid #dde3ea; color: #12305C; font-size: 15px; font-weight: 700; cursor: pointer; flex-shrink: 0; }
     </style>
 </head>
 <body>
@@ -207,6 +221,27 @@
         </div>
     </div>
 
+    <div class="modal-overlay mode-overlay" id="modalTambahMode">
+        <div class="modal-box mode-popover-box">
+            <h3>Tambah Mode Penjualan</h3>
+            <div class="modal-hint">Pilih channel yang umum dipakai, atau ketik nama sendiri.</div>
+            <div id="popoverPresetList"></div>
+            <div class="mode-divider">
+                <div class="mode-divider-line"></div>
+                <span class="mode-divider-text">ATAU</span>
+                <div class="mode-divider-line"></div>
+            </div>
+            <div class="mode-custom-row">
+                <input type="text" id="popoverInputCustom" placeholder="Nama channel lain..." onkeydown="if(event.key==='Enter'){ModePenjualan_tambahCustom();}">
+                <button type="button" class="mode-custom-add-btn" onclick="ModePenjualan_tambahCustom()">+</button>
+            </div>
+            <div class="field-hint" style="margin-top:10px;">Klik "+" di daftar untuk langsung menambahkan mode itu tanpa ketik manual.</div>
+            <div class="modal-actions">
+                <button class="btn-cancel" style="flex:1;" onclick="ModePenjualan_tutupPopover()">Selesai</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const firebaseConfig = {
             apiKey: "AIzaSyC5nxXV7YPTEq160fLoqBBKtvwaHBQljfc",
@@ -309,7 +344,7 @@
                     '<div class="kategori-section" style="margin-top:16px;">' +
                         '<div class="field-hint" style="margin-bottom:4px;">Mode Penjualan (Offline selalu ada &amp; tidak perlu ditambahkan)</div>' +
                         '<div class="kategori-chips" id="modeChipsContainer"><div class="loading-state">Memuat mode...</div></div>' +
-                        '<button class="btn-tambah-kategori" onclick="ModePenjualan_tambah()">+ Tambah Mode Penjualan</button>' +
+                        '<button class="btn-tambah-kategori" onclick="ModePenjualan_bukaPopoverTambah(\'chip\')">+ Tambah Mode Penjualan</button>' +
                     '</div>' +
                     '<div class="header-row" style="margin-top:16px;"><h3></h3><button class="add-btn" onclick="Produk_bukaModalTambah()">+ Tambah Produk</button></div>' +
                     '<table><thead><tr><th>Nama</th><th>Kategori</th><th style="text-align:right;">Harga Offline</th><th style="text-align:right;">Status</th><th>Topping</th><th></th></tr></thead>' +
@@ -423,15 +458,83 @@
             }).join("");
         }
 
-        function ModePenjualan_tambah() {
-            const nama = prompt("Nama mode penjualan baru (misal: GoFood, GrabFood, ShopeeFood):", "");
-            if (!nama || !nama.trim()) return;
+        /* =====================================================
+           Popover "Tambah Mode Penjualan" (preset + custom).
+           Dipakai dari 2 tempat: chip section di Pengaturan, dan
+           dari dalam modal Tambah/Edit Produk (quick-add). Kalau
+           dibuka dari modal produk, isian harga-per-mode yang sudah
+           diketik dipertahankan lewat modeTambahNilaiSebelumnya.
+        ====================================================== */
+        const PRESET_MODE_PENJUALAN = [
+            { nama: "GoFood", warna: "#1E9E5A", bg: "#E7F6ED" },
+            { nama: "GrabFood", warna: "#1B8A4A", bg: "#E6F4EC" },
+            { nama: "ShopeeFood", warna: "#E8622C", bg: "#FCEBE2" }
+        ];
 
-            const namaBersih = nama.trim();
-            if (namaBersih.toLowerCase() === "offline") { alert('"Offline" sudah ada secara otomatis, tidak perlu ditambahkan.'); return; }
+        let modeTambahSumber = null; // 'modal' atau 'chip'
+        let modeTambahNilaiSebelumnya = null;
+
+        function ModePenjualan_bukaPopoverTambah(sumber) {
+            modeTambahSumber = sumber;
+            modeTambahNilaiSebelumnya = (sumber === "modal") ? ambilModeHargaDariForm() : null;
+            renderPopoverPreset();
+            document.getElementById("popoverInputCustom").value = "";
+            document.getElementById("modalTambahMode").classList.add("open");
+        }
+
+        function ModePenjualan_tutupPopover() {
+            document.getElementById("modalTambahMode").classList.remove("open");
+        }
+
+        function renderPopoverPreset() {
+            const container = document.getElementById("popoverPresetList");
+            if (!container) return;
+
+            container.innerHTML = PRESET_MODE_PENJUALAN.map(function (p) {
+                const sudahAda = daftarModePenjualan.indexOf(p.nama) !== -1;
+                const svg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="' + p.warna + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8h12l1 12H5L6 8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>';
+                const aksi = sudahAda
+                    ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9aa5b1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+                    : '<button type="button" class="preset-add-btn" onclick="ModePenjualan_pilihPreset(\'' + p.nama + '\')">+</button>';
+
+                return '<div class="preset-row' + (sudahAda ? ' preset-row-disabled' : '') + '">' +
+                    '<div class="preset-icon" style="background:' + p.bg + ';">' + svg + '</div>' +
+                    '<span class="preset-name">' + p.nama + (sudahAda ? ' <span style="font-weight:400;">(sudah ada)</span>' : '') + '</span>' +
+                    aksi +
+                '</div>';
+            }).join("");
+        }
+
+        function ModePenjualan_pilihPreset(nama) {
+            ModePenjualan_simpanModeBaru(nama);
+        }
+
+        function ModePenjualan_tambahCustom() {
+            const el = document.getElementById("popoverInputCustom");
+            const nama = (el.value || "").trim();
+            if (!nama) return;
+            if (nama.toLowerCase() === "offline") { alert('"Offline" sudah ada secara otomatis, tidak perlu ditambahkan.'); return; }
+            if (daftarModePenjualan.indexOf(nama) !== -1) { alert('Mode "' + nama + '" sudah ada.'); return; }
+
+            el.value = "";
+            ModePenjualan_simpanModeBaru(nama);
+        }
+
+        function ModePenjualan_simpanModeBaru(namaBersih) {
+            if (daftarModePenjualan.indexOf(namaBersih) !== -1) return;
 
             db.collection("mode_penjualan").doc(namaBersih).set({}).then(function () {
-                ModePenjualan_load();
+                return db.collection("mode_penjualan").get();
+            }).then(function (snapshot) {
+                daftarModePenjualan = [];
+                snapshot.forEach(function (doc) { daftarModePenjualan.push(doc.id); });
+                daftarModePenjualan.sort();
+
+                renderModeChips();
+                renderPopoverPreset();
+                if (modeTambahSumber === "modal") {
+                    renderModeHargaInputs(modeTambahNilaiSebelumnya || {});
+                }
             }).catch(function (error) {
                 alert("Gagal menambah mode: " + error.message);
             });
@@ -466,12 +569,14 @@
             const container = document.getElementById("modeHargaContainer");
             if (!container) return;
 
+            const tombolTambah = '<button type="button" class="btn-tambah-kategori" style="margin-top:2px;" onclick="ModePenjualan_bukaPopoverTambah(\'modal\')">+ Tambah Mode Baru</button>';
+
             if (daftarModePenjualan.length === 0) {
-                container.innerHTML = '<div style="font-size:11px; color:#6b7280;">Belum ada mode penjualan selain Offline. Tambahkan dulu lewat "+ Tambah Mode Penjualan" di atas.</div>';
+                container.innerHTML = '<div style="font-size:11px; color:#6b7280; margin-bottom:8px;">Belum ada mode penjualan selain Offline.</div>' + tombolTambah;
                 return;
             }
 
-            container.innerHTML = daftarModePenjualan.map(function (m) {
+            const barisMode = daftarModePenjualan.map(function (m) {
                 const cfg = (modeHargaExisting && modeHargaExisting[m]) || {};
                 const tersedia = cfg.tersedia !== false; // default tercentang
                 const hargaVal = (cfg.harga !== undefined && cfg.harga !== null) ? cfg.harga : "";
@@ -484,6 +589,8 @@
                     '<input type="number" id="modeHarga_' + modeIdAman + '" placeholder="Ikuti Harga Offline" value="' + hargaVal + '" style="flex:1; height:32px; font-size:12px;">' +
                 '</div>';
             }).join("");
+
+            container.innerHTML = barisMode + tombolTambah;
         }
 
         /* Ambil isi form modeHarga sekarang jadi object siap simpan */
