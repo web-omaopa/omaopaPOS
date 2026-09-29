@@ -294,24 +294,22 @@
         /* =====================================================
            Harga & ketersediaan produk mengikuti mode aktif.
            - Offline: selalu tersedia, pakai field harga dasar.
-           - Mode lain: tersedia kalau modeHarga[mode].tersedia !== false
-             (kalau produk belum pernah diatur untuk mode ini sama
-             sekali, dianggap tetap tersedia & ikut harga Offline).
-             Harga ikut modeHarga[mode].harga kalau diisi, kalau
-             kosong/tidak ada otomatis ikut harga Offline.
+           - Mode lain: produk DIJUAL di mode itu HANYA KALAU
+             modeHarga[mode].harga diisi (>0). Kalau kosong/belum
+             diatur sama sekali, produk dianggap TIDAK dijual di
+             mode itu (tidak ada fallback ke harga Offline lagi).
         ====================================================== */
         function tersediaDiMode(p, mode) {
             if (mode === "Offline") return true;
             const cfg = p.modeHarga && p.modeHarga[mode];
-            if (!cfg) return true; // belum pernah diatur untuk mode ini, dianggap tetap tersedia
-            return cfg.tersedia !== false;
+            return !!(cfg && cfg.tersedia && cfg.harga !== null && cfg.harga !== undefined && cfg.harga !== "" && Number(cfg.harga) > 0);
         }
 
         function hargaUntukMode(p, mode) {
             if (mode === "Offline") return Number(p.harga) || 0;
             const cfg = p.modeHarga && p.modeHarga[mode];
             if (cfg && cfg.harga !== null && cfg.harga !== undefined && cfg.harga !== "") return Number(cfg.harga);
-            return Number(p.harga) || 0;
+            return 0; // tidak dijual di mode ini
         }
 
         function renderMainContent() {
