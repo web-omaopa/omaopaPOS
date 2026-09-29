@@ -223,8 +223,9 @@
 
     <div class="modal-overlay mode-overlay" id="modalTambahMode">
         <div class="modal-box mode-popover-box">
-            <h3>Tambah Mode Penjualan</h3>
-            <div class="modal-hint">Pilih channel yang umum dipakai, atau ketik nama sendiri.</div>
+            <h3>Kelola Mode Penjualan</h3>
+            <div class="modal-hint">Tambah channel baru, atau klik &times; untuk hapus yang sudah tidak dipakai.</div>
+            <div id="popoverModeAdaList" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px;"></div>
             <div id="popoverPresetList"></div>
             <div class="mode-divider">
                 <div class="mode-divider-line"></div>
@@ -238,6 +239,21 @@
             <div class="field-hint" style="margin-top:10px;">Klik "+" di daftar untuk langsung menambahkan mode itu tanpa ketik manual.</div>
             <div class="modal-actions">
                 <button class="btn-cancel" style="flex:1;" onclick="ModePenjualan_tutupPopover()">Selesai</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay mode-overlay" id="modalKelolaKategori">
+        <div class="modal-box mode-popover-box">
+            <h3>Kelola Kategori Produk</h3>
+            <div class="modal-hint">Tambah kategori baru, atau klik &times; untuk hapus yang sudah tidak dipakai.</div>
+            <div id="popoverKategoriList" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px;"></div>
+            <div class="mode-custom-row">
+                <input type="text" id="popoverInputKategori" placeholder="Nama kategori baru..." onkeydown="if(event.key==='Enter'){Kategori_tambahDariPopover();}">
+                <button type="button" class="mode-custom-add-btn" onclick="Kategori_tambahDariPopover()">+</button>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-cancel" style="flex:1;" onclick="Kategori_tutupPopover()">Selesai</button>
             </div>
         </div>
     </div>
@@ -336,15 +352,9 @@
 
             if (nama === "produk") {
                 kontenHtml =
-                    '<div class="kategori-section">' +
-                        '<div class="field-hint" style="margin-bottom:4px;">Kategori Produk</div>' +
-                        '<div class="kategori-chips" id="kategoriChipsContainer"><div class="loading-state">Memuat kategori...</div></div>' +
-                        '<button class="btn-tambah-kategori" onclick="Kategori_tambah()">+ Tambah Kategori</button>' +
-                    '</div>' +
-                    '<div class="kategori-section" style="margin-top:16px;">' +
-                        '<div class="field-hint" style="margin-bottom:4px;">Mode Penjualan (Offline selalu ada &amp; tidak perlu ditambahkan)</div>' +
-                        '<div class="kategori-chips" id="modeChipsContainer"><div class="loading-state">Memuat mode...</div></div>' +
-                        '<button class="btn-tambah-kategori" onclick="ModePenjualan_bukaPopoverTambah(\'chip\')">+ Tambah Mode Penjualan</button>' +
+                    '<div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px;">' +
+                        '<button class="btn-tambah-kategori" onclick="Kategori_bukaPopoverKelola()">+ Kelola Kategori Produk</button>' +
+                        '<button class="btn-tambah-kategori" onclick="ModePenjualan_bukaPopoverTambah(\'chip\')">+ Kelola Mode Penjualan</button>' +
                     '</div>' +
                     '<div class="header-row" style="margin-top:16px;"><h3></h3><button class="add-btn" onclick="Produk_bukaModalTambah()">+ Tambah Produk</button></div>' +
                     '<table><thead><tr><th>Nama</th><th>Kategori</th><th style="text-align:right;">Harga Offline</th><th style="text-align:right;">Status</th><th>Topping</th><th></th></tr></thead>' +
@@ -381,45 +391,72 @@
                 daftarKategoriProduk = [];
                 snapshot.forEach(function (doc) { daftarKategoriProduk.push(doc.id); });
                 daftarKategoriProduk.sort();
-                renderKategoriChips();
+                renderPopoverKategoriList();
             }).catch(function (error) {
-                const container = document.getElementById("kategoriChipsContainer");
-                if (container) container.innerHTML = '<span style="font-size:12px; color:#c0392b;">Gagal memuat kategori: ' + error.message + '</span>';
+                console.error("Gagal memuat kategori:", error.message);
             });
         }
 
-        function renderKategoriChips() {
-            const container = document.getElementById("kategoriChipsContainer");
+        /* =====================================================
+           Popover "Kelola Kategori Produk" (tambah + hapus jadi
+           satu tempat, tidak lagi tampil sebagai chip list terbuka
+           di halaman utama supaya tidak gampang kepencet hapus
+           tidak sengaja).
+        ====================================================== */
+        function Kategori_bukaPopoverKelola() {
+            renderPopoverKategoriList();
+            document.getElementById("popoverInputKategori").value = "";
+            document.getElementById("modalKelolaKategori").classList.add("open");
+        }
+
+        function Kategori_tutupPopover() {
+            document.getElementById("modalKelolaKategori").classList.remove("open");
+        }
+
+        function renderPopoverKategoriList() {
+            const container = document.getElementById("popoverKategoriList");
             if (!container) return;
 
             if (daftarKategoriProduk.length === 0) {
-                container.innerHTML = '<span style="font-size:12px; color:#6b7280;">Belum ada kategori. Klik "+ Tambah Kategori".</span>';
+                container.innerHTML = '<span style="font-size:12px; color:#6b7280;">Belum ada kategori.</span>';
                 return;
             }
 
             container.innerHTML = daftarKategoriProduk.map(function (k) {
                 return '<span class="kategori-chip">' + k +
-                    '<button onclick="Kategori_hapus(\'' + k.replace(/'/g, "") + '\')" title="Hapus kategori">&times;</button></span>';
+                    '<button onclick="Kategori_hapusDariPopover(\'' + k.replace(/'/g, "") + '\')" title="Hapus kategori">&times;</button></span>';
             }).join("");
         }
 
-        function Kategori_tambah() {
-            const nama = prompt("Nama kategori baru (misal: Malmil, Ogura, Chiffon):", "");
-            if (!nama || !nama.trim()) return;
+        function Kategori_tambahDariPopover() {
+            const el = document.getElementById("popoverInputKategori");
+            const nama = (el.value || "").trim();
+            if (!nama) return;
+            if (daftarKategoriProduk.indexOf(nama) !== -1) { alert('Kategori "' + nama + '" sudah ada.'); return; }
 
-            const namaBersih = nama.trim();
-            db.collection("kategori_produk").doc(namaBersih).set({}).then(function () {
-                Kategori_load();
+            el.value = "";
+            db.collection("kategori_produk").doc(nama).set({}).then(function () {
+                return db.collection("kategori_produk").get();
+            }).then(function (snapshot) {
+                daftarKategoriProduk = [];
+                snapshot.forEach(function (doc) { daftarKategoriProduk.push(doc.id); });
+                daftarKategoriProduk.sort();
+                renderPopoverKategoriList();
             }).catch(function (error) {
                 alert("Gagal menambah kategori: " + error.message);
             });
         }
 
-        function Kategori_hapus(nama) {
+        function Kategori_hapusDariPopover(nama) {
             if (!confirm('Hapus kategori "' + nama + '"? Produk yang sudah memakai kategori ini TIDAK ikut berubah otomatis.')) return;
 
             db.collection("kategori_produk").doc(nama).delete().then(function () {
-                Kategori_load();
+                return db.collection("kategori_produk").get();
+            }).then(function (snapshot) {
+                daftarKategoriProduk = [];
+                snapshot.forEach(function (doc) { daftarKategoriProduk.push(doc.id); });
+                daftarKategoriProduk.sort();
+                renderPopoverKategoriList();
             });
         }
 
@@ -434,36 +471,22 @@
                 daftarModePenjualan = [];
                 snapshot.forEach(function (doc) { daftarModePenjualan.push(doc.id); });
                 daftarModePenjualan.sort();
-                renderModeChips();
+                renderPopoverModeAdaList();
+                renderPopoverPreset();
             }).catch(function (error) {
-                const container = document.getElementById("modeChipsContainer");
-                if (container) container.innerHTML = '<span style="font-size:12px; color:#c0392b;">Gagal memuat mode: ' + error.message + '</span>';
+                console.error("Gagal memuat mode:", error.message);
             });
         }
 
-        function renderModeChips() {
-            const container = document.getElementById("modeChipsContainer");
-            if (!container) return;
-
-            const semuaLabel = '<span class="kategori-chip" style="background:#eef1f5; color:#6b7280;">Offline (dasar)</span>';
-
-            if (daftarModePenjualan.length === 0) {
-                container.innerHTML = semuaLabel + ' <span style="font-size:12px; color:#6b7280;">Belum ada mode lain. Klik "+ Tambah Mode Penjualan".</span>';
-                return;
-            }
-
-            container.innerHTML = semuaLabel + " " + daftarModePenjualan.map(function (m) {
-                return '<span class="kategori-chip">' + m +
-                    '<button onclick="ModePenjualan_hapus(\'' + m.replace(/'/g, "") + '\')" title="Hapus mode">&times;</button></span>';
-            }).join("");
-        }
-
         /* =====================================================
-           Popover "Tambah Mode Penjualan" (preset + custom).
-           Dipakai dari 2 tempat: chip section di Pengaturan, dan
-           dari dalam modal Tambah/Edit Produk (quick-add). Kalau
-           dibuka dari modal produk, isian harga-per-mode yang sudah
-           diketik dipertahankan lewat modeTambahNilaiSebelumnya.
+           Popover "Kelola Mode Penjualan" (daftar yang sudah ada +
+           hapus, preset quick-add, dan custom). Dipakai dari 2
+           tempat: tombol di Pengaturan, dan dari dalam modal Tambah/
+           Edit Produk (quick-add). Kalau dibuka dari modal produk,
+           isian harga-per-mode yang sudah diketik dipertahankan
+           lewat modeTambahNilaiSebelumnya. Tombol hapus per-mode
+           sengaja ditaruh di sini (bukan di halaman utama Pengaturan)
+           supaya tidak gampang kepencet tidak sengaja.
         ====================================================== */
         const PRESET_MODE_PENJUALAN = [
             { nama: "GoFood", warna: "#1E9E5A", bg: "#E7F6ED" },
@@ -477,6 +500,7 @@
         function ModePenjualan_bukaPopoverTambah(sumber) {
             modeTambahSumber = sumber;
             modeTambahNilaiSebelumnya = (sumber === "modal") ? ambilModeHargaDariForm() : null;
+            renderPopoverModeAdaList();
             renderPopoverPreset();
             document.getElementById("popoverInputCustom").value = "";
             document.getElementById("modalTambahMode").classList.add("open");
@@ -486,21 +510,37 @@
             document.getElementById("modalTambahMode").classList.remove("open");
         }
 
+        function renderPopoverModeAdaList() {
+            const container = document.getElementById("popoverModeAdaList");
+            if (!container) return;
+
+            const semuaLabel = '<span class="kategori-chip" style="background:#eef1f5; color:#6b7280;">Offline (dasar)</span>';
+
+            container.innerHTML = semuaLabel + " " + daftarModePenjualan.map(function (m) {
+                return '<span class="kategori-chip">' + m +
+                    '<button onclick="ModePenjualan_hapusDariPopover(\'' + m.replace(/'/g, "") + '\')" title="Hapus mode">&times;</button></span>';
+            }).join("");
+        }
+
         function renderPopoverPreset() {
             const container = document.getElementById("popoverPresetList");
             if (!container) return;
 
-            container.innerHTML = PRESET_MODE_PENJUALAN.map(function (p) {
-                const sudahAda = daftarModePenjualan.indexOf(p.nama) !== -1;
-                const svg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="' + p.warna + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8h12l1 12H5L6 8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>';
-                const aksi = sudahAda
-                    ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9aa5b1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
-                    : '<button type="button" class="preset-add-btn" onclick="ModePenjualan_pilihPreset(\'' + p.nama + '\')">+</button>';
+            const belumAda = PRESET_MODE_PENJUALAN.filter(function (p) {
+                return daftarModePenjualan.indexOf(p.nama) === -1;
+            });
 
-                return '<div class="preset-row' + (sudahAda ? ' preset-row-disabled' : '') + '">' +
+            if (belumAda.length === 0) {
+                container.innerHTML = "";
+                return;
+            }
+
+            container.innerHTML = belumAda.map(function (p) {
+                const svg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="' + p.warna + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8h12l1 12H5L6 8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>';
+                return '<div class="preset-row">' +
                     '<div class="preset-icon" style="background:' + p.bg + ';">' + svg + '</div>' +
-                    '<span class="preset-name">' + p.nama + (sudahAda ? ' <span style="font-weight:400;">(sudah ada)</span>' : '') + '</span>' +
-                    aksi +
+                    '<span class="preset-name">' + p.nama + '</span>' +
+                    '<button type="button" class="preset-add-btn" onclick="ModePenjualan_pilihPreset(\'' + p.nama + '\')">+</button>' +
                 '</div>';
             }).join("");
         }
@@ -530,7 +570,7 @@
                 snapshot.forEach(function (doc) { daftarModePenjualan.push(doc.id); });
                 daftarModePenjualan.sort();
 
-                renderModeChips();
+                renderPopoverModeAdaList();
                 renderPopoverPreset();
                 if (modeTambahSumber === "modal") {
                     renderModeHargaInputs(modeTambahNilaiSebelumnya || {});
@@ -540,11 +580,21 @@
             });
         }
 
-        function ModePenjualan_hapus(nama) {
+        function ModePenjualan_hapusDariPopover(nama) {
             if (!confirm('Hapus mode penjualan "' + nama + '"? Harga khusus mode ini di tiap produk TIDAK ikut terhapus otomatis (cuma tidak dipakai lagi).')) return;
 
             db.collection("mode_penjualan").doc(nama).delete().then(function () {
-                ModePenjualan_load();
+                return db.collection("mode_penjualan").get();
+            }).then(function (snapshot) {
+                daftarModePenjualan = [];
+                snapshot.forEach(function (doc) { daftarModePenjualan.push(doc.id); });
+                daftarModePenjualan.sort();
+
+                renderPopoverModeAdaList();
+                renderPopoverPreset();
+                if (modeTambahSumber === "modal") {
+                    renderModeHargaInputs(modeTambahNilaiSebelumnya || {});
+                }
             });
         }
 
