@@ -55,16 +55,13 @@
         .kategori-tab.active { background: #12305C; border-color: #12305C; color: white; }
 
         .mode-section-cart { padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid #e8ecf1; }
-        .mode-section-label { font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: #8AA0C7; margin-bottom: 8px; }
-        .mode-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(58px, 1fr)); gap: 6px; }
+        .mode-grid { display: flex; flex-wrap: wrap; gap: 6px; }
         .mode-tile {
-            display: flex; flex-direction: column; align-items: center; gap: 4px;
-            padding: 8px 2px; border-radius: 10px; border: 1.5px solid #e4e8ee;
-            background: #ffffff; cursor: pointer; font-size: 10px; font-weight: 700;
+            padding: 7px 14px; border-radius: 20px; border: 1.5px solid #e4e8ee;
+            background: #ffffff; cursor: pointer; font-size: 11px; font-weight: 700;
             color: #374151; font-family: inherit;
         }
         .mode-tile.active { background: #12305C; border-color: #12305C; color: #ffffff; }
-        .mode-tile-icon { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
 
         .pos-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 18px; align-items: start; }
         @media (max-width: 900px) { .pos-grid { grid-template-columns: 1fr; } }
@@ -265,30 +262,6 @@
             });
         }
 
-        /* Warna badge ikon per mode. Channel yang dikenal dapat warna
-           tetap (mirip identitas channel-nya, bukan logo asli); mode
-           custom lain dapat warna dari palet cadangan biar tetap beda-beda. */
-        function warnaUntukMode(mode) {
-            const dikenal = {
-                "GoFood": { warna: "#1E9E5A", bg: "#E7F6ED" },
-                "GrabFood": { warna: "#1B8A4A", bg: "#E6F4EC" },
-                "ShopeeFood": { warna: "#E8622C", bg: "#FCEBE2" }
-            };
-            if (dikenal[mode]) return dikenal[mode];
-
-            const palet = [
-                { warna: "#7C5CD8", bg: "#EFEAFB" },
-                { warna: "#0E7490", bg: "#E1F3F6" },
-                { warna: "#B45309", bg: "#FCEEDB" }
-            ];
-            let hash = 0;
-            for (let i = 0; i < mode.length; i++) hash += mode.charCodeAt(i);
-            return palet[hash % palet.length];
-        }
-
-        const ICON_OFFLINE = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1.5-5h15L21 9"/><path d="M5 9v10h14V9"/><path d="M9 19v-6h6v6"/></svg>';
-        const ICON_CHANNEL = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8h12l1 12H5L6 8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>';
-
         function renderModeTabs() {
             const container = document.getElementById("modeTabs");
             if (!container) return;
@@ -296,16 +269,8 @@
             const semuaMode = ["Offline"].concat(daftarModePenjualan);
             container.innerHTML = semuaMode.map(function (m) {
                 const aktif = m === modeAktif;
-                const isOffline = m === "Offline";
-                const warna = isOffline ? { warna: "#12305C", bg: "#eef1f5" } : warnaUntukMode(m);
-                const iconBg = aktif ? "rgba(255,255,255,0.18)" : warna.bg;
-                const iconWarna = aktif ? "#ffffff" : warna.warna;
-
                 return '<button type="button" class="mode-tile' + (aktif ? ' active' : '') +
-                    '" onclick="pilihMode(\'' + m.replace(/'/g, "") + '\')">' +
-                    '<span class="mode-tile-icon" style="background:' + iconBg + '; color:' + iconWarna + ';">' + (isOffline ? ICON_OFFLINE : ICON_CHANNEL) + '</span>' +
-                    '<span>' + m + '</span>' +
-                '</button>';
+                    '" onclick="pilihMode(\'' + m.replace(/'/g, "") + '\')">' + m + '</button>';
             }).join("");
         }
 
@@ -358,7 +323,6 @@
                     '<div class="product-grid" id="productGrid"><div class="loading-state">Memuat produk...</div></div>' +
                     '<div class="cart-card">' +
                         '<div class="mode-section-cart">' +
-                            '<div class="mode-section-label">Mode Penjualan</div>' +
                             '<div class="mode-grid" id="modeTabs"></div>' +
                         '</div>' +
                         '<div class="cart-title">Keranjang</div>' +
