@@ -205,6 +205,20 @@
         let modeAktif = "Offline";
         let daftarModePenjualan = [];
 
+        /* =====================================================
+           PROMO
+           Daftar promo aktif dimuat sekali di awal (loadPromo).
+           Penerapannya dihitung ulang tiap kali keranjang berubah,
+           lewat sinkronPromoOtomatis() (menambah/menghapus item
+           gratis dari promo Beli X Gratis Y secara otomatis) dan
+           computePromoEffects() (menghitung total diskon dari semua
+           promo yang berlaku, ditampilkan di baris "Diskon").
+           Harga satuan tiap item keranjang TIDAK diubah langsung
+           supaya tetap transparan; promo hanya mengurangi total
+           lewat baris diskon.
+        ====================================================== */
+        let daftarPromo = [];
+
         auth.onAuthStateChanged(function (user) {
             if (!user) { window.location.href = "index.html"; return; }
 
@@ -241,6 +255,171 @@
             loadModePenjualan();
             loadTopping();
             loadProducts();
+            loadPromo();
+        }
+
+        function loadPromo() {
+            db.collection("promo").get().then(function (snapshot) {
+                daftarPromo = [];
+                snapshot.forEach(function (doc) { daftarPromo.push(Object.assign({ id: doc.id }, doc.data())); });
+                renderCart();
+            }).catch(function (error) {
+                daftarPromo = [];
+                console.error("Gagal memuat promo:", error.message);
+            });
+        }
+
+        /* Promo dianggap berlaku sekarang kalau: statusnya aktif,
+           tanggal sekarang ada dalam rentang tanggalMulai/Berakhir
+           (kalau diisi), outlet kasir ini termasuk outletList (atau
+           outletList kosong = semua outlet), dan mode jual aktif
+           termasuk modeList (atau modeList kosong = semua mode). */
+        function promoBerlakuSekarang(promo) {
+            if (!promo || promo.status !== "aktif") return false;
+            const todayStr = new Date().toISOString().slice(0, 10);
+            if (promo.tanggalMulai && todayStr < promo.tanggalMulai) return false;
+            if (promo.tanggalBerakhir && todayStr > promo.tanggalBerakhir) return false;
+            const outletList = promo.outletList || [];
+            if (outletList.length > 0 && outletList.indexOf(currentUser.outlet) === -1) return false;
+            const modeList = promo.modeList || [];
+            if (modeList.length > 0 && modeList.indexOf(modeAktif) === -1) return false;
+            return true;
+        }
+
+        /* Tambah/hapus otomatis item gratis dari promo Beli X Gratis Y
+           sesuai isi keranjang sekarang. Dipanggil di awal renderCart()
+           supaya selalu sinkron tiap kali keranjang berubah. */
+        function sinkronPromoOtomatis() {
+            const promoGratisAktif = daftarPromo.filter(function (p) { return p.tipe === "beli_gratis" && promoBerlakuSekarang(p); });
+
+            promoGratisAktif.forEach(function (promo) {
+                const entryKey = "_promo_" + promo.id;
+                const gratisProduct = allProducts.find(function (p) { return p.id === promo.gratisProdukId; });
+
+                const buyQty = Object.values(cart)
+                    .filter(function (i) { return !i.isPromoGratis && i.productId === promo.beliProdukId; })
+                    .reduce(function (sum, i) { return sum + i.qty; }, 0);
+
+                const beliJumlah = Number(promo.beliJumlah) || 0;
+                const gratisJumlah = Number(promo.gratisJumlah) || 0;
+                const multiplier = beliJumlah > 0 ? Math.floor(buyQty / beliJumlah) : 0;
+                let targetQty = multiplier * gratisJumlah;
+
+                if (!gratisProduct || targetQty <= 0) {
+                    delete cart[entryKey];
+                    return;
+                }
+
+                // Batasi sesuai sisa stok (dikurangi qty produk yang sama yang sudah ditambah manual)
+                const stokProduk = stockMap[promo.gratisProdukId] || 0;
+                const qtyManualSama = Object.values(cart)
+                    .filter(function (i) { return !i.isPromoGratis && i.productId === promo.gratisProdukId; })
+                    .reduce(function (sum, i) { return sum + i.qty; }, 0);
+                const sisaStok = Math.max(0, stokProduk - qtyManualSama);
+                targetQty = Math.min(targetQty, sisaStok);
+
+                if (targetQty <= 0) {
+                    delete cart[entryKey];
+                    return;
+                }
+
+                const hargaSatuan = hargaUntukMode(gratisProduct, modeAktif);
+                cart[entryKey] = {
+                    productId: promo.gratisProdukId, nama: gratisProduct.nama, hargaSatuan: hargaSatuan,
+                    hargaDasar: hargaSatuan, toppings: [], qty: targetQty, lacakStok: true,
+                    isPromoGratis: true, promoId: promo.id, promoNama: promo.nama
+                };
+            });
+        }
+
+        /* Hitung total diskon dari semua promo yang berlaku sekarang,
+           berdasarkan isi keranjang. Tidak mengubah harga satuan item,
+           hanya menghasilkan satu angka diskon total + daftar nama
+           promo yang terpakai (dipakai juga saat simpan transaksi). */
+        function computePromoEffects() {
+            const promos = daftarPromo.filter(promoBerlakuSekarang);
+
+            const sisaQty = {};
+            const hargaDasarMap = {};
+            Object.values(cart).forEach(function (item) {
+                if (item.isPromoGratis) return;
+                sisaQty[item.productId] = (sisaQty[item.productId] || 0) + item.qty;
+                hargaDasarMap[item.productId] = item.hargaDasar;
+            });
+
+            let totalDiskon = 0;
+            const promoDipakai = [];
+
+            // Diskon Persen / Diskon Nominal / Harga Spesial: satu produk hanya
+            // diklaim oleh promo pertama yang cocok, supaya tidak dobel diskon.
+            promos.forEach(function (promo) {
+                if (promo.tipe !== "diskon_persen" && promo.tipe !== "diskon_nominal" && promo.tipe !== "harga_spesial") return;
+                (promo.produkIds || []).forEach(function (pid) {
+                    const qty = sisaQty[pid] || 0;
+                    if (qty <= 0) return;
+                    const hargaDasar = hargaDasarMap[pid];
+                    if (hargaDasar === undefined) return;
+
+                    let diskonPerUnit = 0;
+                    if (promo.tipe === "diskon_persen") diskonPerUnit = hargaDasar * (Number(promo.nilai) || 0) / 100;
+                    else if (promo.tipe === "diskon_nominal") diskonPerUnit = Math.min(hargaDasar, Number(promo.nilai) || 0);
+                    else if (promo.tipe === "harga_spesial") diskonPerUnit = Math.max(0, hargaDasar - (Number(promo.nilai) || 0));
+
+                    totalDiskon += diskonPerUnit * qty;
+                    sisaQty[pid] = 0;
+                    promoDipakai.push(promo.nama);
+                });
+            });
+
+            // Bundling: hitung dari sisa qty yang belum diklaim promo lain
+            promos.forEach(function (promo) {
+                if (promo.tipe !== "bundling") return;
+                const grup = promo.grupProdukIds || [];
+
+                let totalQtyGrup = 0, totalHargaGrup = 0;
+                grup.forEach(function (pid) {
+                    const qty = sisaQty[pid] || 0;
+                    totalQtyGrup += qty;
+                    totalHargaGrup += qty * (hargaDasarMap[pid] || 0);
+                });
+
+                const syarat = Number(promo.syaratJumlah) || 0;
+                if (syarat <= 0 || totalQtyGrup < syarat) return;
+
+                const multiplier = Math.floor(totalQtyGrup / syarat);
+                const coveredQty = multiplier * syarat;
+                const normalPriceCovered = totalQtyGrup > 0 ? totalHargaGrup * (coveredQty / totalQtyGrup) : 0;
+
+                let diskonBundle = 0;
+                if (promo.hasilTipe === "harga_paket") {
+                    diskonBundle = normalPriceCovered - (multiplier * (Number(promo.hasilNilai) || 0));
+                } else if (promo.hasilTipe === "diskon_persen") {
+                    diskonBundle = normalPriceCovered * (Number(promo.hasilNilai) || 0) / 100;
+                } else if (promo.hasilTipe === "diskon_rp") {
+                    diskonBundle = multiplier * (Number(promo.hasilNilai) || 0);
+                }
+
+                if (diskonBundle > 0) {
+                    totalDiskon += diskonBundle;
+                    promoDipakai.push(promo.nama);
+                    grup.forEach(function (pid) {
+                        const qty = sisaQty[pid] || 0;
+                        if (totalQtyGrup > 0 && qty > 0) sisaQty[pid] = qty - (qty * (coveredQty / totalQtyGrup));
+                    });
+                }
+            });
+
+            // Beli X Gratis Y: item gratis sudah masuk keranjang dengan harga normal
+            // (lewat sinkronPromoOtomatis), jadi didiskon penuh di sini supaya jadi Rp 0.
+            promos.forEach(function (promo) {
+                if (promo.tipe !== "beli_gratis") return;
+                const entry = cart["_promo_" + promo.id];
+                if (!entry) return;
+                totalDiskon += entry.hargaSatuan * entry.qty;
+                promoDipakai.push(promo.nama);
+            });
+
+            return { totalDiskon: Math.round(totalDiskon), promoDipakai: Array.from(new Set(promoDipakai)) };
         }
 
         function loadTopping() {
@@ -544,7 +723,7 @@
 
         function ubahQty(cartKey, delta) {
             const item = cart[cartKey];
-            if (!item) return;
+            if (!item || item.isPromoGratis) return;
 
             const stokTersedia = stockMap[item.productId] || 0;
             const totalProdukIni = Object.values(cart)
@@ -570,12 +749,14 @@
         }
 
         function renderCart() {
+            sinkronPromoOtomatis();
+
             const container = document.getElementById("cartItems");
             const items = Object.entries(cart);
 
             if (items.length === 0) {
                 container.innerHTML = '<div class="cart-empty">Belum ada produk dipilih</div>';
-                updateRingkasan(0);
+                updateRingkasan(0, 0);
                 document.getElementById("payBtn").disabled = true;
                 return;
             }
@@ -593,6 +774,14 @@
                     ? item.toppings.map(function (t) { return t.nama; }).join(", ")
                     : "";
 
+                const qtyControlsHtml = item.isPromoGratis
+                    ? '<div class="qty-controls"><span class="qty-num">' + item.qty + '</span></div>'
+                    : '<div class="qty-controls">' +
+                          '<button class="qty-btn" onclick="ubahQty(\'' + cartKey + '\', -1)">-</button>' +
+                          '<span class="qty-num">' + item.qty + '</span>' +
+                          '<button class="qty-btn" onclick="ubahQty(\'' + cartKey + '\', 1)">+</button>' +
+                      '</div>';
+
                 const row = document.createElement("div");
                 row.className = "cart-item";
                 row.innerHTML =
@@ -600,25 +789,25 @@
                         '<div>' +
                             '<div class="nama">' + item.nama + '</div>' +
                             (toppingText ? '<div class="topping-tag">' + toppingText + '</div>' : '') +
+                            (item.isPromoGratis ? '<div class="topping-tag" style="color:#1E9E5A; font-weight:700;">GRATIS — Promo: ' + item.promoNama + '</div>' : '') +
                         '</div>' +
                         '<div class="harga">Rp ' + totalHargaItem.toLocaleString("id-ID") + '</div>' +
                     '</div>' +
-                    '<div class="qty-controls">' +
-                        '<button class="qty-btn" onclick="ubahQty(\'' + cartKey + '\', -1)">-</button>' +
-                        '<span class="qty-num">' + item.qty + '</span>' +
-                        '<button class="qty-btn" onclick="ubahQty(\'' + cartKey + '\', 1)">+</button>' +
-                    '</div>';
+                    qtyControlsHtml;
                 container.appendChild(row);
             });
 
-            updateRingkasan(subtotal);
+            const promoResult = computePromoEffects();
+            updateRingkasan(subtotal, promoResult.totalDiskon);
             document.getElementById("payBtn").disabled = false;
         }
 
-        function updateRingkasan(subtotal) {
+        function updateRingkasan(subtotal, diskon) {
+            diskon = diskon || 0;
+            const total = Math.max(0, subtotal - diskon);
             document.getElementById("sumSubtotal").textContent = "Rp " + subtotal.toLocaleString("id-ID");
-            document.getElementById("sumDiskon").textContent = "Rp 0";
-            document.getElementById("sumTotal").textContent = "Rp " + subtotal.toLocaleString("id-ID");
+            document.getElementById("sumDiskon").textContent = "Rp " + diskon.toLocaleString("id-ID");
+            document.getElementById("sumTotal").textContent = "Rp " + total.toLocaleString("id-ID");
         }
 
         function prosesBayar() {
@@ -635,7 +824,10 @@
                 totalPerProduk[item.productId] = (totalPerProduk[item.productId] || 0) + item.qty;
             });
 
-            const total = entries.reduce(function (sum, entry) { return sum + (entry[1].hargaSatuan * entry[1].qty); }, 0);
+            const subtotal = entries.reduce(function (sum, entry) { return sum + (entry[1].hargaSatuan * entry[1].qty); }, 0);
+            const promoResult = computePromoEffects();
+            const diskonPromo = promoResult.totalDiskon;
+            const total = Math.max(0, subtotal - diskonPromo);
             const metodeBayar = document.getElementById("metodeBayar").value;
             const outletRef = db.collection("outlets").doc(currentUser.outlet);
             const productIds = Object.keys(totalPerProduk);
@@ -660,13 +852,15 @@
                         return {
                             productId: item.productId, nama: item.nama,
                             toppings: item.toppings.map(function (t) { return t.nama; }),
-                            harga: item.hargaSatuan, qty: item.qty
+                            harga: item.hargaSatuan, qty: item.qty,
+                            isPromoGratis: !!item.isPromoGratis
                         };
                     });
 
                     transaction.set(db.collection("transactions").doc(), {
                         outlet: currentUser.outlet, kasirUid: currentUser.uid, kasirNama: currentUser.nama,
-                        items: itemsUntukTransaksi, total: total, metodeBayar: metodeBayar,
+                        items: itemsUntukTransaksi, subtotal: subtotal, diskonPromo: diskonPromo,
+                        promoDipakai: promoResult.promoDipakai, total: total, metodeBayar: metodeBayar,
                         modePenjualan: modeAktif, status: "aktif",
                         waktu: firebase.firestore.FieldValue.serverTimestamp()
                     });
