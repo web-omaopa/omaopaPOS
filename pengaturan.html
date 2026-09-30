@@ -258,6 +258,47 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="modalPromo">
+        <div class="modal-box" style="max-width:420px;">
+            <h3 id="modalPromoTitle">Tambah Promo</h3>
+            <label>Nama Promo</label>
+            <input type="text" id="promoInputNama" placeholder="Diskon Kemerdekaan">
+            <label>Tipe Promo</label>
+            <select id="promoInputTipe" onchange="Promo_renderFieldsDinamis()">
+                <option value="diskon_persen">Diskon Persen (%)</option>
+                <option value="diskon_nominal">Diskon Nominal (Rp)</option>
+                <option value="harga_spesial">Harga Spesial (harga tetap)</option>
+                <option value="beli_gratis">Beli X Gratis Y</option>
+                <option value="bundling">Bundling (kelompok produk, fleksibel)</option>
+            </select>
+            <div id="promoFieldsDinamis" style="margin-top:6px;"></div>
+            <div style="display:flex; gap:10px;">
+                <div style="flex:1;">
+                    <label>Tanggal Mulai (opsional)</label>
+                    <input type="date" id="promoInputTglMulai">
+                </div>
+                <div style="flex:1;">
+                    <label>Tanggal Berakhir (opsional)</label>
+                    <input type="date" id="promoInputTglBerakhir">
+                </div>
+            </div>
+            <div class="field-hint">Kosongkan kedua tanggal untuk promo tanpa batas waktu (matikan manual lewat Status kalau perlu).</div>
+            <label>Berlaku di Outlet</label>
+            <div id="promoOutletCheckbox" style="max-height:110px; overflow-y:auto; border:1px solid #e8ecf1; border-radius:8px; padding:8px;"></div>
+            <div class="field-hint">Centang kosong = berlaku di semua outlet.</div>
+            <label>Berlaku di Mode Penjualan</label>
+            <div id="promoModeCheckbox" style="max-height:100px; overflow-y:auto; border:1px solid #e8ecf1; border-radius:8px; padding:8px;"></div>
+            <div class="field-hint">Centang kosong = berlaku di semua mode (termasuk Offline).</div>
+            <label>Status</label>
+            <select id="promoInputStatus"><option value="aktif">Aktif</option><option value="nonaktif">Nonaktif</option></select>
+            <div class="err-text" id="promoFormError"></div>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="Promo_tutupModal()">Batal</button>
+                <button class="btn-save" onclick="Promo_simpan()">Simpan</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const firebaseConfig = {
             apiKey: "AIzaSyC5nxXV7YPTEq160fLoqBBKtvwaHBQljfc",
@@ -277,6 +318,18 @@
         let daftarKategoriProduk = [];
         let daftarModePenjualan = [];
         const ROLE_LIST = ["management", "admin", "owner", "kasir", "forecaster"];
+
+        let daftarProdukPromo = [];
+        let daftarOutletPromo = [];
+        let daftarPromoList = [];
+        let Promo_editingId = null;
+        const TIPE_PROMO_LABEL = {
+            diskon_persen: "DISKON %",
+            diskon_nominal: "DISKON RP",
+            harga_spesial: "HARGA SPESIAL",
+            beli_gratis: "BELI X GRATIS Y",
+            bundling: "BUNDLING"
+        };
 
         auth.onAuthStateChanged(function (user) {
             if (!user) { window.location.href = "index.html"; return; }
@@ -338,6 +391,11 @@
                         '<div class="hub-title">User</div>' +
                         '<div class="hub-desc">Tambah & atur akun pengguna</div>' +
                     '</div>' +
+                    '<div class="hub-card" onclick="bukaSection(\'promo\')">' +
+                        '<div class="hub-icon">🏷️</div>' +
+                        '<div class="hub-title">Promo</div>' +
+                        '<div class="hub-desc">Kelola diskon & promo yang otomatis kepakai di kasir</div>' +
+                    '</div>' +
                 '</div>';
         }
 
@@ -346,7 +404,7 @@
            Menampilkan breadcrumb "Pengaturan / [Nama]" untuk kembali.
         ====================================================== */
         function bukaSection(nama) {
-            const judul = { produk: "Produk", outlet: "Outlet", user: "User" }[nama];
+            const judul = { produk: "Produk", outlet: "Outlet", user: "User", promo: "Promo" }[nama];
 
             let kontenHtml = "";
 
@@ -368,6 +426,11 @@
                     '<div class="header-row"><h3></h3><button class="add-btn" onclick="User_bukaModalTambah()">+ Tambah User</button></div>' +
                     '<table><thead><tr><th>Nama</th><th>Role</th><th>Outlet</th><th></th></tr></thead>' +
                     '<tbody id="userTableBody"><tr><td colspan="4" class="loading-state">Memuat...</td></tr></tbody></table>';
+            } else if (nama === "promo") {
+                kontenHtml =
+                    '<div class="header-row"><h3></h3><button class="add-btn" onclick="Promo_bukaModalTambah()">+ Tambah Promo</button></div>' +
+                    '<div id="promoListContainer"><div class="loading-state">Memuat...</div></div>' +
+                    '<div style="font-size:10px; color:#9aa5b1; margin-top:14px; line-height:1.5;">Promo yang AKTIF & masih dalam periode tanggalnya otomatis kepakai saat kasir checkout. Stok produk tetap terpotong sesuai jumlah yang benar-benar keluar (termasuk item gratis dari promo Beli X Gratis Y).</div>';
             }
 
             document.getElementById("mainContent").innerHTML =
@@ -378,6 +441,7 @@
             if (nama === "produk") { Produk_load(); Kategori_load(); ModePenjualan_load(); }
             if (nama === "outlet") Outlet_load();
             if (nama === "user") { User_isiDropdownRole(); User_loadOutletDropdown(); User_load(); }
+            if (nama === "promo") Promo_load();
         }
 
         /* =====================================================
@@ -991,6 +1055,265 @@
         function User_hapus(uid, nama) {
             if (!confirm('Hapus data user "' + nama + '"? Akun login TIDAK ikut terhapus otomatis.')) return;
             db.collection("users").doc(uid).delete().then(function () { User_load(); });
+        }
+
+        /* =====================================================
+           PROMO
+           Disimpan di collection "promo". Skema field disesuaikan
+           per tipe promo (lihat Promo_simpan). Field yang selalu
+           ada: nama, tipe, status, tanggalMulai, tanggalBerakhir,
+           outletList (kosong = semua outlet), modeList (kosong =
+           semua mode termasuk Offline).
+        ====================================================== */
+        function Promo_load() {
+            db.collection("promo").get().then(function (snapshot) {
+                daftarPromoList = [];
+                snapshot.forEach(function (doc) { daftarPromoList.push(Object.assign({ id: doc.id }, doc.data())); });
+                daftarPromoList.sort(function (a, b) { return (a.nama || "").localeCompare(b.nama || ""); });
+                renderPromoList();
+            }).catch(function (error) {
+                const container = document.getElementById("promoListContainer");
+                if (container) container.innerHTML = '<div class="empty-state">Gagal memuat: ' + error.message + '</div>';
+            });
+
+            // Dependensi untuk isian form (produk, outlet, mode penjualan)
+            db.collection("products").get().then(function (snapshot) {
+                daftarProdukPromo = [];
+                snapshot.forEach(function (doc) { daftarProdukPromo.push({ id: doc.id, nama: doc.data().nama }); });
+                daftarProdukPromo.sort(function (a, b) { return a.nama.localeCompare(b.nama); });
+            });
+            db.collection("outlets").get().then(function (snapshot) {
+                daftarOutletPromo = [];
+                snapshot.forEach(function (doc) { daftarOutletPromo.push(doc.id); });
+                daftarOutletPromo.sort();
+            });
+            ModePenjualan_load();
+        }
+
+        function statusTampilPromo(p) {
+            const todayStr = new Date().toISOString().slice(0, 10);
+            if (p.tanggalBerakhir && todayStr > p.tanggalBerakhir) return { label: "BERAKHIR", cls: "badge-nonaktif" };
+            if (p.status !== "aktif") return { label: "NONAKTIF", cls: "badge-nonaktif" };
+            return { label: "AKTIF", cls: "badge-aktif" };
+        }
+
+        function Promo_namaProduk(id) {
+            const found = daftarProdukPromo.find(function (x) { return x.id === id; });
+            return found ? found.nama : "(produk terhapus)";
+        }
+
+        function deskripsiPromo(p) {
+            if (p.tipe === "diskon_persen") return "Diskon " + p.nilai + "% — " + (p.produkIds || []).map(Promo_namaProduk).join(", ");
+            if (p.tipe === "diskon_nominal") return "Potong Rp " + Number(p.nilai || 0).toLocaleString("id-ID") + " — " + (p.produkIds || []).map(Promo_namaProduk).join(", ");
+            if (p.tipe === "harga_spesial") return "Jadi Rp " + Number(p.nilai || 0).toLocaleString("id-ID") + " — " + (p.produkIds || []).map(Promo_namaProduk).join(", ");
+            if (p.tipe === "beli_gratis") return "Beli " + p.beliJumlah + "x " + Promo_namaProduk(p.beliProdukId) + " → gratis " + p.gratisJumlah + "x " + Promo_namaProduk(p.gratisProdukId);
+            if (p.tipe === "bundling") {
+                const hasilText = p.hasilTipe === "harga_paket" ? ("jadi paket Rp " + Number(p.hasilNilai || 0).toLocaleString("id-ID"))
+                    : p.hasilTipe === "diskon_persen" ? ("diskon " + p.hasilNilai + "%")
+                    : ("potong Rp " + Number(p.hasilNilai || 0).toLocaleString("id-ID"));
+                return "Min. " + p.syaratJumlah + " unit dari (" + (p.grupProdukIds || []).map(Promo_namaProduk).join(", ") + ") → " + hasilText;
+            }
+            return "";
+        }
+
+        function renderPromoList() {
+            const container = document.getElementById("promoListContainer");
+            if (!container) return;
+
+            if (daftarPromoList.length === 0) {
+                container.innerHTML = '<div class="empty-state">Belum ada promo.</div>';
+                return;
+            }
+
+            container.innerHTML = daftarPromoList.map(function (p) {
+                const st = statusTampilPromo(p);
+                const scopeOutlet = (p.outletList && p.outletList.length > 0) ? ("Outlet: " + p.outletList.join(", ")) : "Semua outlet";
+                const scopeMode = (p.modeList && p.modeList.length > 0) ? ("Mode: " + p.modeList.join(", ")) : "Semua mode penjualan";
+                const tanggalText = (p.tanggalMulai || p.tanggalBerakhir)
+                    ? ((p.tanggalMulai || "...") + " s/d " + (p.tanggalBerakhir || "tanpa batas"))
+                    : "Tanpa batas tanggal";
+                return '<div style="background:#ffffff; border:1px solid #dde3ea; border-radius:12px; padding:14px 16px; margin-bottom:10px; display:flex; align-items:center; gap:14px;' + (st.label === "BERAKHIR" ? " opacity:0.6;" : "") + '">' +
+                    '<div style="flex:1;">' +
+                        '<div style="display:flex; align-items:center; gap:8px; margin-bottom:4px; flex-wrap:wrap;">' +
+                            '<span style="font-size:13px; font-weight:800;">' + p.nama + '</span>' +
+                            '<span class="badge ' + st.cls + '">' + st.label + '</span>' +
+                            '<span class="badge role-badge">' + (TIPE_PROMO_LABEL[p.tipe] || p.tipe) + '</span>' +
+                        '</div>' +
+                        '<div style="font-size:11px; color:#6b7280;">' + deskripsiPromo(p) + ' · ' + tanggalText + '</div>' +
+                        '<div style="font-size:10px; color:#9aa5b1; margin-top:3px;">' + scopeOutlet + ' · ' + scopeMode + '</div>' +
+                    '</div>' +
+                    '<button class="action-btn" onclick="Promo_bukaModalEdit(\'' + p.id + '\')">Edit</button>' +
+                    '<button class="action-btn danger" onclick="Promo_hapus(\'' + p.id + '\', \'' + p.nama.replace(/'/g, "") + '\')">Hapus</button>' +
+                '</div>';
+            }).join("");
+        }
+
+        function Promo_hapus(id, nama) {
+            if (!confirm('Hapus promo "' + nama + '"?')) return;
+            db.collection("promo").doc(id).delete().then(function () { Promo_load(); });
+        }
+
+        function Promo_buatCheckboxProduk(kelasCss, selectedIds) {
+            selectedIds = selectedIds || [];
+            if (daftarProdukPromo.length === 0) return '<div style="font-size:11px; color:#6b7280;">Memuat produk...</div>';
+            return daftarProdukPromo.map(function (p) {
+                const checked = selectedIds.indexOf(p.id) !== -1 ? "checked" : "";
+                return '<label style="display:flex; align-items:center; gap:8px; padding:4px 0; font-size:12px; font-weight:400;">' +
+                    '<input type="checkbox" class="' + kelasCss + '" value="' + p.id + '" ' + checked + ' style="width:14px; height:14px;"> ' + p.nama +
+                '</label>';
+            }).join("");
+        }
+
+        function Promo_buatOptionProduk(selectedId) {
+            return daftarProdukPromo.map(function (p) {
+                return '<option value="' + p.id + '"' + (p.id === selectedId ? " selected" : "") + '>' + p.nama + '</option>';
+            }).join("");
+        }
+
+        function Promo_buatCheckboxOutlet(selectedList) {
+            selectedList = selectedList || [];
+            if (daftarOutletPromo.length === 0) return '<div style="font-size:11px; color:#6b7280;">Memuat outlet...</div>';
+            return daftarOutletPromo.map(function (o) {
+                const checked = selectedList.indexOf(o) !== -1 ? "checked" : "";
+                return '<label style="display:flex; align-items:center; gap:8px; padding:3px 0; font-size:12px; font-weight:400;">' +
+                    '<input type="checkbox" class="promoOutletChk" value="' + o + '" ' + checked + ' style="width:14px; height:14px;"> ' + o +
+                '</label>';
+            }).join("");
+        }
+
+        function Promo_buatCheckboxMode(selectedList) {
+            selectedList = selectedList || [];
+            const semuaMode = ["Offline"].concat(daftarModePenjualan);
+            return semuaMode.map(function (m) {
+                const checked = selectedList.indexOf(m) !== -1 ? "checked" : "";
+                return '<label style="display:flex; align-items:center; gap:8px; padding:3px 0; font-size:12px; font-weight:400;">' +
+                    '<input type="checkbox" class="promoModeChk" value="' + m + '" ' + checked + ' style="width:14px; height:14px;"> ' + m +
+                '</label>';
+            }).join("");
+        }
+
+        /* Render isian yang berubah-ubah sesuai Tipe Promo yang dipilih.
+           existing dipakai saat mode Edit supaya isian lama muncul lagi. */
+        function Promo_renderFieldsDinamis(existing) {
+            const tipe = document.getElementById("promoInputTipe").value;
+            const container = document.getElementById("promoFieldsDinamis");
+            existing = existing || {};
+
+            if (tipe === "diskon_persen" || tipe === "diskon_nominal" || tipe === "harga_spesial") {
+                const labelNilai = tipe === "diskon_persen" ? "Besar Diskon (%)" : tipe === "diskon_nominal" ? "Besar Potongan (Rp)" : "Harga Spesial (Rp)";
+                container.innerHTML =
+                    '<label>Produk yang Dipromo</label>' +
+                    '<div style="max-height:140px; overflow-y:auto; border:1px solid #e8ecf1; border-radius:8px; padding:8px;">' + Promo_buatCheckboxProduk("promoProdukChk", existing.produkIds) + '</div>' +
+                    '<label>' + labelNilai + '</label>' +
+                    '<input type="number" id="promoInputNilai" value="' + (existing.nilai !== undefined && existing.nilai !== null ? existing.nilai : "") + '" placeholder="0">';
+            } else if (tipe === "beli_gratis") {
+                container.innerHTML =
+                    '<label>Produk yang Dibeli</label><select id="promoInputBeliProduk">' + Promo_buatOptionProduk(existing.beliProdukId) + '</select>' +
+                    '<label>Jumlah Minimal Beli</label><input type="number" id="promoInputBeliJumlah" value="' + (existing.beliJumlah || 1) + '">' +
+                    '<label>Produk Gratis</label><select id="promoInputGratisProduk">' + Promo_buatOptionProduk(existing.gratisProdukId) + '</select>' +
+                    '<label>Jumlah Gratis</label><input type="number" id="promoInputGratisJumlah" value="' + (existing.gratisJumlah || 1) + '">' +
+                    '<div class="field-hint">Item gratis otomatis ditambahkan ke keranjang kasir begitu syarat beli terpenuhi, dan stoknya ikut terpotong seperti produk biasa.</div>';
+            } else if (tipe === "bundling") {
+                container.innerHTML =
+                    '<label>Produk dalam Grup</label>' +
+                    '<div style="max-height:140px; overflow-y:auto; border:1px solid #e8ecf1; border-radius:8px; padding:8px;">' + Promo_buatCheckboxProduk("promoGrupChk", existing.grupProdukIds) + '</div>' +
+                    '<div class="field-hint">Boleh centang lebih dari satu produk berbeda &mdash; qty dihitung gabungan dari semua produk yang dicentang di sini, bukan per produk sendiri-sendiri.</div>' +
+                    '<label>Syarat Jumlah (total dari grup)</label><input type="number" id="promoInputSyaratJumlah" value="' + (existing.syaratJumlah || 2) + '">' +
+                    '<label>Hasil Promo</label>' +
+                    '<select id="promoInputHasilTipe">' +
+                        '<option value="harga_paket"' + (existing.hasilTipe === "harga_paket" || !existing.hasilTipe ? " selected" : "") + '>Harga Paket (Rp)</option>' +
+                        '<option value="diskon_persen"' + (existing.hasilTipe === "diskon_persen" ? " selected" : "") + '>Diskon Persen (%)</option>' +
+                        '<option value="diskon_rp"' + (existing.hasilTipe === "diskon_rp" ? " selected" : "") + '>Diskon Nominal (Rp)</option>' +
+                    '</select>' +
+                    '<input type="number" id="promoInputHasilNilai" style="margin-top:8px;" value="' + (existing.hasilNilai !== undefined && existing.hasilNilai !== null ? existing.hasilNilai : "") + '" placeholder="0">' +
+                    '<div class="field-hint">Kalau total qty dari grup di keranjang mencapai kelipatan syarat, harga otomatis mengikuti hasil ini per kelipatannya. Stok tiap produk tetap terpotong sesuai qty asli masing-masing.</div>';
+            }
+        }
+
+        function Promo_bukaModalTambah() {
+            Promo_editingId = null;
+            document.getElementById("modalPromoTitle").textContent = "Tambah Promo";
+            document.getElementById("promoInputNama").value = "";
+            document.getElementById("promoInputTipe").value = "diskon_persen";
+            document.getElementById("promoInputTglMulai").value = "";
+            document.getElementById("promoInputTglBerakhir").value = "";
+            document.getElementById("promoInputStatus").value = "aktif";
+            document.getElementById("promoFormError").style.display = "none";
+            Promo_renderFieldsDinamis();
+            document.getElementById("promoOutletCheckbox").innerHTML = Promo_buatCheckboxOutlet([]);
+            document.getElementById("promoModeCheckbox").innerHTML = Promo_buatCheckboxMode([]);
+            document.getElementById("modalPromo").classList.add("open");
+        }
+
+        function Promo_bukaModalEdit(id) {
+            db.collection("promo").doc(id).get().then(function (doc) {
+                const p = doc.data();
+                Promo_editingId = id;
+                document.getElementById("modalPromoTitle").textContent = "Edit Promo";
+                document.getElementById("promoInputNama").value = p.nama || "";
+                document.getElementById("promoInputTipe").value = p.tipe;
+                document.getElementById("promoInputTglMulai").value = p.tanggalMulai || "";
+                document.getElementById("promoInputTglBerakhir").value = p.tanggalBerakhir || "";
+                document.getElementById("promoInputStatus").value = p.status || "aktif";
+                document.getElementById("promoFormError").style.display = "none";
+                Promo_renderFieldsDinamis(p);
+                document.getElementById("promoOutletCheckbox").innerHTML = Promo_buatCheckboxOutlet(p.outletList || []);
+                document.getElementById("promoModeCheckbox").innerHTML = Promo_buatCheckboxMode(p.modeList || []);
+                document.getElementById("modalPromo").classList.add("open");
+            });
+        }
+
+        function Promo_tutupModal() { document.getElementById("modalPromo").classList.remove("open"); }
+
+        function Promo_simpan() {
+            const nama = document.getElementById("promoInputNama").value.trim();
+            const tipe = document.getElementById("promoInputTipe").value;
+            const tanggalMulai = document.getElementById("promoInputTglMulai").value || null;
+            const tanggalBerakhir = document.getElementById("promoInputTglBerakhir").value || null;
+            const status = document.getElementById("promoInputStatus").value;
+            const errBox = document.getElementById("promoFormError");
+            errBox.style.display = "none";
+
+            if (!nama) { errBox.textContent = "Nama promo wajib diisi."; errBox.style.display = "block"; return; }
+
+            const outletList = Array.from(document.querySelectorAll(".promoOutletChk:checked")).map(function (c) { return c.value; });
+            const modeList = Array.from(document.querySelectorAll(".promoModeChk:checked")).map(function (c) { return c.value; });
+
+            const data = { nama: nama, tipe: tipe, tanggalMulai: tanggalMulai, tanggalBerakhir: tanggalBerakhir, status: status, outletList: outletList, modeList: modeList };
+
+            if (tipe === "diskon_persen" || tipe === "diskon_nominal" || tipe === "harga_spesial") {
+                data.produkIds = Array.from(document.querySelectorAll(".promoProdukChk:checked")).map(function (c) { return c.value; });
+                data.nilai = Number(document.getElementById("promoInputNilai").value) || 0;
+                if (data.produkIds.length === 0) { errBox.textContent = "Pilih minimal 1 produk."; errBox.style.display = "block"; return; }
+                if (data.nilai <= 0) { errBox.textContent = "Nilai promo harus lebih dari 0."; errBox.style.display = "block"; return; }
+            } else if (tipe === "beli_gratis") {
+                data.beliProdukId = document.getElementById("promoInputBeliProduk").value;
+                data.beliJumlah = Number(document.getElementById("promoInputBeliJumlah").value) || 0;
+                data.gratisProdukId = document.getElementById("promoInputGratisProduk").value;
+                data.gratisJumlah = Number(document.getElementById("promoInputGratisJumlah").value) || 0;
+                if (!data.beliProdukId || !data.gratisProdukId || data.beliJumlah <= 0 || data.gratisJumlah <= 0) {
+                    errBox.textContent = "Lengkapi produk & jumlah, baik untuk syarat beli maupun hadiah gratis.";
+                    errBox.style.display = "block";
+                    return;
+                }
+            } else if (tipe === "bundling") {
+                data.grupProdukIds = Array.from(document.querySelectorAll(".promoGrupChk:checked")).map(function (c) { return c.value; });
+                data.syaratJumlah = Number(document.getElementById("promoInputSyaratJumlah").value) || 0;
+                data.hasilTipe = document.getElementById("promoInputHasilTipe").value;
+                data.hasilNilai = Number(document.getElementById("promoInputHasilNilai").value) || 0;
+                if (data.grupProdukIds.length < 1) { errBox.textContent = "Pilih minimal 1 produk untuk grup bundling."; errBox.style.display = "block"; return; }
+                if (data.syaratJumlah <= 0) { errBox.textContent = "Syarat jumlah harus lebih dari 0."; errBox.style.display = "block"; return; }
+                if (data.hasilNilai <= 0) { errBox.textContent = "Nilai hasil promo harus lebih dari 0."; errBox.style.display = "block"; return; }
+            }
+
+            const p = Promo_editingId ? db.collection("promo").doc(Promo_editingId).update(data) : db.collection("promo").add(data);
+            p.then(function () {
+                Promo_tutupModal();
+                Promo_load();
+            }).catch(function (error) {
+                errBox.textContent = "Gagal menyimpan: " + error.message;
+                errBox.style.display = "block";
+            });
         }
     </script>
 
