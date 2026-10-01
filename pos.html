@@ -115,13 +115,16 @@
             padding: 8px 12px; margin-top: 10px;
         }
         .promo-applied-box.promo-applied-box-off { background: #F1F4F8; border-color: #dde3ea; }
+        .promo-applied-box.promo-applied-box-progress { background: #FFF8E8; border-color: #F0DBA0; }
         .promo-applied-title {
             font-size: 10.5px; font-weight: 800; color: #1E9E5A; text-transform: uppercase;
             letter-spacing: 0.03em; margin-bottom: 5px; display: flex; align-items: center; gap: 5px;
         }
         .promo-applied-box-off .promo-applied-title { color: #8A95A5; }
+        .promo-applied-box-progress .promo-applied-title { color: #B06D09; }
         .promo-applied-row { display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; color: #1e7d32; padding: 3px 0; }
         .promo-applied-row.promo-off { color: #9aa5b1; }
+        .promo-progress-row { font-size: 11px; color: #9a6b1c; padding: 3px 0; line-height: 1.4; }
         .promo-roller {
             display: inline-flex; align-items: center; width: 30px; height: 17px; border-radius: 10px;
             background: #c9d1db; cursor: pointer; flex-shrink: 0; padding: 2px; transition: background 0.15s;
@@ -383,6 +386,7 @@
             let totalDiskon = 0;
             const promoDipakai = [];
             const diskonPerPromo = {}; // promoId -> { id, nama, jumlah, aktif }
+            const promoProgress = []; // promo yang terkait keranjang tapi syaratnya belum penuh (reminder upsell)
 
             function catatPromo(promo, jumlah) {
                 if (jumlah <= 0) return;
@@ -431,7 +435,17 @@
                 });
 
                 const syarat = Number(promo.syaratJumlah) || 0;
-                if (syarat <= 0 || totalQtyGrup < syarat) return;
+                if (syarat <= 0) return;
+
+                if (totalQtyGrup < syarat) {
+                    // Belum penuh syaratnya, tapi sebagian produk grupnya sudah ada
+                    // di keranjang -> tampilkan sebagai pengingat upsell buat kasir.
+                    if (totalQtyGrup > 0) {
+                        const sisa = syarat - totalQtyGrup;
+                        promoProgress.push({ id: promo.id, nama: promo.nama, pesan: "Tambah " + sisa + " lagi (dari produk di grup ini) untuk dapat promo ini" });
+                    }
+                    return;
+                }
 
                 const multiplier = Math.floor(totalQtyGrup / syarat);
                 const coveredQty = multiplier * syarat;
@@ -468,15 +482,30 @@
                 const entry = cart["_promo_" + promo.id];
                 if (entry) { catatPromo(promo, entry.hargaSatuan * entry.qty); return; }
 
-                if (!promoDinonaktifkanManual[promo.id]) return; // aktif tapi memang belum memenuhi syarat
-                const gratisProduct = allProducts.find(function (p) { return p.id === promo.gratisProdukId; });
-                if (!gratisProduct) return;
                 const buyQty = sisaQty[promo.beliProdukId] || 0;
+                if (buyQty <= 0) return; // produk syarat belinya sama sekali gak ada di keranjang
+
                 const beliJumlah = Number(promo.beliJumlah) || 0;
                 const gratisJumlah = Number(promo.gratisJumlah) || 0;
                 const multiplier = beliJumlah > 0 ? Math.floor(buyQty / beliJumlah) : 0;
                 const targetQty = multiplier * gratisJumlah;
-                if (targetQty > 0) catatPromo(promo, targetQty * hargaUntukMode(gratisProduct, modeAktif));
+
+                if (targetQty > 0) {
+                    // Syarat sebenarnya sudah terpenuhi tapi item gratis belum ada di
+                    // keranjang (promo dimatikan manual, atau stok gratisnya habis) ->
+                    // tetap tampilkan perkiraan nilainya.
+                    const gratisProduct = allProducts.find(function (p) { return p.id === promo.gratisProdukId; });
+                    if (gratisProduct) catatPromo(promo, targetQty * hargaUntukMode(gratisProduct, modeAktif));
+                    return;
+                }
+
+                // Syarat belum terpenuhi, tapi produknya sudah ada di keranjang ->
+                // tampilkan sebagai pengingat upsell buat kasir.
+                const sisaBeli = beliJumlah - buyQty;
+                if (sisaBeli > 0) {
+                    const namaProdukBeli = (allProducts.find(function (p) { return p.id === promo.beliProdukId; }) || {}).nama || "produk";
+                    promoProgress.push({ id: promo.id, nama: promo.nama, pesan: "Tambah " + sisaBeli + " " + namaProdukBeli + " lagi untuk dapat promo ini" });
+                }
             });
 
             return {
@@ -484,7 +513,8 @@
                 promoDipakai: Array.from(new Set(promoDipakai)),
                 promoDetail: Object.values(diskonPerPromo).map(function (d) {
                     return { id: d.id, nama: d.nama, jumlah: Math.round(d.jumlah), aktif: d.aktif };
-                })
+                }),
+                promoProgress: promoProgress
             };
         }
 
@@ -886,12 +916,15 @@
             const box = document.getElementById("promoAppliedBox");
             if (!box) return;
 
-            if (!promoResult.promoDetail || promoResult.promoDetail.length === 0) {
+            const adaDetail = promoResult.promoDetail && promoResult.promoDetail.length > 0;
+            const adaProgress = promoResult.promoProgress && promoResult.promoProgress.length > 0;
+
+            if (!adaDetail && !adaProgress) {
                 box.innerHTML = "";
                 return;
             }
 
-            const baris = promoResult.promoDetail.map(function (d) {
+            const barisDetail = (promoResult.promoDetail || []).map(function (d) {
                 const rollerCls = d.aktif ? "promo-roller on" : "promo-roller";
                 const teksJumlah = d.aktif
                     ? ('-Rp ' + d.jumlah.toLocaleString("id-ID"))
@@ -905,15 +938,25 @@
                 '</div>';
             }).join("");
 
-            const adaAktif = promoResult.promoDetail.some(function (d) { return d.aktif; });
+            // Pengingat upsell: promo yang terkait tapi syaratnya belum penuh.
+            // Tidak ada roller karena memang belum ada apa-apa buat diklaim.
+            const barisProgress = (promoResult.promoProgress || []).map(function (p) {
+                return '<div class="promo-progress-row">' +
+                    '<span style="font-weight:700;">' + p.nama + '</span> — ' + p.pesan +
+                '</div>';
+            }).join("");
+
+            const adaAktif = (promoResult.promoDetail || []).some(function (d) { return d.aktif; });
+            const boxCls = adaAktif ? "promo-applied-box" : (adaDetail ? "promo-applied-box promo-applied-box-off" : "promo-applied-box promo-applied-box-progress");
 
             box.innerHTML =
-                '<div class="promo-applied-box' + (adaAktif ? "" : " promo-applied-box-off") + '">' +
+                '<div class="' + boxCls + '">' +
                     '<div class="promo-applied-title">' +
                         '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>' +
                         'Promo' +
                     '</div>' +
-                    baris +
+                    barisDetail +
+                    barisProgress +
                 '</div>';
         }
 
