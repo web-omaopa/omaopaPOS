@@ -114,11 +114,20 @@
             background: #E7F6ED; border: 1px solid #BFE6CD; border-radius: 10px;
             padding: 8px 12px; margin-top: 10px;
         }
+        .promo-applied-box.promo-applied-box-off { background: #F1F4F8; border-color: #dde3ea; }
         .promo-applied-title {
             font-size: 10.5px; font-weight: 800; color: #1E9E5A; text-transform: uppercase;
             letter-spacing: 0.03em; margin-bottom: 5px; display: flex; align-items: center; gap: 5px;
         }
-        .promo-applied-row { display: flex; justify-content: space-between; font-size: 11.5px; color: #1e7d32; padding: 2px 0; }
+        .promo-applied-box-off .promo-applied-title { color: #8A95A5; }
+        .promo-applied-row { display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; color: #1e7d32; padding: 3px 0; }
+        .promo-applied-row.promo-off { color: #9aa5b1; }
+        .promo-roller {
+            display: inline-flex; align-items: center; width: 30px; height: 17px; border-radius: 10px;
+            background: #c9d1db; cursor: pointer; flex-shrink: 0; padding: 2px; transition: background 0.15s;
+        }
+        .promo-roller.on { background: #1E9E5A; justify-content: flex-end; }
+        .promo-roller-knob { width: 13px; height: 13px; border-radius: 50%; background: #ffffff; display: block; }
 
         .summary-row { display: flex; justify-content: space-between; font-size: 12px; color: #6b7280; padding: 4px 0; }
         .summary-row.total { font-size: 16px; font-weight: 700; color: #1f2937; padding-top: 8px; border-top: 1px solid #e8ecf1; margin-top: 8px; }
@@ -228,6 +237,7 @@
            lewat baris diskon.
         ====================================================== */
         let daftarPromo = [];
+        let promoDinonaktifkanManual = {}; // { [promoId]: true } = kasir matikan manual promo ini untuk transaksi sekarang
 
         auth.onAuthStateChanged(function (user) {
             if (!user) { window.location.href = "index.html"; return; }
@@ -304,6 +314,13 @@
 
             promoGratisAktif.forEach(function (promo) {
                 const entryKey = "_promo_" + promo.id;
+
+                // Kasir matikan manual promo ini untuk transaksi sekarang: jangan tambah item gratis.
+                if (promoDinonaktifkanManual[promo.id]) {
+                    delete cart[entryKey];
+                    return;
+                }
+
                 const gratisProduct = allProducts.find(function (p) { return p.id === promo.gratisProdukId; });
 
                 const buyQty = Object.values(cart)
@@ -345,7 +362,13 @@
         /* Hitung total diskon dari semua promo yang berlaku sekarang,
            berdasarkan isi keranjang. Tidak mengubah harga satuan item,
            hanya menghasilkan satu angka diskon total + daftar nama
-           promo yang terpakai (dipakai juga saat simpan transaksi). */
+           promo yang terpakai (dipakai juga saat simpan transaksi).
+
+           Promo yang dimatikan manual oleh kasir (promoDinonaktifkanManual)
+           TETAP dihitung "perkiraan diskon"-nya untuk ditampilkan di kotak
+           Promo Terpakai (dengan rollernya), tapi TIDAK ikut mengurangi
+           totalDiskon, TIDAK ikut promoDipakai, dan TIDAK "mengklaim" qty
+           produk (jadi tidak menghalangi promo lain yang masih aktif). */
         function computePromoEffects() {
             const promos = daftarPromo.filter(promoBerlakuSekarang);
 
@@ -359,18 +382,24 @@
 
             let totalDiskon = 0;
             const promoDipakai = [];
-            const diskonPerPromo = {}; // promoId -> { nama, jumlah }
+            const diskonPerPromo = {}; // promoId -> { id, nama, jumlah, aktif }
 
-            function tambahDiskonPromo(promo, jumlah) {
+            function catatPromo(promo, jumlah) {
                 if (jumlah <= 0) return;
-                if (!diskonPerPromo[promo.id]) diskonPerPromo[promo.id] = { nama: promo.nama, jumlah: 0 };
+                const aktif = !promoDinonaktifkanManual[promo.id];
+                if (!diskonPerPromo[promo.id]) diskonPerPromo[promo.id] = { id: promo.id, nama: promo.nama, jumlah: 0, aktif: aktif };
                 diskonPerPromo[promo.id].jumlah += jumlah;
-                totalDiskon += jumlah;
-                promoDipakai.push(promo.nama);
+                if (aktif) {
+                    totalDiskon += jumlah;
+                    promoDipakai.push(promo.nama);
+                }
+                return aktif;
             }
 
             // Diskon Persen / Diskon Nominal / Harga Spesial: satu produk hanya
-            // diklaim oleh promo pertama yang cocok, supaya tidak dobel diskon.
+            // diklaim oleh promo pertama yang AKTIF dan cocok, supaya tidak dobel
+            // diskon. Promo yang nonaktif manual tetap dihitung untuk ditampilkan,
+            // tapi tidak mengunci qty produknya (sisaQty tidak dikurangi).
             promos.forEach(function (promo) {
                 if (promo.tipe !== "diskon_persen" && promo.tipe !== "diskon_nominal" && promo.tipe !== "harga_spesial") return;
                 (promo.produkIds || []).forEach(function (pid) {
@@ -384,12 +413,12 @@
                     else if (promo.tipe === "diskon_nominal") diskonPerUnit = Math.min(hargaDasar, Number(promo.nilai) || 0);
                     else if (promo.tipe === "harga_spesial") diskonPerUnit = Math.max(0, hargaDasar - (Number(promo.nilai) || 0));
 
-                    tambahDiskonPromo(promo, diskonPerUnit * qty);
-                    sisaQty[pid] = 0;
+                    const aktif = catatPromo(promo, diskonPerUnit * qty);
+                    if (aktif) sisaQty[pid] = 0;
                 });
             });
 
-            // Bundling: hitung dari sisa qty yang belum diklaim promo lain
+            // Bundling: hitung dari sisa qty yang belum diklaim promo aktif lain
             promos.forEach(function (promo) {
                 if (promo.tipe !== "bundling") return;
                 const grup = promo.grupProdukIds || [];
@@ -418,28 +447,50 @@
                 }
 
                 if (diskonBundle > 0) {
-                    tambahDiskonPromo(promo, diskonBundle);
-                    grup.forEach(function (pid) {
-                        const qty = sisaQty[pid] || 0;
-                        if (totalQtyGrup > 0 && qty > 0) sisaQty[pid] = qty - (qty * (coveredQty / totalQtyGrup));
-                    });
+                    const aktif = catatPromo(promo, diskonBundle);
+                    if (aktif) {
+                        grup.forEach(function (pid) {
+                            const qty = sisaQty[pid] || 0;
+                            if (totalQtyGrup > 0 && qty > 0) sisaQty[pid] = qty - (qty * (coveredQty / totalQtyGrup));
+                        });
+                    }
                 }
             });
 
-            // Beli X Gratis Y: item gratis sudah masuk keranjang dengan harga normal
-            // (lewat sinkronPromoOtomatis), jadi didiskon penuh di sini supaya jadi Rp 0.
+            // Beli X Gratis Y: kalau promo aktif, item gratisnya sudah masuk
+            // keranjang dengan harga normal (lewat sinkronPromoOtomatis), jadi
+            // didiskon penuh di sini supaya jadi Rp 0. Kalau nonaktif manual,
+            // item gratis tidak ada di keranjang, jadi dihitung perkiraannya saja
+            // supaya tetap muncul di kotak Promo Terpakai dengan rollernya.
             promos.forEach(function (promo) {
                 if (promo.tipe !== "beli_gratis") return;
+
                 const entry = cart["_promo_" + promo.id];
-                if (!entry) return;
-                tambahDiskonPromo(promo, entry.hargaSatuan * entry.qty);
+                if (entry) { catatPromo(promo, entry.hargaSatuan * entry.qty); return; }
+
+                if (!promoDinonaktifkanManual[promo.id]) return; // aktif tapi memang belum memenuhi syarat
+                const gratisProduct = allProducts.find(function (p) { return p.id === promo.gratisProdukId; });
+                if (!gratisProduct) return;
+                const buyQty = sisaQty[promo.beliProdukId] || 0;
+                const beliJumlah = Number(promo.beliJumlah) || 0;
+                const gratisJumlah = Number(promo.gratisJumlah) || 0;
+                const multiplier = beliJumlah > 0 ? Math.floor(buyQty / beliJumlah) : 0;
+                const targetQty = multiplier * gratisJumlah;
+                if (targetQty > 0) catatPromo(promo, targetQty * hargaUntukMode(gratisProduct, modeAktif));
             });
 
             return {
                 totalDiskon: Math.round(totalDiskon),
                 promoDipakai: Array.from(new Set(promoDipakai)),
-                promoDetail: Object.values(diskonPerPromo).map(function (d) { return { nama: d.nama, jumlah: Math.round(d.jumlah) }; })
+                promoDetail: Object.values(diskonPerPromo).map(function (d) {
+                    return { id: d.id, nama: d.nama, jumlah: Math.round(d.jumlah), aktif: d.aktif };
+                })
             };
+        }
+
+        function togglePromoManual(promoId) {
+            promoDinonaktifkanManual[promoId] = !promoDinonaktifkanManual[promoId];
+            renderCart();
         }
 
         function loadTopping() {
@@ -766,6 +817,7 @@
 
         function bersihkanKeranjang() {
             cart = {};
+            promoDinonaktifkanManual = {};
             renderCart();
         }
 
@@ -825,8 +877,11 @@
             document.getElementById("payBtn").disabled = false;
         }
 
-        /* Kotak hijau "Promo Terpakai" di atas ringkasan harga, muncul
-           otomatis begitu ada promo yang kena di keranjang sekarang. */
+        /* Kotak "Promo Terpakai" di atas ringkasan harga, muncul otomatis
+           begitu ada promo yang relevan dengan keranjang sekarang. Tiap
+           promo punya roller sendiri (togglePromoManual) supaya kasir bisa
+           matikan promo itu untuk transaksi ini kalau customer tidak mau
+           pakai, atau nyalakan lagi kalau sudah dimatikan. Default: aktif. */
         function renderPromoAppliedBox(promoResult) {
             const box = document.getElementById("promoAppliedBox");
             if (!box) return;
@@ -837,14 +892,26 @@
             }
 
             const baris = promoResult.promoDetail.map(function (d) {
-                return '<div class="promo-applied-row"><span>' + d.nama + '</span><span>-Rp ' + d.jumlah.toLocaleString("id-ID") + '</span></div>';
+                const rollerCls = d.aktif ? "promo-roller on" : "promo-roller";
+                const teksJumlah = d.aktif
+                    ? ('-Rp ' + d.jumlah.toLocaleString("id-ID"))
+                    : ('(-Rp ' + d.jumlah.toLocaleString("id-ID") + ')');
+                return '<div class="promo-applied-row' + (d.aktif ? "" : " promo-off") + '">' +
+                    '<span>' + d.nama + '</span>' +
+                    '<span style="display:flex; align-items:center; gap:8px;">' +
+                        '<span>' + teksJumlah + '</span>' +
+                        '<span class="' + rollerCls + '" onclick="togglePromoManual(\'' + d.id + '\')" title="' + (d.aktif ? "Klik untuk tidak klaim promo ini" : "Klik untuk klaim promo ini") + '"><span class="promo-roller-knob"></span></span>' +
+                    '</span>' +
+                '</div>';
             }).join("");
 
+            const adaAktif = promoResult.promoDetail.some(function (d) { return d.aktif; });
+
             box.innerHTML =
-                '<div class="promo-applied-box">' +
+                '<div class="promo-applied-box' + (adaAktif ? "" : " promo-applied-box-off") + '">' +
                     '<div class="promo-applied-title">' +
-                        '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1E9E5A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>' +
-                        'Promo Terpakai' +
+                        '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>' +
+                        'Promo' +
                     '</div>' +
                     baris +
                 '</div>';
@@ -917,6 +984,7 @@
             .then(function () {
                 tampilkanPesan("Transaksi berhasil! Total Rp " + total.toLocaleString("id-ID"), "success");
                 cart = {};
+                promoDinonaktifkanManual = {};
                 renderCart();
                 loadProducts();
             })
