@@ -200,7 +200,11 @@
         function Kasir_loadProduk() {
             db.collection("products").where("status", "==", "aktif").get().then(function (snapshot) {
                 daftarProduk = [];
-                snapshot.forEach(function (doc) { daftarProduk.push(Object.assign({ id: doc.id }, doc.data())); });
+                snapshot.forEach(function (doc) {
+                    // Topping tidak dilacak stoknya (sama seperti di Kasir), jadi tidak ikut dilaporkan
+                    if (doc.data().kategori === "Topping") return;
+                    daftarProduk.push(Object.assign({ id: doc.id }, doc.data()));
+                });
                 daftarProduk.sort(function (a, b) {
                     return (a.kategori || "").localeCompare(b.kategori || "") || a.nama.localeCompare(b.nama);
                 });
