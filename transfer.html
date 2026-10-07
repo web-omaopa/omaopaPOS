@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oma Opa POS - Transfer</title>
+
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+    <script src="roles.js"></script>
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body { font-family: Arial, Helvetica, sans-serif; background: #ffffff; color: #1f2937; }
+
+        .app-layout { display: flex; min-height: 100vh; }
+
+        .sidebar {
+            width: 190px; flex-shrink: 0; background: #12305C; border-right: 1px solid #0B2245;
+            padding: 20px 14px; display: flex; flex-direction: column;
+        }
+        .sidebar-logo { display: block; max-width: 140px; height: auto; margin-bottom: 18px; }
+        .sidebar .nav-item {
+            display: block; padding: 9px 12px; border-radius: 8px;
+            font-size: 12px; color: #B8C7E0; text-decoration: none; margin-bottom: 4px;
+        }
+        .sidebar .nav-item:hover { background: #1B3F73; }
+        .sidebar .nav-item.active { background: #ffffff; color: #12305C; font-weight: 700; }
+        .sidebar .nav-item.disabled { color: #5A6B8C; pointer-events: none; }
+        .sidebar .nav-divider { border-top: 1px solid rgba(255,255,255,0.15); margin: 14px 0 10px; }
+        .sidebar .nav-label {
+            font-size: 10px; font-weight: 700; color: #8AA0C7;
+            text-transform: uppercase; padding: 0 12px; margin-bottom: 6px;
+        }
+        .sidebar .user-block { margin-top: auto; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.15); }
+        .sidebar .user-name { font-size: 12px; font-weight: 700; color: #ffffff; }
+        .sidebar .user-role { font-size: 10px; color: #8AA0C7; margin-bottom: 8px; }
+        .sidebar .logout-link { font-size: 11px; color: #FF8A80; background: none; border: none; cursor: pointer; padding: 0; }
+
+        .content { flex: 1; padding: 24px 28px; max-width: 900px; }
+
+        .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+        .header-row h2 { font-size: 16px; font-weight: 700; }
+
+        .btn {
+            height: 34px; padding: 0 16px; border-radius: 8px; font-size: 12px; font-weight: 700;
+            cursor: pointer; font-family: inherit; border: 1px solid #dde3ea; background: #ffffff; color: #52606d;
+            text-decoration: none; display: inline-flex; align-items: center;
+        }
+        .btn-primary { background: #12305C; border-color: #12305C; color: #ffffff; }
+        .btn-big { height: 38px; padding: 0 24px; }
+        .btn-danger { color: #b03a2e; }
+        .btn-sm { height: 28px; padding: 0 11px; font-size: 11px; }
+        .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+        /* Tab */
+        .tabs { display: flex; gap: 22px; border-bottom: 1px solid #dde3ea; margin-bottom: 16px; }
+        .tab {
+            padding: 8px 2px; font-size: 12.5px; font-weight: 700; color: #8A95A5; cursor: pointer;
+            display: flex; align-items: center; gap: 6px; background: none; border: none; font-family: inherit;
+        }
+        .tab.on { color: #12305C; border-bottom: 2px solid #12305C; margin-bottom: -1px; }
+        .cnt {
+            background: #E8A33D; color: #ffffff; font-size: 10px; font-weight: 800; min-width: 16px; height: 16px;
+            border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; padding: 0 4px;
+        }
+
+        /* Banner */
+        .banner-selisih {
+            background: #FDEAEA; border: 1px solid #F3C4C0; border-radius: 10px; padding: 10px 14px;
+            margin-bottom: 14px; font-size: 12px; color: #8a2b22;
+        }
+        .banner-info {
+            background: #FFF8E8; border: 1px solid #F0DBA0; border-radius: 10px; padding: 10px 14px;
+            margin-bottom: 14px; font-size: 12px; color: #7a5410;
+        }
+
+        /* Tabel Forecaster */
+        table { width: 100%; border-collapse: collapse; background: #ffffff; border: 1px solid #dde3ea; font-size: 11.5px; }
+        th { text-align: left; padding: 9px 12px; background: #f1f4f8; color: #52606d; font-weight: 700; font-size: 10.5px; }
+        td { padding: 10px 12px; border-top: 1px solid #e8ecf1; vertical-align: top; }
+        .sub { font-size: 10px; color: #8A95A5; margin-top: 3px; }
+        .ln { margin-bottom: 3px; }
+
+        .badge { font-size: 9.5px; font-weight: 800; padding: 3px 9px; border-radius: 10px; white-space: nowrap; display: inline-block; }
+        .s-menunggu { background: #EEF1F5; color: #52606d; }
+        .s-dikirim { background: #E3EEFB; color: #1F5FA8; }
+        .s-selesai { background: #E7F6ED; color: #1E7D32; }
+        .s-selisih { background: #FDEAEA; color: #B03A2E; }
+        .s-batal { background: #EEF1F5; color: #8A95A5; }
+        .s-perlu { background: #FFF1D6; color: #9A6B1C; }
+
+        /* Kartu kasir */
+        .card { border: 1px solid #dde3ea; border-radius: 12px; padding: 16px; margin-bottom: 12px; background: #ffffff; }
+        .card.aktif { border-color: #12305C; }
+        .card.pasif { background: #F7F8FA; }
+        .card-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 800; }
+        .card-meta { font-size: 10.5px; color: #8A95A5; margin: 4px 0 10px; }
+        .li { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-top: 1px solid #e8ecf1; font-size: 12.5px; }
+        .sent { font-size: 11px; color: #8A95A5; margin-right: 10px; }
+        .qty-in {
+            width: 60px; height: 30px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 12.5px;
+            font-weight: 700; text-align: center; font-family: inherit;
+        }
+        .qty-in.beda { border: 2px solid #B03A2E; color: #B03A2E; background: #FFF8F7; }
+        .catatan-in { width: 100%; height: 34px; border: 1px solid #d1d5db; border-radius: 6px; padding: 0 10px; font-size: 12px; font-family: inherit; margin-top: 4px; }
+        .card-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; padding-top: 12px; border-top: 1px solid #e8ecf1; gap: 12px; }
+        .foot-note { font-size: 10.5px; color: #6b7280; line-height: 1.5; max-width: 420px; }
+        .sec-label { font-size: 10px; font-weight: 800; letter-spacing: 0.04em; color: #8A95A5; margin: 18px 0 8px; }
+        .err { color: #c0392b; font-size: 11px; margin-top: 8px; }
+
+        .loading-state, .empty-state { text-align: center; color: #6b7280; font-size: 12px; padding: 30px 0; }
+    </style>
+</head>
+<body>
+
+    <div class="app-layout">
+        <div class="sidebar" id="sidebarContainer"></div>
+
+        <div class="content" id="mainContent">
+            <div class="header-row">
+                <h2 id="judulHalaman">Transfer</h2>
+                <a class="btn btn-primary" id="btnBuat" href="stok.html" style="display:none;">+ Buat Transfer</a>
+            </div>
+            <div id="isiHalaman"><div class="loading-state">Memuat data transfer...</div></div>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyC5nxXV7YPTEq160fLoqBBKtvwaHBQljfc",
+            authDomain: "omaopa-pos.firebaseapp.com",
+            projectId: "omaopa-pos",
+            storageBucket: "omaopa-pos.firebasestorage.app",
+            messagingSenderId: "101370933916",
+            appId: "1:101370933916:web:129ebea30dd9e59508f359"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        let currentUser = null;
+        let canBuat = false;
+        let daftarTransfer = [];     // semua transfer yang relevan, terbaru di atas
+        let tabAktif = "kirim";      // khusus kasir: kirim | terima | riwayat
+        let sedangProses = {};       // cegah klik ganda per transfer
+
+        function esc(t) {
+            return String(t == null ? "" : t).replace(/[&<>"']/g, function (c) {
+                return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+            });
+        }
+
+        auth.onAuthStateChanged(function (user) {
+            if (!user) { window.location.href = "index.html"; return; }
+
+            const savedUser = sessionStorage.getItem("omaopa_user");
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                mulaiHalaman();
+            } else {
+                db.collection("users").doc(user.uid).get().then(function (doc) {
+                    if (doc.exists) {
+                        currentUser = doc.data();
+                        currentUser.uid = user.uid;
+                        sessionStorage.setItem("omaopa_user", JSON.stringify(currentUser));
+                        mulaiHalaman();
+                    } else {
+                        window.location.href = "index.html";
+                    }
+                });
+            }
+        });
+
+        function logout() {
+            auth.signOut().then(function () {
+                sessionStorage.removeItem("omaopa_user");
+                window.location.href = "index.html";
+            });
+        }
+
+        function mulaiHalaman() {
+            document.getElementById("sidebarContainer").innerHTML = renderSidebar(currentUser, "transfer");
+            if (!jagaAksesHalaman(currentUser.role, "transfer")) return;
+
+            canBuat = bolehBuatTransfer(currentUser.role);
+
+            if (canBuat) {
+                document.getElementById("judulHalaman").textContent = "Transfer Antar Outlet";
+                document.getElementById("btnBuat").style.display = "inline-flex";
+            } else {
+                document.getElementById("judulHalaman").textContent = "Transfer · " + currentUser.outlet;
+            }
+
+            muatTransfer();
+        }
+
+        // ===== Ambil data =====
+        function muatTransfer() {
+            let pekerjaan;
+
+            if (canBuat) {
+                pekerjaan = db.collection("transfer_stok").orderBy("dibuatPada", "desc").limit(100).get()
+                    .then(function (snap) { return snap.docs; });
+            } else {
+                const col = db.collection("transfer_stok");
+                pekerjaan = Promise.all([
+                    col.where("dari", "==", currentUser.outlet).get(),
+                    col.where("ke", "==", currentUser.outlet).get()
+                ]).then(function (hasil) {
+                    const gabung = {};
+                    hasil.forEach(function (snap) { snap.forEach(function (d) { gabung[d.id] = d; }); });
+                    return Object.keys(gabung).map(function (k) { return gabung[k]; });
+                });
+            }
+
+            pekerjaan.then(function (docs) {
+                daftarTransfer = docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+                daftarTransfer.sort(function (a, b) { return detik(b.dibuatPada) - detik(a.dibuatPada); });
+                render();
+            }).catch(function (e) {
+                document.getElementById("isiHalaman").innerHTML =
+                    '<div class="empty-state">Gagal memuat: ' + esc(e.message) + '</div>';
+            });
+        }
+
+        function detik(ts) {
+            return ts && ts.seconds ? ts.seconds : Math.floor(Date.now() / 1000);
+        }
+
+        function waktu(ts) {
+            if (!ts || !ts.toDate) return "baru saja";
+            const d = ts.toDate();
+            const sekarang = new Date();
+            const awal = function (x) { return new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime(); };
+            const selisihHari = Math.round((awal(sekarang) - awal(d)) / 86400000);
+            const jam = ("0" + d.getHours()).slice(-2) + "." + ("0" + d.getMinutes()).slice(-2);
+            if (selisihHari === 0) return "hari ini " + jam;
+            if (selisihHari === 1) return "kemarin " + jam;
+            const bln = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+            return d.getDate() + " " + bln[d.getMonth()] + " " + jam;
+        }
+
+        function render() {
+            if (canBuat) renderForecaster(); else renderKasir();
+        }
+
+        // ===================================================================
+        //  TAMPILAN FORECASTER / ADMIN
+        // ===================================================================
+        function renderForecaster() {
+            const wadah = document.getElementById("isiHalaman");
+
+            if (daftarTransfer.length === 0) {
+                wadah.innerHTML = '<div class="empty-state">Belum ada transfer. Buat dari halaman Stok dengan memilih outlet tujuan.</div>';
+                return;
+            }
+
+            const jmlSelisih = daftarTransfer.filter(function (t) { return t.selisih && !t.selisihDicek; }).length;
+            let html = "";
+
+            if (jmlSelisih > 0) {
+                html += '<div class="banner-selisih"><b>' + jmlSelisih + ' transfer selisih:</b> jumlah diterima tidak sama dengan jumlah dikirim. Perlu dicek.</div>';
+            }
+
+            html += '<table><thead><tr><th style="width:190px;">Transfer</th><th>Isi (dikirim &rarr; diterima)</th><th style="width:170px;">Status</th><th style="width:110px;"></th></tr></thead><tbody>';
+
+            daftarTransfer.forEach(function (t) {
+                const adaSelisih = t.selisih && !t.selisihDicek;
+                html += '<tr' + (adaSelisih ? ' style="background:#FFF8F7;"' : '') + '>';
+                html += '<td><b>' + esc(t.dari) + ' &rarr; ' + esc(t.ke) + '</b><div class="sub">' + waktu(t.dibuatPada) + '</div></td>';
+
+                html += '<td>';
+                (t.items || []).forEach(function (it) {
+                    const diterima = it.jumlahDiterima !== undefined ? it.jumlahDiterima : "-";
+                    const beda = it.jumlahDiterima !== undefined && it.jumlahDiterima !== it.jumlah;
+                    html += '<div class="ln"' + (beda ? ' style="color:#B03A2E; font-weight:800;"' : '') + '>' +
+                            esc(it.nama) + ': ' + it.jumlah + ' &rarr; ' + diterima + '</div>';
+                });
+                if (t.catatan) html += '<div class="sub">Catatan: ' + esc(t.catatan) + '</div>';
+                if (t.catatanSelisih) html += '<div class="sub" style="color:#B03A2E;">Catatan penerima: ' + esc(t.catatanSelisih) + '</div>';
+                html += '</td>';
+
+                html += '<td>' + badgeStatus(t) + subStatus(t) + '</td>';
+
+                html += '<td>';
+                if (t.status === "menunggu_kirim") {
+                    html += '<button class="btn btn-sm btn-danger" onclick="batalkanTransfer(\'' + t.id + '\')">Batalkan</button>';
+                } else if (adaSelisih) {
+                    html += '<button class="btn btn-sm" onclick="tandaiDicek(\'' + t.id + '\')">Tandai dicek</button>';
+                }
+                html += '</td></tr>';
+            });
+
+            html += '</tbody></table>';
+            wadah.innerHTML = html;
+        }
+
+        function badgeStatus(t) {
+            if (t.status === "dibatalkan") return '<span class="badge s-batal">DIBATALKAN</span>';
+            if (t.status === "menunggu_kirim") return '<span class="badge s-menunggu">MENUNGGU KIRIM</span>';
+            if (t.status === "dikirim") return '<span class="badge s-dikirim">DALAM PERJALANAN</span>';
+            if (t.status === "selesai") {
+                if (t.selisih) {
+                    const total = (t.items || []).reduce(function (a, it) { return a + Math.abs(it.jumlah - (it.jumlahDiterima || 0)); }, 0);
+                    return '<span class="badge s-selisih">SELISIH ' + total + ' PCS</span>' +
+                           (t.selisihDicek ? '<div class="sub">Sudah dicek</div>' : '');
+                }
+                return '<span class="badge s-selesai">SELESAI</span>';
+            }
+            return "";
+        }
+
+        function subStatus(t) {
+            if (t.status === "menunggu_kirim") return '<div class="sub">Belum diklik Kirim oleh ' + esc(t.dari) + '</div>';
+            if (t.status === "dikirim") return '<div class="sub">Dikirim ' + waktu(t.dikirimPada) + ', menunggu ' + esc(t.ke) + '</div>';
+            if (t.status === "selesai" && !t.selisih) return '<div class="sub">Diterima ' + waktu(t.diterimaPada) + '</div>';
+            return "";
+        }
+
+        function batalkanTransfer(id) {
+            if (!confirm("Batalkan perintah transfer ini? (Hanya bisa selama belum dikirim)")) return;
+            const ref = db.collection("transfer_stok").doc(id);
+            db.runTransaction(async function (tx) {
+                const d = await tx.get(ref);
+                if (!d.exists || d.data().status !== "menunggu_kirim") {
+                    throw new Error("Transfer sudah dikirim / diproses, tidak bisa dibatalkan.");
+                }
+                tx.update(ref, { status: "dibatalkan", dibatalkanPada: firebase.firestore.FieldValue.serverTimestamp() });
+            }).then(muatTransfer).catch(function (e) {
+                alert(e.message);
+                muatTransfer();
+            });
+        }
+
+        function tandaiDicek(id) {
+            db.collection("transfer_stok").doc(id).update({ selisihDicek: true }).then(muatTransfer).catch(function (e) {
+                alert("Gagal: " + e.message);
+            });
+        }
+
+        // ===================================================================
+        //  TAMPILAN KASIR
+        // ===================================================================
+        function pilihTab(t) {
+            tabAktif = t;
+            renderKasir();
+        }
+
+        function renderKasir() {
+            const outlet = currentUser.outlet;
+            const perluKirim = daftarTransfer.filter(function (t) { return t.dari === outlet && t.status === "menunggu_kirim"; });
+            const menungguPenerima = daftarTransfer.filter(function (t) { return t.dari === outlet && t.status === "dikirim"; });
+            const perluTerima = daftarTransfer.filter(function (t) { return t.ke === outlet && t.status === "dikirim"; });
+            const riwayat = daftarTransfer.filter(function (t) { return t.status === "selesai" || t.status === "dibatalkan"; }).slice(0, 30);
+
+            let html = '<div class="tabs">' +
+                tombolTab("kirim", "Perlu Dikirim", perluKirim.length) +
+                tombolTab("terima", "Perlu Diterima", perluTerima.length) +
+                tombolTab("riwayat", "Riwayat", 0) + '</div>';
+
+            if (tabAktif === "kirim") {
+                if (perluKirim.length === 0) {
+                    html += '<div class="empty-state">Tidak ada perintah transfer yang perlu dikirim.</div>';
+                } else {
+                    html += '<div class="banner-info">Ada <b>' + perluKirim.length + ' perintah transfer</b> dari Forecaster. Siapkan barangnya, lalu klik <b>Kirim</b>.</div>';
+                    perluKirim.forEach(function (t) { html += kartuKirim(t); });
+                }
+                if (menungguPenerima.length > 0) {
+                    html += '<div class="sec-label">SUDAH DIKIRIM, MENUNGGU PENERIMA</div>';
+                    menungguPenerima.forEach(function (t) { html += kartuMenunggu(t); });
+                }
+            } else if (tabAktif === "terima") {
+                if (perluTerima.length === 0) {
+                    html += '<div class="empty-state">Tidak ada kiriman yang perlu diterima.</div>';
+                } else {
+                    perluTerima.forEach(function (t) { html += kartuTerima(t); });
+                }
+            } else {
+                if (riwayat.length === 0) {
+                    html += '<div class="empty-state">Belum ada riwayat transfer.</div>';
+                } else {
+                    riwayat.forEach(function (t) { html += kartuRiwayat(t); });
+                }
+            }
+
+            document.getElementById("isiHalaman").innerHTML = html;
+        }
+
+        function tombolTab(key, label, jumlah) {
+            return '<button class="tab' + (tabAktif === key ? " on" : "") + '" onclick="pilihTab(\'' + key + '\')">' +
+                   label + (jumlah > 0 ? ' <span class="cnt">' + jumlah + '</span>' : '') + '</button>';
+        }
+
+        function kartuKirim(t) {
+            const totalPcs = (t.items || []).reduce(function (a, it) { return a + it.jumlah; }, 0);
+            let html = '<div class="card aktif"><div class="card-title">Kirim ke ' + esc(t.ke) + ' <span class="badge s-perlu">PERLU DIKIRIM</span></div>' +
+                       '<div class="card-meta">Perintah Forecaster ' + waktu(t.dibuatPada) + (t.catatan ? ' · Catatan: ' + esc(t.catatan) : '') + '</div>';
+            (t.items || []).forEach(function (it) {
+                html += '<div class="li"><span>' + esc(it.nama) + '</span><b>' + it.jumlah + '</b></div>';
+            });
+            html += '<div class="card-foot"><div class="foot-note">Siapkan ' + totalPcs + ' pcs, lalu klik Kirim. Stok ' + esc(t.dari) + ' berkurang otomatis. Tidak ada tombol Tolak.</div>' +
+                    '<button class="btn btn-primary btn-big" id="btnKirim_' + t.id + '" onclick="kirimTransfer(\'' + t.id + '\')">Kirim →</button></div>' +
+                    '<div class="err" id="err_' + t.id + '" style="display:none;"></div></div>';
+            return html;
+        }
+
+        function kartuMenunggu(t) {
+            const ringkas = (t.items || []).map(function (it) { return it.jumlah + " " + esc(it.nama); }).join(" · ");
+            return '<div class="card pasif"><div class="card-title" style="font-size:13px; color:#52606d;">Ke ' + esc(t.ke) +
+                   ' <span class="badge s-dikirim">DALAM PERJALANAN</span></div>' +
+                   '<div class="card-meta" style="margin-bottom:6px;">Kamu kirim ' + waktu(t.dikirimPada) + '</div>' +
+                   '<div style="font-size:12px; color:#6b7280;">' + ringkas + '</div></div>';
+        }
+
+        function kartuTerima(t) {
+            let html = '<div class="card aktif"><div class="card-title">Dari ' + esc(t.dari) + ' <span class="badge s-dikirim">SUDAH DIKIRIM</span></div>' +
+                       '<div class="card-meta">Dikirim ' + waktu(t.dikirimPada) + (t.catatan ? ' · Catatan: ' + esc(t.catatan) : '') + '</div>';
+            (t.items || []).forEach(function (it) {
+                html += '<div class="li"><span>' + esc(it.nama) + '</span><span style="display:flex; align-items:center;">' +
+                        '<span class="sent">dikirim ' + it.jumlah + '</span>' +
+                        '<input class="qty-in" type="number" min="0" max="' + it.jumlah + '" value="' + it.jumlah + '" ' +
+                        'data-tid="' + t.id + '" data-pid="' + esc(it.productId) + '" data-sent="' + it.jumlah + '" ' +
+                        'oninput="cekBeda(\'' + t.id + '\')"></span></div>';
+            });
+            html += '<div id="wadahCatatan_' + t.id + '" style="display:none; margin-top:10px;">' +
+                    '<div style="font-size:10.5px; font-weight:700;">Catatan selisih <span style="color:#B03A2E;">(wajib diisi karena ada yang beda)</span></div>' +
+                    '<input class="catatan-in" type="text" id="catatan_' + t.id + '" maxlength="200" placeholder="Contoh: 1 pcs penyok"></div>';
+            html += '<div class="card-foot"><div class="foot-note">Stok ' + esc(t.ke) + ' bertambah sesuai jumlah diterima. Jumlah otomatis terisi sesuai kiriman, ubah hanya kalau ada yang beda. Tidak ada tombol Tolak.</div>' +
+                    '<button class="btn btn-primary btn-big" id="btnTerima_' + t.id + '" onclick="terimaTransfer(\'' + t.id + '\')">✓ Terima</button></div>' +
+                    '<div class="err" id="err_' + t.id + '" style="display:none;"></div></div>';
+            return html;
+        }
+
+        function kartuRiwayat(t) {
+            const arah = t.dari === currentUser.outlet ? "Ke " + esc(t.ke) : "Dari " + esc(t.dari);
+            let html = '<div class="card pasif"><div class="card-title" style="font-size:13px; color:#52606d;">' + arah + ' ' + badgeStatus(t) + '</div>' +
+                       '<div class="card-meta" style="margin-bottom:6px;">' + (t.status === "selesai" ? "Diterima " + waktu(t.diterimaPada) : "Dibatalkan") + '</div>';
+            (t.items || []).forEach(function (it) {
+                const beda = it.jumlahDiterima !== undefined && it.jumlahDiterima !== it.jumlah;
+                html += '<div style="font-size:12px; color:' + (beda ? '#B03A2E' : '#6b7280') + ';">' + esc(it.nama) + ': ' + it.jumlah +
+                        (it.jumlahDiterima !== undefined ? ' → ' + it.jumlahDiterima : '') + '</div>';
+            });
+            if (t.catatanSelisih) html += '<div class="sub">Catatan: ' + esc(t.catatanSelisih) + '</div>';
+            return html + '</div>';
+        }
+
+        function cekBeda(tid) {
+            const inputs = document.querySelectorAll('input.qty-in[data-tid="' + tid + '"]');
+            let adaBeda = false;
+            inputs.forEach(function (el) {
+                const sent = parseInt(el.dataset.sent, 10);
+                let v = parseInt(el.value, 10);
+                const beda = isNaN(v) || v !== sent;
+                el.classList.toggle("beda", beda);
+                if (beda) adaBeda = true;
+            });
+            document.getElementById("wadahCatatan_" + tid).style.display = adaBeda ? "block" : "none";
+        }
+
+        function tampilError(tid, pesan) {
+            const el = document.getElementById("err_" + tid);
+            if (!el) { alert(pesan); return; }
+            el.textContent = pesan;
+            el.style.display = "block";
+        }
+
+        // ===================================================================
+        //  AKSI: KIRIM (stok pengirim berkurang)
+        // ===================================================================
+        function kirimTransfer(id) {
+            if (sedangProses[id]) return;
+            if (!confirm("Kirim transfer ini? Stok outlet kamu akan langsung berkurang.")) return;
+
+            sedangProses[id] = true;
+            const btn = document.getElementById("btnKirim_" + id);
+            if (btn) btn.disabled = true;
+
+            const tRef = db.collection("transfer_stok").doc(id);
+
+            db.runTransaction(async function (tx) {
+                const tDoc = await tx.get(tRef);
+                if (!tDoc.exists) throw new Error("Transfer tidak ditemukan.");
+                const t = tDoc.data();
+                if (t.status !== "menunggu_kirim") throw new Error("Transfer ini sudah diproses.");
+                if (t.dari !== currentUser.outlet) throw new Error("Transfer ini bukan dari outlet kamu.");
+
+                const refs = t.items.map(function (it) {
+                    return db.collection("outlets").doc(t.dari).collection("stock").doc(it.productId);
+                });
+                const snaps = await Promise.all(refs.map(function (r) { return tx.get(r); }));
+
+                snaps.forEach(function (s, i) {
+                    const sisa = s.exists ? (s.data().jumlah || 0) : 0;
+                    if (sisa < t.items[i].jumlah) {
+                        throw new Error("Stok " + t.items[i].nama + " tidak cukup (tersisa " + sisa + ", dikirim " + t.items[i].jumlah + "). Hubungi Forecaster.");
+                    }
+                });
+
+                snaps.forEach(function (s, i) {
+                    tx.update(refs[i], { jumlah: (s.data().jumlah || 0) - t.items[i].jumlah });
+                });
+
+                tx.update(tRef, {
+                    status: "dikirim",
+                    dikirimOleh: { uid: auth.currentUser.uid, nama: currentUser.nama || "" },
+                    dikirimPada: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            }).then(function () {
+                delete sedangProses[id];
+                muatTransfer();
+                muatBadgeTransfer(currentUser);
+            }).catch(function (e) {
+                delete sedangProses[id];
+                if (btn) btn.disabled = false;
+                tampilError(id, "Gagal kirim: " + e.message);
+            });
+        }
+
+        // ===================================================================
+        //  AKSI: TERIMA (stok penerima bertambah, selisih ditandai)
+        // ===================================================================
+        function terimaTransfer(id) {
+            if (sedangProses[id]) return;
+
+            const inputs = document.querySelectorAll('input.qty-in[data-tid="' + id + '"]');
+            const diterima = {};
+            let adaBeda = false;
+            let valid = true;
+
+            inputs.forEach(function (el) {
+                const sent = parseInt(el.dataset.sent, 10);
+                const v = parseInt(el.value, 10);
+                if (isNaN(v) || v < 0 || v > sent) { valid = false; return; }
+                diterima[el.dataset.pid] = v;
+                if (v !== sent) adaBeda = true;
+            });
+
+            if (!valid) {
+                tampilError(id, "Jumlah diterima harus angka 0 sampai jumlah dikirim.");
+                return;
+            }
+
+            const catatanEl = document.getElementById("catatan_" + id);
+            const catatan = catatanEl ? catatanEl.value.trim() : "";
+            if (adaBeda && !catatan) {
+                tampilError(id, "Jumlah beda dari kiriman, catatan selisih wajib diisi.");
+                return;
+            }
+
+            if (!confirm(adaBeda ? "Jumlah diterima berbeda dari yang dikirim. Terima dan laporkan selisih?" : "Terima semua barang sesuai kiriman?")) return;
+
+            sedangProses[id] = true;
+            const btn = document.getElementById("btnTerima_" + id);
+            if (btn) btn.disabled = true;
+
+            const tRef = db.collection("transfer_stok").doc(id);
+
+            db.runTransaction(async function (tx) {
+                const tDoc = await tx.get(tRef);
+                if (!tDoc.exists) throw new Error("Transfer tidak ditemukan.");
+                const t = tDoc.data();
+                if (t.status !== "dikirim") throw new Error("Transfer ini sudah diproses.");
+                if (t.ke !== currentUser.outlet) throw new Error("Transfer ini bukan untuk outlet kamu.");
+
+                const refs = t.items.map(function (it) {
+                    return db.collection("outlets").doc(t.ke).collection("stock").doc(it.productId);
+                });
+                const snaps = await Promise.all(refs.map(function (r) { return tx.get(r); }));
+
+                let selisih = false;
+                const itemsBaru = t.items.map(function (it) {
+                    const n = diterima[it.productId] !== undefined ? diterima[it.productId] : it.jumlah;
+                    if (n !== it.jumlah) selisih = true;
+                    return Object.assign({}, it, { jumlahDiterima: n });
+                });
+
+                snaps.forEach(function (s, i) {
+                    const n = itemsBaru[i].jumlahDiterima;
+                    if (s.exists) {
+                        if (n > 0) tx.update(refs[i], { jumlah: (s.data().jumlah || 0) + n });
+                    } else if (n > 0) {
+                        tx.set(refs[i], { jumlah: n, minStok: 5 });
+                    }
+                });
+
+                tx.update(tRef, {
+                    status: "selesai",
+                    items: itemsBaru,
+                    selisih: selisih,
+                    selisihDicek: false,
+                    catatanSelisih: selisih ? catatan : "",
+                    diterimaOleh: { uid: auth.currentUser.uid, nama: currentUser.nama || "" },
+                    diterimaPada: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            }).then(function () {
+                delete sedangProses[id];
+                muatTransfer();
+                muatBadgeTransfer(currentUser);
+            }).catch(function (e) {
+                delete sedangProses[id];
+                if (btn) btn.disabled = false;
+                tampilError(id, "Gagal terima: " + e.message);
+            });
+        }
+    </script>
+
+</body>
+</html>
