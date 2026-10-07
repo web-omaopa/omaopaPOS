@@ -45,6 +45,46 @@
         }
         .search-box:focus { border-color: #12305C; }
 
+        .btn-promo {
+            height: 42px; border-radius: 10px; border: none; background: #12305C; color: #ffffff;
+            display: flex; align-items: center; gap: 8px; padding: 0 16px; font-size: 13px;
+            font-weight: 700; cursor: pointer; font-family: inherit;
+        }
+        .btn-promo:hover { background: #0B2245; }
+        .btn-promo-count {
+            background: #ffffff; color: #12305C; font-size: 11px; font-weight: 800; min-width: 18px;
+            height: 18px; border-radius: 9px; display: inline-flex; align-items: center;
+            justify-content: center; padding: 0 5px;
+        }
+        .info-promo-box { max-width: 420px; max-height: 88vh; overflow-y: auto; }
+        .ip-tabs { display: flex; gap: 6px; margin-top: 12px; }
+        .ip-tab {
+            padding: 5px 11px; border-radius: 16px; border: 1px solid #dde3ea; background: #ffffff;
+            color: #52606d; font-size: 11px; font-weight: 700; cursor: pointer; font-family: inherit;
+        }
+        .ip-tab.active { background: #12305C; border-color: #12305C; color: #ffffff; }
+        .ip-sec { font-size: 10px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; display: flex; align-items: center; gap: 6px; margin: 14px 0 6px; }
+        .ip-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+        .ip-item { border: 1px solid #e4e8ee; border-radius: 10px; padding: 9px 11px; margin-bottom: 6px; background: #ffffff; }
+        .ip-item.run { border-color: #BFE6CD; background: #F4FBF7; }
+        .ip-item.soon { border-color: #F0DBA0; background: #FFFBF0; }
+        .ip-item.end { background: #F7F8FA; }
+        .ip-item.miss { opacity: 0.6; }
+        .ip-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .ip-name { font-size: 12.5px; font-weight: 800; color: #1f2937; }
+        .ip-name.end { color: #8A95A5; text-decoration: line-through; text-decoration-color: #c4ccd6; }
+        .ip-desc { font-size: 11px; color: #52606d; margin-top: 3px; line-height: 1.45; }
+        .ip-desc.end { color: #9aa5b1; }
+        .ip-meta { font-size: 10px; color: #8A95A5; margin-top: 4px; }
+        .ip-badge { font-size: 9px; font-weight: 800; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
+        .ip-b-run { background: #E7F6ED; color: #1E7D32; }
+        .ip-b-warn { background: #FFF1D6; color: #9A6B1C; }
+        .ip-b-soon { background: #E8EEF9; color: #12305C; }
+        .ip-b-end { background: #EEF0F3; color: #6b7280; }
+        .ip-b-off { background: #FDEAEA; color: #B03A2E; }
+        .ip-tag { display: inline-block; font-size: 9.5px; font-weight: 700; padding: 2px 7px; border-radius: 8px; background: #EEF1F5; color: #52606d; margin-right: 4px; }
+        .ip-tag.warn { background: #FFF1D6; color: #9A6B1C; }
+
         .kategori-tabs { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
 
         .kategori-tab {
@@ -125,6 +165,49 @@
         .promo-applied-row { display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; color: #1e7d32; padding: 3px 0; }
         .promo-applied-row.promo-off { color: #9aa5b1; }
         .promo-progress-row { font-size: 11px; color: #9a6b1c; padding: 3px 0; line-height: 1.4; }
+
+        .btn-promo {
+            height: 42px; border-radius: 10px; border: none; background: #12305C; color: #ffffff;
+            display: flex; align-items: center; gap: 8px; padding: 0 16px; font-size: 13px;
+            font-weight: 700; cursor: pointer; font-family: inherit;
+        }
+        .btn-promo:hover { background: #0B2245; }
+        .promo-count {
+            background: #ffffff; color: #12305C; font-size: 11px; font-weight: 800; min-width: 18px;
+            height: 18px; border-radius: 9px; display: flex; align-items: center; justify-content: center; padding: 0 5px;
+        }
+        .promo-overlay { align-items: flex-start; justify-content: flex-end; padding: 70px 24px 24px; background: rgba(18, 48, 92, 0.18); }
+        .promo-panel {
+            width: 400px; max-width: 100%; max-height: calc(100vh - 100px); overflow-y: auto; background: #ffffff;
+            border: 1px solid #dde3ea; border-radius: 14px; box-shadow: 0 12px 32px rgba(18, 48, 92, 0.22); padding: 16px;
+        }
+        .pi-tabs { display: flex; gap: 6px; margin-top: 12px; }
+        .pi-tab {
+            padding: 5px 11px; border-radius: 16px; border: 1px solid #dde3ea; background: #ffffff; color: #52606d;
+            font-size: 10.5px; font-weight: 700; cursor: pointer; font-family: inherit;
+        }
+        .pi-tab.active { background: #12305C; border-color: #12305C; color: #ffffff; }
+        .pi-sec { font-size: 10px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; display: flex; align-items: center; gap: 6px; margin: 12px 0 6px; }
+        .pi-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+        .pi-item { border: 1px solid #e4e8ee; border-radius: 10px; padding: 9px 11px; margin-bottom: 6px; background: #ffffff; }
+        .pi-item.run { border-color: #BFE6CD; background: #F4FBF7; }
+        .pi-item.soon { border-color: #F0DBA0; background: #FFFBF0; }
+        .pi-item.end { background: #F7F8FA; }
+        .pi-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .pi-name { font-size: 12px; font-weight: 800; color: #1f2937; }
+        .pi-name.end { color: #8A95A5; text-decoration: line-through; text-decoration-color: #c4ccd6; }
+        .pi-desc { font-size: 10.5px; color: #52606d; margin-top: 3px; line-height: 1.45; }
+        .pi-desc.end { color: #9aa5b1; }
+        .pi-meta { font-size: 10px; color: #8A95A5; margin-top: 4px; }
+        .pi-badge { font-size: 9px; font-weight: 800; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
+        .pi-b-run { background: #E7F6ED; color: #1E7D32; }
+        .pi-b-warn { background: #FFF1D6; color: #9A6B1C; }
+        .pi-b-soon { background: #E8EEF9; color: #12305C; }
+        .pi-b-end { background: #EEF0F3; color: #6b7280; }
+        .pi-b-off { background: #FDEAEA; color: #B03A2E; }
+        .pi-tag { display: inline-block; font-size: 9.5px; font-weight: 700; padding: 2px 7px; border-radius: 8px; background: #EEF1F5; color: #52606d; margin-right: 4px; }
+        .pi-tag.miss { background: #FFF1D6; color: #9A6B1C; }
+        .pi-empty { font-size: 11px; color: #9aa5b1; padding: 6px 2px; }
         .promo-roller {
             display: inline-flex; align-items: center; width: 30px; height: 17px; border-radius: 10px;
             background: #c9d1db; cursor: pointer; flex-shrink: 0; padding: 2px; transition: background 0.15s;
@@ -192,6 +275,20 @@
                 <button class="btn-cancel" onclick="tutupModalTopping()">Batal</button>
                 <button class="btn-save" onclick="konfirmasiTopping()">Tambah ke Keranjang</button>
             </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modalInfoPromo">
+        <div class="modal-box info-promo-box">
+            <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px;">
+                <div>
+                    <h3>Info Promo</h3>
+                    <div class="modal-sub" id="infoPromoSub" style="margin-bottom:0;"></div>
+                </div>
+                <button class="btn-cancel" style="width:28px; height:28px; border-radius:8px; cursor:pointer; font-size:14px; line-height:1;" onclick="tutupInfoPromo()">&times;</button>
+            </div>
+            <div class="ip-tabs" id="infoPromoTabs"></div>
+            <div id="infoPromoList"></div>
         </div>
     </div>
 
@@ -299,7 +396,7 @@
            termasuk modeList (atau modeList kosong = semua mode). */
         function promoBerlakuSekarang(promo) {
             if (!promo || promo.status !== "aktif") return false;
-            const todayStr = new Date().toISOString().slice(0, 10);
+            const todayStr = hariIniStr();
             if (promo.tanggalMulai && todayStr < promo.tanggalMulai) return false;
             if (promo.tanggalBerakhir && todayStr > promo.tanggalBerakhir) return false;
             const outletList = promo.outletList || [];
@@ -523,6 +620,175 @@
             renderCart();
         }
 
+        /* =====================================================
+           INFO PROMO (tombol "Promo" di atas POS)
+           Menampilkan promo outlet ini: sedang berjalan, segera
+           mulai, dan yang sudah berakhir/dimatikan. Promo yang
+           sudah berakhir otomatis hilang dari daftar setelah
+           PROMO_BERAKHIR_TAMPIL_HARI hari (ubah angka ini kalau
+           mau lebih lama/singkat). Promo outlet lain tidak tampil.
+           Promo yang tidak berlaku di mode aktif tetap tampil,
+           diredupkan, dengan keterangan.
+        ====================================================== */
+        const PROMO_BERAKHIR_TAMPIL_HARI = 60;
+        const NAMA_BULAN = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+        const NAMA_HARI = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+        const TIPE_PROMO_LABEL_POS = {
+            diskon_persen: "DISKON %", diskon_nominal: "DISKON RP", harga_spesial: "HARGA SPESIAL",
+            beli_gratis: "BELI X GRATIS Y", bundling: "BUNDLING"
+        };
+        let infoPromoTab = "semua";
+
+        // Tanggal hari ini menurut jam perangkat kasir (bukan UTC), format YYYY-MM-DD
+        function hariIniStr() {
+            const d = new Date();
+            return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+        }
+
+        function selisihHari(a, b) {
+            return Math.round((Date.parse(a + "T00:00:00Z") - Date.parse(b + "T00:00:00Z")) / 86400000);
+        }
+
+        function tglPendek(str, denganTahun) {
+            const p = str.split("-");
+            return Number(p[2]) + " " + NAMA_BULAN[Number(p[1]) - 1] + (denganTahun ? " " + p[0] : "");
+        }
+
+        function klasifikasiPromoInfo(p) {
+            const outletList = p.outletList || [];
+            if (outletList.length > 0 && outletList.indexOf(currentUser.outlet) === -1) return null;
+
+            const modeList = p.modeList || [];
+            const modeMiss = modeList.length > 0 && modeList.indexOf(modeAktif) === -1;
+            const today = hariIniStr();
+
+            if (p.tanggalBerakhir && today > p.tanggalBerakhir) {
+                if (selisihHari(today, p.tanggalBerakhir) > PROMO_BERAKHIR_TAMPIL_HARI) return null;
+                return { grup: "berakhir", label: "BERAKHIR " + tglPendek(p.tanggalBerakhir, false).toUpperCase(), badge: "ip-b-end", modeMiss: modeMiss };
+            }
+            if (p.status !== "aktif") return { grup: "berakhir", label: "DIMATIKAN", badge: "ip-b-off", modeMiss: modeMiss };
+            if (p.tanggalMulai && today < p.tanggalMulai) {
+                return { grup: "segera", label: "MULAI " + tglPendek(p.tanggalMulai, false).toUpperCase(), badge: "ip-b-soon", modeMiss: modeMiss };
+            }
+
+            let label = "BERJALAN", badge = "ip-b-run";
+            if (p.tanggalBerakhir) {
+                const sisa = selisihHari(p.tanggalBerakhir, today);
+                if (sisa === 0) { label = "HARI INI TERAKHIR"; badge = "ip-b-warn"; }
+                else if (sisa <= 7) { label = sisa + " HARI LAGI"; badge = "ip-b-warn"; }
+            }
+            return { grup: "berjalan", label: label, badge: badge, modeMiss: modeMiss };
+        }
+
+        function namaProdukPromo(id) {
+            const found = allProducts.find(function (x) { return x.id === id; });
+            return found ? found.nama : "produk";
+        }
+
+        function rupiahPromo(n) { return "Rp " + Number(n || 0).toLocaleString("id-ID"); }
+
+        function deskripsiPromoInfo(p) {
+            const daftar = function (ids) { return (ids || []).map(namaProdukPromo).join(", "); };
+            if (p.tipe === "diskon_persen") return "Diskon " + p.nilai + "% untuk " + daftar(p.produkIds);
+            if (p.tipe === "diskon_nominal") return "Potong " + rupiahPromo(p.nilai) + " untuk " + daftar(p.produkIds);
+            if (p.tipe === "harga_spesial") return daftar(p.produkIds) + " jadi " + rupiahPromo(p.nilai);
+            if (p.tipe === "beli_gratis") return "Beli " + p.beliJumlah + " " + namaProdukPromo(p.beliProdukId) + ", gratis " + p.gratisJumlah + " " + namaProdukPromo(p.gratisProdukId);
+            if (p.tipe === "bundling") {
+                const hasil = p.hasilTipe === "harga_paket" ? ("jadi " + rupiahPromo(p.hasilNilai))
+                    : p.hasilTipe === "diskon_persen" ? ("diskon " + p.hasilNilai + "%")
+                    : ("potong " + rupiahPromo(p.hasilNilai));
+                return "Beli " + p.syaratJumlah + " dari (" + daftar(p.grupProdukIds) + ") " + hasil;
+            }
+            return "";
+        }
+
+        function daftarPromoInfo() {
+            return daftarPromo.map(function (p) {
+                const k = klasifikasiPromoInfo(p);
+                return k ? { promo: p, info: k } : null;
+            }).filter(function (x) { return x; });
+        }
+
+        function renderTombolPromo() {
+            const btn = document.getElementById("btnPromo");
+            if (!btn) return;
+            const jumlah = daftarPromoInfo().filter(function (x) { return x.info.grup === "berjalan" && !x.info.modeMiss; }).length;
+            btn.innerHTML =
+                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.2" fill="#ffffff"/></svg>' +
+                'Promo <span class="btn-promo-count">' + jumlah + '</span>';
+        }
+
+        function bukaInfoPromo() {
+            infoPromoTab = "semua";
+            renderInfoPromo();
+            document.getElementById("modalInfoPromo").classList.add("open");
+        }
+
+        function tutupInfoPromo() {
+            document.getElementById("modalInfoPromo").classList.remove("open");
+        }
+
+        function pilihTabInfoPromo(tab) {
+            infoPromoTab = tab;
+            renderInfoPromo();
+        }
+
+        function renderInfoPromo() {
+            const sekarang = new Date();
+            document.getElementById("infoPromoSub").textContent =
+                currentUser.outlet + " · Mode: " + modeAktif + " · " + NAMA_HARI[sekarang.getDay()] + ", " +
+                sekarang.getDate() + " " + NAMA_BULAN[sekarang.getMonth()] + " " + sekarang.getFullYear();
+
+            const semua = daftarPromoInfo();
+            const berjalan = semua.filter(function (x) { return x.info.grup === "berjalan"; });
+            const segera = semua.filter(function (x) { return x.info.grup === "segera"; });
+            const berakhir = semua.filter(function (x) { return x.info.grup === "berakhir"; });
+
+            const tabs = [["semua", "Semua"], ["berjalan", "Berjalan (" + berjalan.length + ")"], ["berakhir", "Berakhir (" + berakhir.length + ")"]];
+            document.getElementById("infoPromoTabs").innerHTML = tabs.map(function (t) {
+                return '<button type="button" class="ip-tab' + (infoPromoTab === t[0] ? ' active' : '') + '" onclick="pilihTabInfoPromo(\'' + t[0] + '\')">' + t[1] + '</button>';
+            }).join("");
+
+            const urut = function (arr) {
+                return arr.slice().sort(function (a, b) {
+                    if (a.info.modeMiss !== b.info.modeMiss) return a.info.modeMiss ? 1 : -1;
+                    return (a.promo.nama || "").localeCompare(b.promo.nama || "");
+                });
+            };
+
+            const kartu = function (x) {
+                const p = x.promo, k = x.info;
+                const habis = k.grup === "berakhir";
+                const periode = (p.tanggalMulai && p.tanggalBerakhir) ? (tglPendek(p.tanggalMulai, false) + " – " + tglPendek(p.tanggalBerakhir, true))
+                    : p.tanggalBerakhir ? ("s/d " + tglPendek(p.tanggalBerakhir, true))
+                    : p.tanggalMulai ? ("mulai " + tglPendek(p.tanggalMulai, true))
+                    : "Tanpa batas tanggal";
+                const modeList = p.modeList || [];
+                const outletList = p.outletList || [];
+                const scope = (modeList.length > 0 ? "Mode: " + modeList.join(", ") : "Semua mode") +
+                    (outletList.length > 0 ? " · Outlet: " + outletList.join(", ") : "");
+                const tagMiss = (k.modeMiss && !habis) ? '<span class="ip-tag warn">Tidak berlaku di mode ' + modeAktif + '</span>' : '';
+                return '<div class="ip-item ' + (k.grup === "berjalan" ? "run" : k.grup === "segera" ? "soon" : "end") + (k.modeMiss && !habis ? " miss" : "") + '">' +
+                    '<div class="ip-head"><span class="ip-name' + (habis ? " end" : "") + '">' + p.nama + '</span><span class="ip-badge ' + k.badge + '">' + k.label + '</span></div>' +
+                    '<div class="ip-desc' + (habis ? " end" : "") + '">' + deskripsiPromoInfo(p) + '</div>' +
+                    '<div class="ip-meta"><span class="ip-tag">' + (TIPE_PROMO_LABEL_POS[p.tipe] || p.tipe) + '</span>' + tagMiss + periode + (habis ? "" : " · " + scope) + '</div>' +
+                '</div>';
+            };
+
+            const seksi = function (judul, warna, arr) {
+                if (arr.length === 0) return "";
+                return '<div class="ip-sec" style="color:' + warna + ';"><span class="ip-dot" style="background:' + warna + ';"></span>' + judul + '</div>' + urut(arr).map(kartu).join("");
+            };
+
+            let html = "";
+            if (infoPromoTab === "semua" || infoPromoTab === "berjalan") html += seksi("Sedang berjalan", "#1E9E5A", berjalan);
+            if (infoPromoTab === "semua") html += seksi("Segera mulai", "#12305C", segera);
+            if (infoPromoTab === "semua" || infoPromoTab === "berakhir") html += seksi("Sudah berakhir / dimatikan", "#8A95A5", berakhir);
+            if (!html) html = '<div class="empty-state" style="padding:24px 0;">Belum ada promo untuk outlet ini.</div>';
+
+            document.getElementById("infoPromoList").innerHTML = html;
+        }
+
         function loadTopping() {
             db.collection("products")
                 .where("status", "==", "aktif")
@@ -574,6 +840,7 @@
             modeAktif = mode;
             renderModeTabs();
             renderProdukTampil();
+            renderTombolPromo();
         }
 
         /* =====================================================
@@ -601,6 +868,7 @@
             document.getElementById("mainContent").innerHTML =
                 '<div class="top-row">' +
                     '<input type="text" class="search-box" id="searchBox" placeholder="Cari produk...">' +
+                    '<button type="button" class="btn-promo" id="btnPromo" onclick="bukaInfoPromo()"></button>' +
                 '</div>' +
                 '<div class="kategori-tabs" id="kategoriTabs"></div>' +
                 '<div class="pos-grid">' +
@@ -853,6 +1121,7 @@
 
         function renderCart() {
             sinkronPromoOtomatis();
+            renderTombolPromo();
 
             const container = document.getElementById("cartItems");
             const items = Object.entries(cart);
