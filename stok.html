@@ -59,19 +59,25 @@
             border: none; cursor: pointer; padding: 0;
         }
 
-        .content { flex: 1; padding: 24px 28px; max-width: 700px; }
+        .content { flex: 1; padding: 24px 28px 90px; max-width: 900px; }
 
         .header-row {
             display: flex; justify-content: space-between;
-            align-items: center; margin-bottom: 16px;
+            align-items: flex-end; margin-bottom: 16px; gap: 12px; flex-wrap: wrap;
         }
 
         .header-row h2 { font-size: 16px; font-weight: 700; }
 
+        .header-controls { display: flex; align-items: flex-end; gap: 10px; }
+        .ctrl-label { font-size: 10px; font-weight: 700; color: #6b7280; margin-bottom: 3px; }
+        .ctrl-arrow { margin-bottom: 9px; color: #8A95A5; font-size: 14px; }
+
         select.outlet-select {
             height: 34px; border: 1px solid #d1d5db; border-radius: 6px;
-            padding: 0 10px; font-size: 12px;
+            padding: 0 10px; font-size: 12px; background: #ffffff;
         }
+
+        select.tujuan-select.dipilih { border-color: #12305C; color: #12305C; font-weight: 700; }
 
         table {
             width: 100%; border-collapse: collapse;
@@ -84,15 +90,81 @@
             background: #f1f4f8; color: #52606d; font-weight: 700; font-size: 11px;
         }
 
-        tbody td { padding: 10px 14px; border-top: 1px solid #e8ecf1; }
+        thead th.col-tf { background: #E9F0FB; color: #12305C; }
+
+        tbody td { padding: 9px 14px; border-top: 1px solid #e8ecf1; }
+        tbody td.col-tf { background: #F6F9FE; }
+
+        .r { text-align: right; }
+        .c { text-align: center; }
 
         .badge { font-size: 10px; padding: 3px 9px; border-radius: 20px; font-weight: 700; }
         .badge-aman { background: #e5f4e6; color: #1e7d32; }
         .badge-menipis { background: #fdf1de; color: #b06d09; }
         .badge-habis { background: #fdeaea; color: #c0392b; }
 
+        .qty-input {
+            width: 68px; height: 30px; text-align: center;
+            border: 1px solid #d1d5db; border-radius: 6px;
+            font-size: 12px; font-family: inherit;
+        }
+        .qty-input.terisi { border: 2px solid #12305C; color: #12305C; font-weight: 800; background: #F1F6FF; }
+        .qty-input:disabled { background: #f3f4f6; }
+
+        .hint-text { font-size: 10.5px; color: #8A95A5; margin-top: 10px; }
+
         .loading-state, .empty-state { text-align: center; color: #6b7280; font-size: 12px; padding: 30px 0; }
         .denied-state { text-align: center; color: #6b7280; font-size: 12px; padding: 40px 0; }
+
+        /* ===== Bar Buat Transfer (khusus Forecaster/Admin) ===== */
+        .tf-bar {
+            display: none; position: fixed; left: 190px; right: 0; bottom: 0; height: 64px;
+            background: #ffffff; border-top: 1px solid #dde3ea;
+            box-shadow: 0 -4px 14px rgba(18,48,92,0.08);
+            align-items: center; justify-content: space-between; padding: 0 28px; z-index: 50;
+        }
+        .tf-bar.tampil { display: flex; }
+        .tf-bar-info .t1 { font-size: 13px; font-weight: 800; color: #12305C; }
+        .tf-bar-info .t2 { font-size: 10.5px; color: #6b7280; margin-top: 2px; }
+        .tf-bar-aksi { display: flex; gap: 8px; }
+
+        .btn {
+            height: 38px; padding: 0 20px; border-radius: 8px; font-size: 12px; font-weight: 700;
+            cursor: pointer; font-family: inherit; border: 1px solid #dde3ea; background: #ffffff; color: #52606d;
+        }
+        .btn-primary { background: #12305C; border-color: #12305C; color: #ffffff; }
+        .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+        /* ===== Modal konfirmasi ===== */
+        .modal-backdrop {
+            display: none; position: fixed; inset: 0; background: rgba(75,43,29,0.35);
+            align-items: flex-start; justify-content: center; padding: 40px 16px; z-index: 100; overflow-y: auto;
+        }
+        .modal-backdrop.tampil { display: flex; }
+        .modal-box { background: #ffffff; border-radius: 10px; padding: 22px; width: 100%; max-width: 420px; }
+        .modal-title { font-size: 14px; font-weight: 700; }
+        .rute-box { display: flex; align-items: center; gap: 10px; margin-top: 12px; background: #F1F4F8; border-radius: 8px; padding: 10px 12px; }
+        .rute-box .k { font-size: 9.5px; font-weight: 700; color: #8A95A5; }
+        .rute-box .v { font-size: 13px; font-weight: 800; }
+        .sec-label { font-size: 10px; font-weight: 800; letter-spacing: 0.04em; color: #8A95A5; margin: 16px 0 4px; }
+        .isi-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 0; border-top: 1px solid #e8ecf1; font-size: 12px; }
+        .isi-row:first-of-type { border-top: none; }
+        .isi-sub { font-size: 10px; color: #8A95A5; margin-top: 2px; }
+        .modal-input { width: 100%; height: 36px; border: 1px solid #d1d5db; border-radius: 6px; padding: 0 10px; font-size: 12px; font-family: inherit; margin-top: 5px; }
+        .alur-box { background: #F1F4F8; border-radius: 8px; padding: 11px 12px; margin-top: 14px; font-size: 10.5px; color: #52606d; line-height: 1.6; }
+        .alur-box div { margin-top: 4px; }
+        .alur-box div:first-child { margin-top: 0; }
+        .modal-aksi { display: flex; gap: 8px; margin-top: 16px; }
+        .modal-aksi .btn { flex: 1; height: 36px; }
+        .modal-error { color: #c0392b; font-size: 11px; margin-top: 10px; }
+
+        .toast {
+            display: none; position: fixed; right: 24px; bottom: 84px; z-index: 200;
+            background: #12305C; color: #ffffff; padding: 12px 16px; border-radius: 10px;
+            font-size: 12px; max-width: 340px; line-height: 1.5; box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+        }
+        .toast.tampil { display: block; }
+        .toast a { color: #FFD28A; font-weight: 700; }
     </style>
 </head>
 <body>
@@ -103,23 +175,79 @@
         <div class="content" id="mainContent">
             <div class="header-row">
                 <h2>Stok Produk</h2>
-                <select class="outlet-select" id="outletSelect"></select>
+                <div class="header-controls">
+                    <div>
+                        <div class="ctrl-label" id="labelOutlet" style="display:none;">Outlet asal</div>
+                        <select class="outlet-select" id="outletSelect"></select>
+                    </div>
+                    <span class="ctrl-arrow" id="panahTujuan" style="display:none;">&rarr;</span>
+                    <div id="wadahTujuan" style="display:none;">
+                        <div class="ctrl-label">Transfer ke (opsional)</div>
+                        <select class="outlet-select tujuan-select" id="tujuanSelect"></select>
+                    </div>
+                </div>
             </div>
 
             <table>
-                <thead>
-                    <tr>
-                        <th>Produk</th>
-                        <th style="text-align:right;">Stok</th>
-                        <th style="text-align:right;">Status</th>
-                    </tr>
-                </thead>
+                <thead id="stockTableHead"></thead>
                 <tbody id="stockTableBody">
                     <tr><td colspan="3" class="loading-state">Memuat data stok...</td></tr>
                 </tbody>
             </table>
+
+            <div class="hint-text" id="hintTransfer" style="display:none;">
+                Pilih outlet tujuan untuk menampilkan kolom transfer. Isi jumlah di produk yang mau dipindah (boleh lebih dari satu produk), lalu klik Buat Transfer. Topping tidak ikut ditransfer.
+            </div>
         </div>
     </div>
+
+    <!-- Bar Buat Transfer -->
+    <div class="tf-bar" id="tfBar">
+        <div class="tf-bar-info">
+            <div class="t1" id="tfBarT1">Belum ada produk dipilih</div>
+            <div class="t2" id="tfBarT2"></div>
+        </div>
+        <div class="tf-bar-aksi">
+            <button class="btn" onclick="kosongkanTransfer()">Kosongkan</button>
+            <button class="btn btn-primary" id="btnBuatTransfer" onclick="bukaKonfirmasi()" disabled>Buat Transfer &rarr;</button>
+        </div>
+    </div>
+
+    <!-- Modal konfirmasi -->
+    <div class="modal-backdrop" id="modalKonfirmasi">
+        <div class="modal-box">
+            <div class="modal-title">Konfirmasi Perintah Transfer</div>
+            <div class="rute-box">
+                <div style="flex:1;"><div class="k">DARI</div><div class="v" id="kfDari"></div></div>
+                <span style="color:#12305C; font-weight:800;">&rarr;</span>
+                <div style="flex:1; text-align:right;"><div class="k">KE</div><div class="v" id="kfKe"></div></div>
+            </div>
+
+            <div class="sec-label">ISI TRANSFER</div>
+            <div id="kfIsi"></div>
+            <div class="isi-row" style="font-weight:800; border-top:1px solid #e8ecf1;">
+                <div>Total</div><div id="kfTotal"></div>
+            </div>
+
+            <div style="font-size:11px; font-weight:700; margin-top:14px;">Catatan (opsional)</div>
+            <input type="text" class="modal-input" id="kfCatatan" placeholder="Contoh: persiapan event akhir pekan" maxlength="200">
+
+            <div class="alur-box">
+                <div>1. Kasir <b id="kfDari2"></b> dapat tugas, klik <b>Kirim</b>. Stoknya berkurang.</div>
+                <div>2. Kasir <b id="kfKe2"></b> klik <b>Terima</b>. Stoknya bertambah.</div>
+                <div>3. Kasir <b>tidak bisa menolak</b>. Jumlah beda masuk sebagai selisih.</div>
+            </div>
+
+            <div class="modal-error" id="kfError" style="display:none;"></div>
+
+            <div class="modal-aksi">
+                <button class="btn" onclick="tutupKonfirmasi()">Kembali</button>
+                <button class="btn btn-primary" id="btnKirimPerintah" style="flex:1.3;" onclick="kirimPerintah()">Kirim Perintah</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
 
     <script>
         const firebaseConfig = {
@@ -137,6 +265,22 @@
 
         let currentUser = null;
         let productMap = {};
+        let kategoriMap = {};
+
+        // State halaman
+        let canBuat = false;          // Forecaster/admin: boleh membuat perintah transfer
+        let outletAsal = null;
+        let outletTujuan = "";
+        let stokAsal = [];            // [{id, nama, kategori, jumlah, minStok}]
+        let stokTujuan = {};          // { productId: {jumlah, minStok} }
+        let daftarOutlet = [];
+        let qty = {};                 // { productId: jumlah transfer }
+
+        function esc(t) {
+            return String(t == null ? "" : t).replace(/[&<>"']/g, function (c) {
+                return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+            });
+        }
 
         auth.onAuthStateChanged(function (user) {
             if (!user) {
@@ -176,29 +320,68 @@
 
             if (!jagaAksesHalaman(currentUser.role, "stok")) return;
 
+            canBuat = bolehBuatTransfer(currentUser.role);
+
             const outletSelect = document.getElementById("outletSelect");
 
             if (currentUser.role === "kasir") {
-                outletSelect.innerHTML = '<option value="' + currentUser.outlet + '">' + currentUser.outlet + '</option>';
+                outletSelect.innerHTML = '<option value="' + esc(currentUser.outlet) + '">' + esc(currentUser.outlet) + '</option>';
                 outletSelect.disabled = true;
+                outletAsal = currentUser.outlet;
                 loadStok(currentUser.outlet);
             } else {
                 db.collection("outlets").get().then(function (snapshot) {
                     outletSelect.innerHTML = "";
+                    daftarOutlet = [];
                     snapshot.forEach(function (doc) {
+                        daftarOutlet.push(doc.id);
                         const opt = document.createElement("option");
                         opt.value = doc.id;
                         opt.textContent = doc.id;
                         if (doc.id === currentUser.outlet) opt.selected = true;
                         outletSelect.appendChild(opt);
                     });
-                    loadStok(outletSelect.value || currentUser.outlet);
+                    outletAsal = outletSelect.value || currentUser.outlet;
+
+                    if (canBuat) {
+                        document.getElementById("labelOutlet").style.display = "block";
+                        document.getElementById("panahTujuan").style.display = "inline";
+                        document.getElementById("wadahTujuan").style.display = "block";
+                        document.getElementById("hintTransfer").style.display = "block";
+                        isiPilihanTujuan();
+                    }
+                    loadStok(outletAsal);
                 });
             }
 
             outletSelect.addEventListener("change", function () {
+                outletAsal = this.value;
+                if (canBuat) isiPilihanTujuan();
                 loadStok(this.value);
             });
+
+            document.getElementById("tujuanSelect").addEventListener("change", function () {
+                outletTujuan = this.value;
+                this.classList.toggle("dipilih", !!outletTujuan);
+                qty = {};
+                loadStokTujuan().then(function () {
+                    renderTabel();
+                    updateBar();
+                });
+            });
+        }
+
+        // Isi dropdown tujuan (semua outlet kecuali asal)
+        function isiPilihanTujuan() {
+            const sel = document.getElementById("tujuanSelect");
+            let html = '<option value="">- tidak transfer -</option>';
+            daftarOutlet.forEach(function (o) {
+                if (o !== outletAsal) html += '<option value="' + esc(o) + '">' + esc(o) + '</option>';
+            });
+            sel.innerHTML = html;
+            sel.classList.remove("dipilih");
+            outletTujuan = "";
+            stokTujuan = {};
         }
 
         function loadProductNames() {
@@ -208,6 +391,7 @@
             return db.collection("products").get().then(function (snapshot) {
                 snapshot.forEach(function (doc) {
                     productMap[doc.id] = doc.data().nama;
+                    kategoriMap[doc.id] = doc.data().kategori || "";
                 });
                 return productMap;
             });
@@ -216,45 +400,226 @@
         function loadStok(outletName) {
             const tbody = document.getElementById("stockTableBody");
             tbody.innerHTML = '<tr><td colspan="3" class="loading-state">Memuat data stok...</td></tr>';
+            qty = {};
+            stokAsal = [];
+            updateBar();
 
             loadProductNames().then(function () {
                 return db.collection("outlets").doc(outletName).collection("stock").get();
             }).then(function (snapshot) {
-
-                if (snapshot.empty) {
-                    tbody.innerHTML = '<tr><td colspan="3" class="empty-state">Belum ada data stok untuk outlet ini.</td></tr>';
-                    return;
-                }
-
-                tbody.innerHTML = "";
-
                 snapshot.forEach(function (doc) {
                     const data = doc.data();
-                    const nama = productMap[doc.id] || doc.id;
-                    const jumlah = data.jumlah || 0;
-                    const minStok = data.minStok !== undefined ? data.minStok : 5;
-
-                    let badgeClass = "badge-aman";
-                    let badgeText = "Aman";
-
-                    if (jumlah <= 0) {
-                        badgeClass = "badge-habis";
-                        badgeText = "Habis";
-                    } else if (jumlah <= minStok) {
-                        badgeClass = "badge-menipis";
-                        badgeText = "Menipis";
-                    }
-
-                    const row = document.createElement("tr");
-                    row.innerHTML =
-                        '<td>' + nama + '</td>' +
-                        '<td style="text-align:right;">' + jumlah + '</td>' +
-                        '<td style="text-align:right;"><span class="badge ' + badgeClass + '">' + badgeText + '</span></td>';
-                    tbody.appendChild(row);
+                    stokAsal.push({
+                        id: doc.id,
+                        nama: productMap[doc.id] || doc.id,
+                        kategori: kategoriMap[doc.id] || "",
+                        jumlah: data.jumlah || 0,
+                        minStok: data.minStok !== undefined ? data.minStok : 5
+                    });
                 });
+                return loadStokTujuan();
+            }).then(function () {
+                renderTabel();
+                updateBar();
             }).catch(function (error) {
-                tbody.innerHTML = '<tr><td colspan="3" class="empty-state">Gagal memuat: ' + error.message + '</td></tr>';
+                document.getElementById("stockTableHead").innerHTML = "";
+                tbody.innerHTML = '<tr><td colspan="3" class="empty-state">Gagal memuat: ' + esc(error.message) + '</td></tr>';
             });
+        }
+
+        function loadStokTujuan() {
+            stokTujuan = {};
+            if (!canBuat || !outletTujuan) return Promise.resolve();
+            return db.collection("outlets").doc(outletTujuan).collection("stock").get().then(function (snapshot) {
+                snapshot.forEach(function (doc) {
+                    const d = doc.data();
+                    stokTujuan[doc.id] = {
+                        jumlah: d.jumlah || 0,
+                        minStok: d.minStok !== undefined ? d.minStok : 5
+                    };
+                });
+            });
+        }
+
+        function modeTransferAktif() {
+            return canBuat && !!outletTujuan;
+        }
+
+        function renderTabel() {
+            const thead = document.getElementById("stockTableHead");
+            const tbody = document.getElementById("stockTableBody");
+            const mode = modeTransferAktif();
+            const jmlKolom = mode ? 5 : 3;
+
+            let head = '<tr><th>Produk</th>' +
+                '<th class="r">' + (mode ? "Stok " + esc(outletAsal) : "Stok") + '</th>' +
+                '<th class="r">Status</th>';
+            if (mode) {
+                head += '<th class="r col-tf">Stok ' + esc(outletTujuan) + '</th>' +
+                        '<th class="c col-tf" style="width:120px;">Jumlah transfer</th>';
+            }
+            head += '</tr>';
+            thead.innerHTML = head;
+
+            if (stokAsal.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="' + jmlKolom + '" class="empty-state">Belum ada data stok untuk outlet ini.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = "";
+
+            stokAsal.forEach(function (p) {
+                const st = statusStok(p.jumlah, p.minStok);
+                let html =
+                    '<td>' + esc(p.nama) + '</td>' +
+                    '<td class="r">' + p.jumlah + '</td>' +
+                    '<td class="r"><span class="badge ' + st.kelas + '">' + st.teks + '</span></td>';
+
+                if (mode) {
+                    const t = stokTujuan[p.id] || { jumlah: 0, minStok: 5 };
+                    const stT = statusStok(t.jumlah, t.minStok);
+                    html += '<td class="r col-tf">' + t.jumlah +
+                            (stT.teks !== "Aman" ? ' <span class="badge ' + stT.kelas + '" style="margin-left:4px;">' + stT.teks + '</span>' : '') +
+                            '</td>';
+
+                    if (p.kategori === "Topping") {
+                        html += '<td class="c col-tf" style="color:#9aa5b1;">-</td>';
+                    } else if (p.jumlah <= 0) {
+                        html += '<td class="c col-tf"><input class="qty-input" type="number" disabled placeholder="0"></td>';
+                    } else {
+                        const nilai = qty[p.id] > 0 ? qty[p.id] : "";
+                        html += '<td class="c col-tf"><input class="qty-input' + (nilai ? " terisi" : "") + '" type="number" min="0" max="' + p.jumlah + '" ' +
+                                'placeholder="0" value="' + nilai + '" oninput="ubahQty(\'' + esc(p.id) + '\', this, ' + p.jumlah + ')"></td>';
+                    }
+                }
+
+                const row = document.createElement("tr");
+                row.innerHTML = html;
+                tbody.appendChild(row);
+            });
+        }
+
+        function statusStok(jumlah, minStok) {
+            if (jumlah <= 0) return { kelas: "badge-habis", teks: "Habis" };
+            if (jumlah <= minStok) return { kelas: "badge-menipis", teks: "Menipis" };
+            return { kelas: "badge-aman", teks: "Aman" };
+        }
+
+        function ubahQty(id, el, maks) {
+            let v = parseInt(el.value, 10);
+            if (isNaN(v) || v < 0) v = 0;
+            if (v > maks) {
+                v = maks;
+                el.value = maks;
+            }
+            if (v > 0) qty[id] = v; else delete qty[id];
+            el.classList.toggle("terisi", v > 0);
+            updateBar();
+        }
+
+        function itemTerpilih() {
+            return stokAsal.filter(function (p) { return qty[p.id] > 0; });
+        }
+
+        function updateBar() {
+            const bar = document.getElementById("tfBar");
+            if (!modeTransferAktif()) {
+                bar.classList.remove("tampil");
+                return;
+            }
+            bar.classList.add("tampil");
+
+            const terpilih = itemTerpilih();
+            const totalPcs = terpilih.reduce(function (a, p) { return a + qty[p.id]; }, 0);
+
+            if (terpilih.length === 0) {
+                document.getElementById("tfBarT1").textContent = "Belum ada produk dipilih";
+            } else {
+                document.getElementById("tfBarT1").textContent = terpilih.length + " produk · " + totalPcs + " pcs";
+            }
+            document.getElementById("tfBarT2").textContent = outletAsal + " → " + outletTujuan;
+            document.getElementById("btnBuatTransfer").disabled = terpilih.length === 0;
+        }
+
+        function kosongkanTransfer() {
+            qty = {};
+            renderTabel();
+            updateBar();
+        }
+
+        // ===== Konfirmasi & simpan perintah transfer =====
+        function bukaKonfirmasi() {
+            const terpilih = itemTerpilih();
+            if (terpilih.length === 0) return;
+
+            document.getElementById("kfDari").textContent = outletAsal;
+            document.getElementById("kfKe").textContent = outletTujuan;
+            document.getElementById("kfDari2").textContent = outletAsal;
+            document.getElementById("kfKe2").textContent = outletTujuan;
+
+            let html = "";
+            let totalPcs = 0;
+            terpilih.forEach(function (p) {
+                totalPcs += qty[p.id];
+                html += '<div class="isi-row"><div>' + esc(p.nama) +
+                        '<div class="isi-sub">Stok ' + esc(outletAsal) + ' ' + p.jumlah + ' &rarr; ' + (p.jumlah - qty[p.id]) + ' setelah dikirim</div></div>' +
+                        '<div style="font-weight:800; font-size:14px;">' + qty[p.id] + '</div></div>';
+            });
+            document.getElementById("kfIsi").innerHTML = html;
+            document.getElementById("kfTotal").textContent = terpilih.length + " produk · " + totalPcs + " pcs";
+            document.getElementById("kfCatatan").value = "";
+            document.getElementById("kfError").style.display = "none";
+            document.getElementById("btnKirimPerintah").disabled = false;
+            document.getElementById("modalKonfirmasi").classList.add("tampil");
+        }
+
+        function tutupKonfirmasi() {
+            document.getElementById("modalKonfirmasi").classList.remove("tampil");
+        }
+
+        function kirimPerintah() {
+            const terpilih = itemTerpilih();
+            if (terpilih.length === 0 || !outletTujuan || outletTujuan === outletAsal) return;
+
+            const btn = document.getElementById("btnKirimPerintah");
+            const err = document.getElementById("kfError");
+            btn.disabled = true;
+            err.style.display = "none";
+
+            const data = {
+                dari: outletAsal,
+                ke: outletTujuan,
+                items: terpilih.map(function (p) {
+                    return { productId: p.id, nama: p.nama, jumlah: qty[p.id] };
+                }),
+                status: "menunggu_kirim",
+                selisih: false,
+                selisihDicek: false,
+                catatan: document.getElementById("kfCatatan").value.trim(),
+                dibuatOleh: { uid: auth.currentUser.uid, nama: currentUser.nama || "" },
+                dibuatPada: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            db.collection("transfer_stok").add(data).then(function () {
+                tutupKonfirmasi();
+                const tujuanSaja = outletTujuan;
+                qty = {};
+                renderTabel();
+                updateBar();
+                tampilToast('Perintah transfer ke <b>' + esc(tujuanSaja) + '</b> dibuat. Kasir ' + esc(outletAsal) +
+                            ' sekarang dapat tugas kirim. <a href="transfer.html">Lihat di menu Transfer</a>');
+            }).catch(function (e) {
+                btn.disabled = false;
+                err.textContent = "Gagal membuat transfer: " + e.message;
+                err.style.display = "block";
+            });
+        }
+
+        function tampilToast(html) {
+            const t = document.getElementById("toast");
+            t.innerHTML = html;
+            t.classList.add("tampil");
+            setTimeout(function () { t.classList.remove("tampil"); }, 8000);
         }
     </script>
 
