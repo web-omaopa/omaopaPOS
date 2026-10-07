@@ -254,6 +254,98 @@
         .modal-actions button { flex: 1; height: 40px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; }
         .btn-cancel { background: none; border: 1px solid #dde3ea; color: #52606d; }
         .btn-save { background: #12305C; color: white; border: none; }
+
+        /* ===== KERANJANG: Simpan / Struk / Bayar ===== */
+        .cart-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 8px; }
+        .cart-title-row .cart-title { margin-bottom: 0; }
+        .cart-head-btns { display: flex; gap: 6px; }
+        .btn-mini {
+            height: 26px; padding: 0 9px; border-radius: 7px; border: 1px solid #dde3ea; background: #fff;
+            color: #52606d; font-size: 10.5px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-family: inherit;
+        }
+        .btn-mini.navy { background: #12305C; border-color: #12305C; color: #fff; }
+        .btn-mini.danger { color: #b03a2e; }
+        .cart-actions2 { display: flex; gap: 8px; margin-top: 12px; }
+        .btn-aksi2 {
+            flex: 1; height: 38px; border-radius: 8px; border: 1px solid #12305C; background: #fff; color: #12305C;
+            font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 7px; font-family: inherit;
+        }
+        .btn-aksi2:disabled { opacity: 0.45; cursor: not-allowed; }
+        .btn-bayar-besar {
+            width: 100%; margin-top: 8px; height: 44px; border-radius: 8px; border: none; background: #12305C; color: #fff;
+            font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; font-family: inherit;
+        }
+        .btn-bayar-besar:hover { background: #0B2245; }
+        .btn-bayar-besar:disabled { background: #c5ccd8; cursor: not-allowed; }
+
+        /* ===== Layar penuh: Lanjut Pembayaran & Berhasil ===== */
+        .layar-penuh { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 15; background: #F4F6FA; flex-direction: column; }
+        .layar-penuh.open { display: flex; }
+        .lp-header { height: 56px; flex-shrink: 0; background: #12305C; color: #fff; display: flex; align-items: center; gap: 14px; padding: 0 22px; font-size: 15px; font-weight: 700; }
+        .lp-back { background: none; border: none; color: #fff; cursor: pointer; padding: 0; display: flex; }
+        .lp-body { flex: 1; display: flex; gap: 18px; padding: 18px 22px; min-height: 0; overflow: auto; }
+        .lp-left { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+        .lp-right { width: 300px; flex-shrink: 0; background: #fff; border: 1px solid #dde3ea; border-radius: 12px; padding: 16px; align-self: flex-start; max-height: 100%; overflow: auto; }
+        .lp-label { font-size: 12px; font-weight: 700; color: #52606d; margin-bottom: 10px; }
+        .metode-row { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .metode-btn {
+            height: 44px; padding: 0 18px; border-radius: 10px; border: 1px solid #dde3ea; background: #fff;
+            font-size: 12.5px; font-weight: 700; color: #52606d; cursor: pointer; display: flex; align-items: center; gap: 8px; font-family: inherit;
+        }
+        .metode-btn.on { border: 2px solid #12305C; color: #12305C; background: #F1F6FF; }
+        .uang-card { background: #fff; border: 1px solid #dde3ea; border-radius: 12px; padding: 18px; }
+        .uang-input-wrap { height: 52px; border: 2px solid #12305C; border-radius: 10px; display: flex; align-items: center; padding: 0 16px; gap: 8px; }
+        .uang-input-wrap span { font-size: 12px; color: #8A95A5; }
+        .uang-input-wrap input { flex: 1; border: none; outline: none; font-size: 24px; font-weight: 800; text-align: right; font-family: inherit; min-width: 0; color: #1f2937; }
+        .quick-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+        .quick-btn { height: 34px; padding: 0 14px; border-radius: 8px; border: 1px solid #dde3ea; background: #fff; font-size: 12px; font-weight: 700; color: #52606d; cursor: pointer; font-family: inherit; }
+        .quick-btn.on { border-color: #12305C; color: #12305C; background: #F1F6FF; }
+        .sum-boxes { display: flex; gap: 10px; margin-top: auto; padding-top: 16px; margin-bottom: 12px; }
+        .sum-box { flex: 1; border: 1px solid #dde3ea; border-radius: 10px; padding: 12px 14px; background: #fff; }
+        .sum-box .k { font-size: 10.5px; font-weight: 700; color: #8A95A5; }
+        .sum-box .v { font-size: 20px; font-weight: 800; margin-top: 4px; color: #1f2937; }
+        .sum-box.hijau { border-color: #BFE3CB; background: #F3FBF6; }
+        .sum-box.hijau .v { color: #1E7D32; }
+        .sum-box.merah { border-color: #F3C4C0; background: #FFF8F7; }
+        .sum-box.merah .v { color: #B03A2E; }
+        .btn-bayar-final { height: 50px; border-radius: 10px; border: none; background: #12305C; color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; }
+        .btn-bayar-final:disabled { background: #c5ccd8; cursor: not-allowed; }
+
+        .modal-box.lebar { max-width: 420px; }
+        .kb-total { text-align: center; margin: 16px 0 12px; padding: 14px; background: #F1F4F8; border-radius: 10px; }
+        .kb-total .k { font-size: 10.5px; font-weight: 700; color: #8A95A5; }
+        .kb-total .v { font-size: 28px; font-weight: 800; color: #12305C; margin-top: 4px; }
+        .kb-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-top: 1px solid #e8ecf1; font-size: 12.5px; color: #1f2937; }
+        .kb-row span:first-child { color: #6b7280; }
+        .kb-warn { background: #FFF8E8; border: 1px solid #F0DBA0; border-radius: 8px; padding: 9px 11px; margin-top: 12px; font-size: 10.5px; color: #7a5410; line-height: 1.5; }
+
+        .fld-in { width: 100%; height: 38px; border: 1px solid #d1d5db; border-radius: 8px; padding: 0 12px; font-size: 12px; font-family: inherit; }
+        .fld-lbl { font-size: 11px; font-weight: 700; color: #1f2937; margin: 12px 0 5px; }
+        .sv-item { border: 1px solid #dde3ea; border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+        .sv-item .t { font-size: 13px; font-weight: 800; color: #1f2937; }
+        .sv-item .m { font-size: 10.5px; color: #8A95A5; margin-top: 3px; }
+        .sv-item .i { font-size: 11.5px; color: #52606d; margin-top: 7px; line-height: 1.5; }
+
+        /* Struk */
+        .struk-kertas { background: #F7F8FA; border: 1px solid #e8ecf1; border-radius: 8px; padding: 14px; }
+        .rc-row { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; color: #374151; padding: 2.5px 0; }
+        .rc-hr { border-top: 1px dashed #b8c0cc; margin: 9px 0; }
+        .rc-judul { text-align: center; font-size: 12px; font-weight: 800; color: #1f2937; }
+        .rc-draft { margin: 10px auto 0; width: 160px; text-align: center; font-size: 9.5px; font-weight: 800; color: #9A6B1C; background: #FFF1D6; border-radius: 10px; padding: 3px 0; }
+        .rc-total { font-size: 14px; font-weight: 800; color: #12305C; margin-top: 4px; }
+        .rc-kecil { font-size: 9.5px; color: #8A95A5; }
+        .rc-tengah { text-align: center; font-size: 10px; color: #8A95A5; }
+
+        .sukses-wrap { margin: auto; width: 420px; max-width: 92%; display: flex; flex-direction: column; align-items: center; }
+        .sukses-ikon { width: 84px; height: 84px; border-radius: 42px; background: #1E9E5A; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 24px rgba(30,158,90,0.3); }
+        .sukses-kartu { width: 100%; background: #fff; border: 1px solid #dde3ea; border-radius: 12px; padding: 16px 18px; margin-top: 22px; box-sizing: border-box; }
+
+        #areaCetak { display: none; }
+        @media print {
+            body.mode-cetak .app-layout, body.mode-cetak .modal-overlay, body.mode-cetak .layar-penuh { display: none !important; }
+            body.mode-cetak #areaCetak { display: block !important; width: 58mm; padding: 2mm; font-family: Arial, Helvetica, sans-serif; }
+            body.mode-cetak #areaCetak * { color: #000 !important; background: none !important; }
+        }
     </style>
 </head>
 <body>
@@ -291,6 +383,73 @@
             <div id="infoPromoList"></div>
         </div>
     </div>
+
+    <!-- ===== Alur bayar: layar pembayaran, konfirmasi, berhasil ===== -->
+    <div class="layar-penuh" id="layarBayar"></div>
+    <div class="layar-penuh" id="layarBerhasil" style="z-index:16;"></div>
+
+    <div class="modal-overlay" id="modalKonfirmasiBayar">
+        <div class="modal-box lebar">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <div style="width:34px; height:34px; border-radius:17px; background:#FFF1D6; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9A6B1C" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="10"/></svg>
+                </div>
+                <div>
+                    <h3 style="margin:0;">Konfirmasi Pembayaran</h3>
+                    <div class="modal-sub" style="margin-bottom:0;">Cek sekali lagi sebelum diproses</div>
+                </div>
+            </div>
+            <div id="konfirmasiIsi"></div>
+            <div class="msg-box msg-error" id="kbError" style="margin-top:12px; margin-bottom:0;"></div>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="tutupKonfirmasiBayar()">Cek lagi</button>
+                <button class="btn-save" id="btnProsesBayar" style="flex:1.4;" onclick="prosesBayar()">Ya, proses bayar</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modalStruk">
+        <div class="modal-box">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+                <h3 style="margin:0;">Pratinjau Struk</h3>
+                <button class="btn-cancel" style="width:28px; height:28px; border-radius:8px; cursor:pointer; font-size:14px; line-height:1;" onclick="tutupStruk()">&times;</button>
+            </div>
+            <div class="struk-kertas" id="strukPratinjau"></div>
+            <div class="modal-sub" style="margin-top:10px; margin-bottom:0;">Untuk menunjukkan rincian ke pelanggan sebelum bayar. Struk resmi (dengan No. Nota) dicetak setelah pembayaran berhasil.</div>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="tutupStruk()">Tutup</button>
+                <button class="btn-save" style="flex:1.3;" onclick="cetakStruk(strukAktif)">Cetak</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modalSimpan">
+        <div class="modal-box lebar">
+            <h3>Simpan Transaksi</h3>
+            <div class="modal-sub">Keranjang disimpan dulu, bisa dilanjutkan nanti. Stok belum berkurang.</div>
+            <div class="fld-lbl" style="margin-top:0;">Nama pelanggan / meja</div>
+            <input type="text" class="fld-in" id="simpanNama" maxlength="40" placeholder="Contoh: Mbak Rina (meja 3)">
+            <div class="fld-lbl">Catatan (opsional)</div>
+            <input type="text" class="fld-in" id="simpanCatatan" maxlength="80" placeholder="Contoh: bayar nanti, nunggu teman">
+            <div id="simpanRingkas" style="background:#F1F4F8; border-radius:8px; padding:10px 12px; margin-top:14px; font-size:11px; color:#52606d; line-height:1.5;"></div>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="tutupSimpan()">Batal</button>
+                <button class="btn-save" style="flex:1.3;" onclick="simpanTransaksi()">Simpan</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modalTersimpan">
+        <div class="modal-box lebar" style="max-height:86vh; overflow:auto;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+                <h3 style="margin:0;">Transaksi Tersimpan</h3>
+                <button class="btn-cancel" style="width:28px; height:28px; border-radius:8px; cursor:pointer; font-size:14px; line-height:1;" onclick="tutupTersimpan()">&times;</button>
+            </div>
+            <div id="tersimpanList"></div>
+        </div>
+    </div>
+
+    <div id="areaCetak"></div>
 
     <script>
         const firebaseConfig = {
@@ -877,21 +1036,28 @@
                         '<div class="mode-section-cart">' +
                             '<div class="mode-grid" id="modeTabs"></div>' +
                         '</div>' +
-                        '<div class="cart-title">Keranjang</div>' +
+                        '<div class="cart-title-row">' +
+                            '<div class="cart-title">Keranjang</div>' +
+                            '<div class="cart-head-btns">' +
+                                '<button type="button" class="btn-mini navy" id="btnTersimpan" onclick="bukaTersimpan()">Tersimpan</button>' +
+                                '<button type="button" class="btn-mini danger" onclick="bersihkanKeranjang()">Bersihkan</button>' +
+                            '</div>' +
+                        '</div>' +
                         '<div class="msg-box" id="msgBox"></div>' +
                         '<div id="cartItems"><div class="cart-empty">Belum ada produk dipilih</div></div>' +
                         '<div id="promoAppliedBox"></div>' +
                         '<div class="summary-row"><span>Subtotal</span><span id="sumSubtotal">Rp 0</span></div>' +
                         '<div class="summary-row"><span>Diskon</span><span id="sumDiskon">Rp 0</span></div>' +
                         '<div class="summary-row total"><span>Total</span><span id="sumTotal">Rp 0</span></div>' +
-                        '<select class="metode-bayar" id="metodeBayar"><option value="Tunai">Tunai</option><option value="QRIS">QRIS</option></select>' +
-                        '<div class="cart-actions">' +
-                            '<button class="btn-bersihkan" onclick="bersihkanKeranjang()">Bersihkan</button>' +
-                            '<button class="btn-bayar" id="payBtn" onclick="prosesBayar()" disabled>Bayar</button>' +
+                        '<div class="cart-actions2">' +
+                            '<button type="button" class="btn-aksi2" id="btnSimpan" onclick="bukaSimpan()" disabled><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#12305C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>Simpan</button>' +
+                            '<button type="button" class="btn-aksi2" id="btnStruk" onclick="bukaStruk()" disabled><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#12305C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7"/></svg>Struk</button>' +
                         '</div>' +
+                        '<button type="button" class="btn-bayar-besar" id="payBtn" onclick="bukaPembayaran()" disabled><span>Bayar</span><span id="payBtnTotal">Rp 0 ›</span></button>' +
                     '</div>' +
                 '</div>';
 
+            renderTombolTersimpan();
             document.getElementById("searchBox").addEventListener("input", renderProdukTampil);
         }
 
@@ -1122,6 +1288,7 @@
         function renderCart() {
             sinkronPromoOtomatis();
             renderTombolPromo();
+            renderTombolTersimpan();
 
             const container = document.getElementById("cartItems");
             const items = Object.entries(cart);
@@ -1130,7 +1297,7 @@
                 container.innerHTML = '<div class="cart-empty">Belum ada produk dipilih</div>';
                 document.getElementById("promoAppliedBox").innerHTML = "";
                 updateRingkasan(0, 0);
-                document.getElementById("payBtn").disabled = true;
+                setTombolAksiCart(false);
                 return;
             }
 
@@ -1173,7 +1340,7 @@
             const promoResult = computePromoEffects();
             renderPromoAppliedBox(promoResult);
             updateRingkasan(subtotal, promoResult.totalDiskon);
-            document.getElementById("payBtn").disabled = false;
+            setTombolAksiCart(true);
         }
 
         /* Kotak "Promo Terpakai" di atas ringkasan harga, muncul otomatis
@@ -1235,14 +1402,302 @@
             document.getElementById("sumSubtotal").textContent = "Rp " + subtotal.toLocaleString("id-ID");
             document.getElementById("sumDiskon").textContent = "Rp " + diskon.toLocaleString("id-ID");
             document.getElementById("sumTotal").textContent = "Rp " + total.toLocaleString("id-ID");
+            const payTotal = document.getElementById("payBtnTotal");
+            if (payTotal) payTotal.textContent = "Rp " + total.toLocaleString("id-ID") + " ›";
         }
 
+        /* =====================================================
+           ALUR BAYAR
+           Keranjang -> Lanjut Pembayaran (pilih metode, uang
+           diterima, kembalian) -> Konfirmasi -> proses (stok
+           dikurangi di transaksi) -> layar Berhasil + cetak struk.
+           Mekanisme stok & promo TIDAK berubah: tetap dihitung
+           di prosesBayar() seperti sebelumnya.
+        ====================================================== */
+        let metodeBayarAktif = "Tunai";
+        let uangDiterima = 0;
+        let sedangMemproses = false;
+        let transaksiTerakhir = null;
+        let strukAktif = null;
+
+        function escHtml(t) {
+            return String(t == null ? "" : t).replace(/[&<>"']/g, function (c) {
+                return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+            });
+        }
+
+        function angka(n) { return Number(n || 0).toLocaleString("id-ID"); }
+        function rp(n) { return "Rp " + angka(n); }
+
+        function fmtWaktu(d) {
+            const p = function (x) { return String(x).padStart(2, "0"); };
+            return p(d.getDate()) + "-" + p(d.getMonth() + 1) + "-" + d.getFullYear() + " " + p(d.getHours()) + "." + p(d.getMinutes());
+        }
+
+        function ringkasanKeranjang() {
+            const entries = Object.entries(cart);
+            const subtotal = entries.reduce(function (s, e) { return s + e[1].hargaSatuan * e[1].qty; }, 0);
+            const promoResult = computePromoEffects();
+            const diskon = promoResult.totalDiskon;
+            const total = Math.max(0, subtotal - diskon);
+            const jumlahPcs = entries.reduce(function (s, e) { return s + e[1].qty; }, 0);
+            return { entries: entries, subtotal: subtotal, promoResult: promoResult, diskon: diskon, total: total, jumlahPcs: jumlahPcs };
+        }
+
+        function setTombolAksiCart(aktif) {
+            ["payBtn", "btnSimpan", "btnStruk"].forEach(function (id) {
+                const el = document.getElementById(id);
+                if (el) el.disabled = !aktif;
+            });
+        }
+
+        /* ---------- STRUK ---------- */
+        function buatSnapshotStruk(r, extra) {
+            const items = r.entries.map(function (e) {
+                const it = e[1];
+                return {
+                    nama: it.nama,
+                    toppings: (it.toppings || []).map(function (t) { return t.nama; }),
+                    qty: it.qty, total: it.hargaSatuan * it.qty, gratis: !!it.isPromoGratis
+                };
+            });
+            const promo = (r.promoResult.promoDetail || []).filter(function (d) { return d.aktif; })
+                .map(function (d) { return { nama: d.nama, jumlah: d.jumlah }; });
+            return Object.assign({
+                outlet: currentUser.outlet, kasirNama: currentUser.nama, mode: modeAktif, waktu: new Date(),
+                items: items, jumlahPcs: r.jumlahPcs, subtotal: r.subtotal, promo: promo, diskon: r.diskon, total: r.total
+            }, extra || {});
+        }
+
+        function bangunStrukHtml(d) {
+            const baris = function (k, v, cls) {
+                return '<div class="rc-row"' + (cls ? ' style="' + cls + '"' : '') + '><span>' + k + '</span><span>' + v + '</span></div>';
+            };
+            let h = '<div class="rc-judul">Oma Opa ' + escHtml(d.outlet) + '</div>';
+            if (d.draft && !d.tanpaBadge) h += '<div class="rc-draft">DRAFT · BELUM DIBAYAR</div>';
+            h += '<div class="rc-hr"></div>';
+            if (d.noNota) h += baris("No. Nota", escHtml(d.noNota));
+            h += baris("Tanggal", fmtWaktu(d.waktu));
+            h += baris("Kasir", escHtml(d.kasirNama || "-"));
+            h += baris("Mode", escHtml(d.mode));
+            h += '<div class="rc-hr"></div>';
+            d.items.forEach(function (it) {
+                const tambahan = (it.toppings.length ? '<br><span class="rc-kecil">+ ' + escHtml(it.toppings.join(", ")) + '</span>' : '') +
+                                 (it.gratis ? '<br><span class="rc-kecil">gratis (promo)</span>' : '');
+                h += baris(it.qty + ' × ' + escHtml(it.nama) + tambahan, angka(it.total));
+            });
+            h += '<div class="rc-hr"></div>';
+            h += baris(d.jumlahPcs + " item · Subtotal", angka(d.subtotal));
+            d.promo.forEach(function (p) { h += baris("Promo " + escHtml(p.nama), "-" + angka(p.jumlah)); });
+            h += '<div class="rc-row rc-total"><span>Grand Total</span><span>' + angka(d.total) + '</span></div>';
+            if (!d.draft) {
+                h += '<div class="rc-hr"></div>';
+                h += baris("Metode", escHtml(d.metode));
+                if (d.metode === "Tunai") {
+                    h += baris("Uang diterima", angka(d.uangDiterima));
+                    h += baris("Kembalian", angka(d.kembalian));
+                }
+            }
+            h += '<div class="rc-hr"></div><div class="rc-tengah">Terima kasih sudah belanja di Oma Opa</div>';
+            return h;
+        }
+
+        function bukaStruk() {
+            if (Object.keys(cart).length === 0) return;
+            strukAktif = buatSnapshotStruk(ringkasanKeranjang(), { draft: true });
+            document.getElementById("strukPratinjau").innerHTML = bangunStrukHtml(strukAktif);
+            document.getElementById("modalStruk").classList.add("open");
+        }
+
+        function tutupStruk() {
+            document.getElementById("modalStruk").classList.remove("open");
+        }
+
+        function cetakStruk(d) {
+            if (!d) return;
+            document.getElementById("areaCetak").innerHTML = bangunStrukHtml(Object.assign({}, d, { tanpaBadge: false }));
+            document.body.classList.add("mode-cetak");
+            const selesai = function () {
+                document.body.classList.remove("mode-cetak");
+                window.removeEventListener("afterprint", selesai);
+            };
+            window.addEventListener("afterprint", selesai);
+            window.print();
+        }
+
+        /* ---------- LANJUT PEMBAYARAN ---------- */
+        function hitungBayar(total) {
+            const diterima = metodeBayarAktif === "Tunai" ? uangDiterima : total;
+            return { diterima: diterima, kembalian: Math.max(0, diterima - total), kurang: Math.max(0, total - diterima), cukup: diterima >= total };
+        }
+
+        function bukaPembayaran() {
+            if (Object.keys(cart).length === 0) return;
+            metodeBayarAktif = "Tunai";
+            uangDiterima = 0;
+            renderLayarBayar();
+            document.getElementById("layarBayar").classList.add("open");
+        }
+
+        function tutupPembayaran() {
+            document.getElementById("layarBayar").classList.remove("open");
+        }
+
+        function pilihMetodeBayar(m) {
+            metodeBayarAktif = m;
+            if (m !== "Tunai") uangDiterima = 0;
+            renderLayarBayar();
+        }
+
+        function setUang(n) {
+            uangDiterima = n;
+            renderLayarBayar();
+        }
+
+        function ubahUangInput(el) {
+            const v = parseInt(String(el.value).replace(/\D/g, ""), 10) || 0;
+            uangDiterima = v;
+            el.value = v ? angka(v) : "";
+            perbaruiRingkasanBayar();
+        }
+
+        function opsiUangCepat(total) {
+            const opsi = [{ label: "Uang pas", v: total }];
+            [20000, 50000, 100000, 150000, 200000].forEach(function (n) {
+                if (n > total && opsi.length < 4) opsi.push({ label: angka(n), v: n });
+            });
+            return opsi;
+        }
+
+        function renderLayarBayar() {
+            const r = ringkasanKeranjang();
+            const iconTunai = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg>';
+            const iconQris = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3M21 14v7h-4"/></svg>';
+            const iconEdc = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>';
+            const metodeList = [["Tunai", iconTunai], ["QRIS", iconQris], ["Debit/EDC", iconEdc]];
+
+            const tombolMetode = metodeList.map(function (m) {
+                return '<button type="button" class="metode-btn' + (metodeBayarAktif === m[0] ? " on" : "") + '" onclick="pilihMetodeBayar(\'' + m[0] + '\')">' + m[1] + m[0].replace("/", " / ") + '</button>';
+            }).join("");
+
+            let kartuInput;
+            if (metodeBayarAktif === "Tunai") {
+                const cepat = opsiUangCepat(r.total).map(function (o) {
+                    return '<button type="button" class="quick-btn" data-v="' + o.v + '" onclick="setUang(' + o.v + ')">' + o.label + '</button>';
+                }).join("");
+                kartuInput =
+                    '<div class="uang-card">' +
+                        '<div style="font-size:11px; font-weight:700; color:#1f2937; margin-bottom:6px;">Uang diterima</div>' +
+                        '<div class="uang-input-wrap"><span>Rp</span><input type="text" inputmode="numeric" id="uangInput" placeholder="0" value="' + (uangDiterima ? angka(uangDiterima) : "") + '" oninput="ubahUangInput(this)"></div>' +
+                        '<div class="quick-row">' + cepat + '</div>' +
+                    '</div>';
+            } else {
+                kartuInput =
+                    '<div class="uang-card" style="font-size:12px; color:#52606d; line-height:1.6;">' +
+                        'Pembayaran non-tunai: nominal otomatis sesuai total <b>' + rp(r.total) + '</b>.<br>' +
+                        'Pastikan pembayaran sudah masuk sebelum klik Bayar.' +
+                    '</div>';
+            }
+
+            const strukSamping = bangunStrukHtml(buatSnapshotStruk(r, { draft: true, tanpaBadge: true }));
+
+            document.getElementById("layarBayar").innerHTML =
+                '<div class="lp-header">' +
+                    '<button class="lp-back" onclick="tutupPembayaran()" aria-label="Kembali"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></button>' +
+                    'Lanjut Pembayaran' +
+                '</div>' +
+                '<div class="lp-body">' +
+                    '<div class="lp-left">' +
+                        '<div class="lp-label">Pilih metode pembayaran</div>' +
+                        '<div class="metode-row">' + tombolMetode + '</div>' +
+                        kartuInput +
+                        '<div class="sum-boxes" id="sumBoxes"></div>' +
+                        '<button class="btn-bayar-final" id="btnBayarFinal" onclick="bukaKonfirmasiBayar()">Bayar ›</button>' +
+                    '</div>' +
+                    '<div class="lp-right">' + strukSamping + '</div>' +
+                '</div>';
+
+            perbaruiRingkasanBayar();
+        }
+
+        function perbaruiRingkasanBayar() {
+            const r = ringkasanKeranjang();
+            const b = hitungBayar(r.total);
+            const kotakKetiga = b.cukup
+                ? '<div class="sum-box hijau"><div class="k">Kembalian</div><div class="v">' + angka(b.kembalian) + '</div></div>'
+                : '<div class="sum-box merah"><div class="k">Kurang</div><div class="v">' + angka(b.kurang) + '</div></div>';
+            const wadah = document.getElementById("sumBoxes");
+            if (wadah) {
+                wadah.innerHTML =
+                    '<div class="sum-box"><div class="k">Total tagihan</div><div class="v">' + angka(r.total) + '</div></div>' +
+                    '<div class="sum-box"><div class="k">Uang diterima</div><div class="v">' + angka(b.diterima) + '</div></div>' +
+                    kotakKetiga;
+            }
+            const btn = document.getElementById("btnBayarFinal");
+            if (btn) btn.disabled = !b.cukup;
+            document.querySelectorAll("#layarBayar .quick-btn").forEach(function (el) {
+                el.classList.toggle("on", Number(el.dataset.v) === uangDiterima);
+            });
+        }
+
+        /* ---------- KONFIRMASI ---------- */
+        function bukaKonfirmasiBayar() {
+            const r = ringkasanKeranjang();
+            const b = hitungBayar(r.total);
+            if (!b.cukup || r.entries.length === 0) return;
+
+            const promoAktif = (r.promoResult.promoDetail || []).filter(function (d) { return d.aktif; });
+            let html =
+                '<div class="kb-total"><div class="k">TOTAL YANG DIBAYAR</div><div class="v">' + rp(r.total) + '</div></div>' +
+                '<div class="kb-row" style="border-top:none;"><span>Metode</span><b>' + escHtml(metodeBayarAktif.replace("/", " / ")) + '</b></div>';
+            if (metodeBayarAktif === "Tunai") {
+                html += '<div class="kb-row"><span>Uang diterima</span><b>' + rp(b.diterima) + '</b></div>' +
+                        '<div class="kb-row"><span>Kembalian</span><b style="color:#1E7D32;">' + rp(b.kembalian) + '</b></div>';
+            }
+            html += '<div class="kb-row"><span>Item</span><b>' + r.jumlahPcs + ' pcs · ' + r.entries.length + ' baris</b></div>';
+            if (promoAktif.length > 0) {
+                html += '<div class="kb-row"><span>Promo</span><b style="text-align:right;">' +
+                        promoAktif.map(function (p) { return escHtml(p.nama) + ' (-' + angka(p.jumlah) + ')'; }).join("<br>") + '</b></div>';
+            }
+            html += '<div class="kb-warn">Setelah diproses, stok langsung berkurang dan transaksi tidak bisa dibatalkan dari layar ini.</div>';
+
+            document.getElementById("konfirmasiIsi").innerHTML = html;
+            document.getElementById("kbError").style.display = "none";
+            const btn = document.getElementById("btnProsesBayar");
+            btn.disabled = false; btn.textContent = "Ya, proses bayar";
+            document.getElementById("modalKonfirmasiBayar").classList.add("open");
+        }
+
+        function tutupKonfirmasiBayar() {
+            if (sedangMemproses) return;
+            document.getElementById("modalKonfirmasiBayar").classList.remove("open");
+        }
+
+        function tampilErrorKonfirmasi(pesan) {
+            const el = document.getElementById("kbError");
+            el.textContent = pesan;
+            el.style.display = "block";
+        }
+
+        function buatNoNota(docId) {
+            const kode = (currentUser.outlet || "").split(/\s+/).map(function (w) { return w.charAt(0); }).join("").toUpperCase().slice(0, 4) || "OO";
+            return kode + "-" + hariIniStr().replace(/-/g, "") + "-" + docId.slice(-5).toUpperCase();
+        }
+
+        /* ---------- PROSES BAYAR (stok & promo: sama seperti sebelumnya) ---------- */
         function prosesBayar() {
+            if (sedangMemproses) return;
             const entries = Object.entries(cart);
             if (entries.length === 0) return;
 
-            const payBtn = document.getElementById("payBtn");
-            payBtn.disabled = true; payBtn.textContent = "Memproses...";
+            const r = ringkasanKeranjang();
+            const bayar = hitungBayar(r.total);
+            if (!bayar.cukup) { tampilErrorKonfirmasi("Uang diterima kurang dari total."); return; }
+
+            sedangMemproses = true;
+            const btn = document.getElementById("btnProsesBayar");
+            btn.disabled = true; btn.textContent = "Memproses...";
+            document.getElementById("kbError").style.display = "none";
 
             const totalPerProduk = {};
             entries.forEach(function (entry) {
@@ -1251,13 +1706,20 @@
                 totalPerProduk[item.productId] = (totalPerProduk[item.productId] || 0) + item.qty;
             });
 
-            const subtotal = entries.reduce(function (sum, entry) { return sum + (entry[1].hargaSatuan * entry[1].qty); }, 0);
-            const promoResult = computePromoEffects();
-            const diskonPromo = promoResult.totalDiskon;
-            const total = Math.max(0, subtotal - diskonPromo);
-            const metodeBayar = document.getElementById("metodeBayar").value;
+            const subtotal = r.subtotal;
+            const promoResult = r.promoResult;
+            const diskonPromo = r.diskon;
+            const total = r.total;
+            const metodeBayar = metodeBayarAktif;
             const outletRef = db.collection("outlets").doc(currentUser.outlet);
             const productIds = Object.keys(totalPerProduk);
+
+            const trxRef = db.collection("transactions").doc();
+            const noNota = buatNoNota(trxRef.id);
+            const snapshotStruk = buatSnapshotStruk(r, {
+                draft: false, noNota: noNota, metode: metodeBayar,
+                uangDiterima: bayar.diterima, kembalian: bayar.kembalian
+            });
 
             db.runTransaction(function (transaction) {
                 const stockRefs = productIds.map(function (pid) { return outletRef.collection("stock").doc(pid); });
@@ -1284,24 +1746,192 @@
                         };
                     });
 
-                    transaction.set(db.collection("transactions").doc(), {
+                    transaction.set(trxRef, {
+                        noNota: noNota,
                         outlet: currentUser.outlet, kasirUid: currentUser.uid, kasirNama: currentUser.nama,
                         items: itemsUntukTransaksi, subtotal: subtotal, diskonPromo: diskonPromo,
                         promoDipakai: promoResult.promoDipakai, total: total, metodeBayar: metodeBayar,
+                        uangDiterima: bayar.diterima, kembalian: bayar.kembalian,
                         modePenjualan: modeAktif, status: "aktif",
                         waktu: firebase.firestore.FieldValue.serverTimestamp()
                     });
                 });
             })
             .then(function () {
-                tampilkanPesan("Transaksi berhasil! Total Rp " + total.toLocaleString("id-ID"), "success");
+                transaksiTerakhir = snapshotStruk;
                 cart = {};
                 promoDinonaktifkanManual = {};
                 renderCart();
                 loadProducts();
+                sedangMemproses = false;
+                document.getElementById("modalKonfirmasiBayar").classList.remove("open");
+                tutupPembayaran();
+                tampilLayarBerhasil();
             })
-            .catch(function (error) { tampilkanPesan(error.message, "error"); })
-            .finally(function () { payBtn.disabled = false; payBtn.textContent = "Bayar"; });
+            .catch(function (error) {
+                sedangMemproses = false;
+                btn.disabled = false; btn.textContent = "Ya, proses bayar";
+                tampilErrorKonfirmasi(error.message);
+            });
+        }
+
+        /* ---------- BERHASIL ---------- */
+        function tampilLayarBerhasil() {
+            const d = transaksiTerakhir;
+            if (!d) return;
+            const barisTunai = d.metode === "Tunai"
+                ? '<div style="text-align:center; margin-top:12px; padding-top:14px; border-top:1px dashed #c4ccd6;">' +
+                      '<div style="font-size:10.5px; font-weight:700; color:#8A95A5;">UANG KEMBALIAN</div>' +
+                      '<div style="font-size:32px; font-weight:800; color:#1E7D32; margin-top:4px;">' + rp(d.kembalian) + '</div>' +
+                  '</div>'
+                : '';
+            document.getElementById("layarBerhasil").innerHTML =
+                '<div class="sukses-wrap">' +
+                    '<div class="sukses-ikon"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>' +
+                    '<div style="font-size:20px; font-weight:800; color:#1f2937; margin-top:20px;">Pembayaran Berhasil</div>' +
+                    '<div style="font-size:11.5px; color:#6b7280; margin-top:6px;">No. Nota <b style="color:#1f2937;">' + escHtml(d.noNota) + '</b></div>' +
+                    '<div class="sukses-kartu">' +
+                        '<div class="kb-row" style="border-top:none; padding:4px 0;"><span>Total</span><b>' + rp(d.total) + '</b></div>' +
+                        '<div class="kb-row" style="border-top:none; padding:4px 0;"><span>Metode</span><b>' + escHtml(d.metode.replace("/", " / ")) + (d.metode === "Tunai" ? ' · diterima ' + rp(d.uangDiterima) : '') + '</b></div>' +
+                        barisTunai +
+                    '</div>' +
+                    '<div style="display:flex; gap:10px; width:100%; margin-top:22px;">' +
+                        '<button class="btn-aksi2" style="flex:0 0 auto; height:48px; padding:0 20px; font-size:13px; border-radius:10px;" onclick="cetakStruk(transaksiTerakhir)">' +
+                            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#12305C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7"/></svg>Cetak Struk</button>' +
+                        '<button class="btn-bayar-besar" style="margin-top:0; flex:1; height:48px; border-radius:10px; justify-content:center; gap:8px;" onclick="tutupLayarBerhasil()">+ Mulai Transaksi</button>' +
+                    '</div>' +
+                '</div>';
+            document.getElementById("layarBerhasil").classList.add("open");
+        }
+
+        function tutupLayarBerhasil() {
+            document.getElementById("layarBerhasil").classList.remove("open");
+        }
+
+        /* ---------- SIMPAN & TERSIMPAN ----------
+           Disimpan di tablet/browser ini saja (localStorage), per outlet.
+           Stok belum berkurang sampai transaksi dilanjutkan & dibayar. */
+        const BATAS_HARI_TERSIMPAN = 3;
+
+        function kunciTersimpan() { return "omaopa_tersimpan_" + (currentUser ? currentUser.outlet : ""); }
+
+        function bacaTersimpan() {
+            try {
+                const arr = JSON.parse(localStorage.getItem(kunciTersimpan()) || "[]");
+                const batas = Date.now() - BATAS_HARI_TERSIMPAN * 86400000;
+                return arr.filter(function (x) { return x.waktu >= batas; });
+            } catch (e) { return []; }
+        }
+
+        function tulisTersimpan(arr) {
+            try { localStorage.setItem(kunciTersimpan(), JSON.stringify(arr)); return true; } catch (e) { return false; }
+        }
+
+        function renderTombolTersimpan() {
+            const el = document.getElementById("btnTersimpan");
+            if (!el) return;
+            const n = bacaTersimpan().length;
+            el.textContent = n > 0 ? "Tersimpan (" + n + ")" : "Tersimpan";
+        }
+
+        function bukaSimpan() {
+            if (Object.keys(cart).length === 0) return;
+            const r = ringkasanKeranjang();
+            document.getElementById("simpanNama").value = "";
+            document.getElementById("simpanCatatan").value = "";
+            document.getElementById("simpanRingkas").innerHTML =
+                '<b>' + r.entries.length + ' baris · ' + r.jumlahPcs + ' pcs · ' + rp(r.total) + '</b><br>Keranjang akan dikosongkan setelah disimpan.';
+            document.getElementById("modalSimpan").classList.add("open");
+        }
+
+        function tutupSimpan() { document.getElementById("modalSimpan").classList.remove("open"); }
+
+        function simpanTransaksi() {
+            if (Object.keys(cart).length === 0) return;
+            const r = ringkasanKeranjang();
+
+            // item gratis dari promo dibuat ulang otomatis saat dilanjutkan
+            const cartBersih = {};
+            Object.keys(cart).forEach(function (k) { if (!cart[k].isPromoGratis) cartBersih[k] = cart[k]; });
+
+            const daftar = bacaTersimpan();
+            daftar.unshift({
+                id: String(Date.now()),
+                nama: document.getElementById("simpanNama").value.trim() || "Tanpa nama",
+                catatan: document.getElementById("simpanCatatan").value.trim(),
+                mode: modeAktif, cart: cartBersih, promoOff: promoDinonaktifkanManual,
+                total: r.total, waktu: Date.now()
+            });
+
+            if (!tulisTersimpan(daftar.slice(0, 20))) {
+                tampilkanPesan("Gagal menyimpan (penyimpanan browser penuh/diblokir).", "error");
+                tutupSimpan();
+                return;
+            }
+
+            cart = {};
+            promoDinonaktifkanManual = {};
+            tutupSimpan();
+            renderCart();
+            tampilkanPesan("Transaksi disimpan. Lanjutkan lewat tombol Tersimpan.", "success");
+        }
+
+        function bukaTersimpan() {
+            renderTersimpanList();
+            document.getElementById("modalTersimpan").classList.add("open");
+        }
+
+        function tutupTersimpan() { document.getElementById("modalTersimpan").classList.remove("open"); }
+
+        function renderTersimpanList() {
+            const daftar = bacaTersimpan();
+            const wadah = document.getElementById("tersimpanList");
+            if (daftar.length === 0) {
+                wadah.innerHTML = '<div class="cart-empty">Belum ada transaksi tersimpan.</div>';
+                return;
+            }
+            wadah.innerHTML = daftar.map(function (x) {
+                const ringkas = Object.values(x.cart).map(function (it) { return it.qty + " " + escHtml(it.nama); }).join(" · ");
+                const jam = fmtWaktu(new Date(x.waktu));
+                return '<div class="sv-item">' +
+                    '<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">' +
+                        '<div><div class="t">' + escHtml(x.nama) + '</div><div class="m">Disimpan ' + jam + ' · ' + escHtml(x.mode) + (x.catatan ? ' · ' + escHtml(x.catatan) : '') + '</div></div>' +
+                        '<div style="font-size:13px; font-weight:800; color:#12305C; white-space:nowrap;">' + rp(x.total) + '</div>' +
+                    '</div>' +
+                    '<div class="i">' + ringkas + '</div>' +
+                    '<div style="display:flex; gap:8px; justify-content:flex-end; margin-top:10px;">' +
+                        '<button class="btn-mini danger" style="height:30px;" onclick="hapusTersimpan(\'' + x.id + '\')">Hapus</button>' +
+                        '<button class="btn-mini navy" style="height:30px; padding:0 14px;" onclick="lanjutkanTersimpan(\'' + x.id + '\')">Lanjutkan</button>' +
+                    '</div>' +
+                '</div>';
+            }).join("");
+        }
+
+        function hapusTersimpan(id) {
+            if (!confirm("Hapus transaksi tersimpan ini?")) return;
+            tulisTersimpan(bacaTersimpan().filter(function (x) { return x.id !== id; }));
+            renderTersimpanList();
+            renderTombolTersimpan();
+        }
+
+        function lanjutkanTersimpan(id) {
+            const daftar = bacaTersimpan();
+            const x = daftar.find(function (y) { return y.id === id; });
+            if (!x) return;
+
+            if (Object.keys(cart).length > 0 &&
+                !confirm("Keranjang sekarang masih berisi. Ganti dengan transaksi tersimpan ini? (Keranjang sekarang akan hilang)")) return;
+
+            if (x.mode !== modeAktif) {
+                modeAktif = x.mode;
+                renderModeTabs();
+                renderProdukTampil();
+            }
+            cart = x.cart;
+            promoDinonaktifkanManual = x.promoOff || {};
+            tulisTersimpan(daftar.filter(function (y) { return y.id !== id; }));
+            tutupTersimpan();
+            renderCart();
         }
 
         function tampilkanPesan(text, type) {
