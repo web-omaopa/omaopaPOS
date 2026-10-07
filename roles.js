@@ -16,7 +16,7 @@ const HALAMAN_INFO = {
     kasir:          { href: "pos.html",            icon: "🧾", title: "Kasir",           desc: "Buat transaksi penjualan",          dibangun: true },
     stok:           { href: "stok.html",           icon: "📦", title: "Stok",            desc: "Lihat & pantau stok outlet",        dibangun: true },
     alokasi:        { href: "alokasi.html",        icon: "📋", title: "Manajemen Menu", desc: "Rencana, lapor & approval stok", dibangun: true },
-    transfer:       { href: "transfer.html",       icon: "🚚", title: "Transfer Outlet", desc: "Pindahkan stok antar outlet",       dibangun: false },
+    transfer:       { href: "transfer.html",       icon: "🚚", title: "Transfer",        desc: "Kirim & terima stok antar outlet",  dibangun: true },
     riwayat:        { href: "riwayat.html",        icon: "🕘", title: "Riwayat",         desc: "Riwayat transaksi & transfer",      dibangun: false },
     laporan:        { href: "laporan.html",        icon: "📊", title: "Laporan",         desc: "Analisis penjualan & stok",         dibangun: false },
     pengaturan:     { href: "pengaturan.html",     icon: "⚙️", title: "Pengaturan",      desc: "Kelola produk, outlet, & user",     dibangun: true }
@@ -32,6 +32,15 @@ const ROLE_PERMISSIONS = {
     owner:      ["kasir", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
     kasir:      ["kasir", "alokasi", "stok", "transfer"]
 };
+
+/* Role yang boleh MEMBUAT perintah transfer antar outlet (di halaman Stok).
+   Kasir hanya mengirim / menerima sesuai perintah, tidak bisa membuat
+   atau menolak transfer. Dipakai juga di Firestore Rules. */
+const ROLE_BUAT_TRANSFER = ["management", "admin", "owner", "forecaster"];
+
+function bolehBuatTransfer(role) {
+    return ROLE_BUAT_TRANSFER.indexOf(role) !== -1;
+}
 
 /* Cek apakah sebuah role boleh mengakses halaman tertentu.
    Kalau role tidak dikenali (typo/belum didaftarkan), otomatis
@@ -72,7 +81,11 @@ function renderSidebar(currentUser, activeKey) {
 
     sudahDibangun.forEach(function (h) {
         const activeClass = h.key === activeKey ? " active" : "";
-        html += '<a href="' + h.href + '" class="nav-item' + activeClass + '">' + h.icon + '  ' + h.title + '</a>';
+        let badge = "";
+        if (h.key === "transfer") {
+            badge = '<span id="badgeTransfer" style="display:none; float:right; background:#E8A33D; color:#ffffff; font-size:10px; font-weight:800; min-width:16px; height:16px; line-height:16px; text-align:center; border-radius:8px; padding:0 4px;"></span>';
+        }
+        html += '<a href="' + h.href + '" class="nav-item' + activeClass + '">' + h.icon + '  ' + h.title + badge + '</a>';
     });
 
     if (belumDibangun.length > 0) {
@@ -89,7 +102,45 @@ function renderSidebar(currentUser, activeKey) {
     html += '<button class="logout-link" onclick="logout()">Keluar</button>';
     html += '</div>';
 
+    // Badge angka di menu Transfer (tugas yang menunggu aksi).
+    // Dijalankan setelah sidebar dipasang ke halaman.
+    setTimeout(function () { muatBadgeTransfer(currentUser); }, 50);
+
     return html;
+}
+
+/* Hitung transfer yang menunggu aksi user ini lalu tampilkan di badge menu:
+   - Kasir: perlu dikirim (outlet asal) + perlu diterima (outlet tujuan)
+   - Forecaster/admin: transfer dengan selisih yang belum dicek */
+function muatBadgeTransfer(currentUser) {
+    const el = document.getElementById("badgeTransfer");
+    if (!el) return;
+    if (typeof firebase === "undefined" || !firebase.apps || firebase.apps.length === 0) return;
+
+    const dbBadge = firebase.firestore();
+    const col = dbBadge.collection("transfer_stok");
+    let queries;
+
+    if (bolehBuatTransfer(currentUser.role)) {
+        queries = [col.where("selisih", "==", true).where("selisihDicek", "==", false)];
+    } else if (currentUser.role === "kasir") {
+        queries = [
+            col.where("dari", "==", currentUser.outlet).where("status", "==", "menunggu_kirim"),
+            col.where("ke", "==", currentUser.outlet).where("status", "==", "dikirim")
+        ];
+    } else {
+        return;
+    }
+
+    Promise.all(queries.map(function (q) { return q.get(); })).then(function (hasil) {
+        const total = hasil.reduce(function (a, snap) { return a + snap.size; }, 0);
+        if (total > 0) {
+            el.textContent = total;
+            el.style.display = "inline-block";
+        } else {
+            el.style.display = "none";
+        }
+    }).catch(function () { /* badge hanya pelengkap, abaikan error */ });
 }
 
 /* Proteksi halaman: panggil di awal tiap halaman (setelah currentUser
