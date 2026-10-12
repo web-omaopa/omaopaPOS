@@ -139,11 +139,13 @@
                 <option value="true">Reset harian (kue basah)</option>
                 <option value="false">Akumulasi (tahan lama)</option>
             </select>
-            <label>URL Gambar (opsional)</label>
-            <input type="text" id="pInputGambar" placeholder="https://...">
-            <div class="field-hint">Atau upload langsung dari komputer:</div>
-            <input type="file" id="pInputFileGambar" accept="image/*" style="margin-top:6px;" onchange="Produk_uploadGambar(this)">
-            <div id="pUploadStatus" style="font-size:10px; color:#52606d; margin-top:4px;"></div>
+            <label>Gambar (opsional)</label>
+            <input type="text" id="pInputGambar" placeholder="contoh: malmil-cheese.png" oninput="Produk_previewGambar()">
+            <div class="field-hint">Tulis nama file gambar yang sudah ada di folder <b>images/</b> repo GitHub (contoh: <b>malmil-cheese.png</b>). Alamat lengkap <b>https://...</b> juga boleh.</div>
+            <div style="display:flex; align-items:center; gap:10px; margin-top:8px;">
+                <img id="pPreviewGambar" alt="" style="display:none; width:64px; height:64px; object-fit:cover; border-radius:8px; border:1px solid #dde3ea;" onerror="this.style.display='none'; document.getElementById('pPreviewStatus').textContent='Gambar tidak ditemukan. Cek nama file dan pastikan sudah di-upload ke folder images/.'; document.getElementById('pPreviewStatus').style.color='#c0392b';" onload="this.style.display='block'; document.getElementById('pPreviewStatus').textContent='Gambar ditemukan \u2713'; document.getElementById('pPreviewStatus').style.color='#1e7d32';">
+                <div id="pPreviewStatus" style="font-size:10.5px; color:#52606d;"></div>
+            </div>
             <label>Butuh Pilih Topping?</label>
             <select id="pInputButuhTopping">
                 <option value="false">Tidak</option>
@@ -747,119 +749,28 @@
            Dipanggil otomatis saat user pilih file di input.
            Hasil URL-nya langsung mengisi kolom "URL Gambar".
         ====================================================== */
-        var Produk_sedangUpload = false;
-
-        // Perkecil gambar di browser sebelum diupload (maks 900px, JPEG) supaya cepat & hemat kuota
-        function Produk_kecilkanGambar(file) {
-            return new Promise(function (resolve, reject) {
-                var url = URL.createObjectURL(file);
-                var img = new Image();
-                img.onload = function () {
-                    URL.revokeObjectURL(url);
-                    var MAKS = 900;
-                    var skala = Math.min(1, MAKS / Math.max(img.width, img.height));
-                    var w = Math.round(img.width * skala), h = Math.round(img.height * skala);
-                    var cv = document.createElement("canvas");
-                    cv.width = w; cv.height = h;
-                    var ctx = cv.getContext("2d");
-                    ctx.fillStyle = "#ffffff";
-                    ctx.fillRect(0, 0, w, h);
-                    ctx.drawImage(img, 0, 0, w, h);
-                    cv.toBlob(function (blob) {
-                        blob ? resolve(blob) : reject(new Error("gagal-proses"));
-                    }, "image/jpeg", 0.82);
-                };
-                img.onerror = function () { URL.revokeObjectURL(url); reject(new Error("bukan-gambar")); };
-                img.src = url;
-            });
+        // Nama file saja (mis. "malmil-cheese.png") otomatis jadi "images/malmil-cheese.png"
+        function Produk_normalGambar(v) {
+            v = (v || "").trim();
+            if (!v) return "";
+            if (/^(https?:)?\/\//i.test(v) || v.indexOf("data:") === 0) return v;
+            v = v.replace(/^\.?\//, "");
+            if (v.indexOf("/") === -1) v = "images/" + v;
+            return v;
         }
 
-        function Produk_pesanErrorUpload(error) {
-            var kode = (error && error.code) || "";
-            var msg = (error && error.message) || "";
-            if (msg === "bukan-gambar") return "File itu bukan gambar yang bisa dibaca. Pilih file JPG, PNG, atau WEBP.";
-            if (msg === "gagal-proses") return "Gambar gagal diproses. Coba gambar lain.";
-            if (kode === "storage/unauthorized") return "Tidak punya izin upload. Aturan Firebase Storage belum mengizinkan, atau sesi login habis (coba login ulang).";
-            if (kode === "storage/quota-exceeded") return "Kuota penyimpanan Firebase penuh atau belum aktif. Cek paket Firebase.";
-            if (kode === "storage/retry-limit-exceeded" || kode === "storage/network-request-failed") return "Koneksi terputus saat upload. Coba lagi.";
-            if (kode === "storage/macet" || kode === "storage/canceled") return "Upload tidak ada kemajuan selama 30 detik. Kemungkinan Firebase Storage belum aktif (cek menu Storage di Firebase Console, mungkin butuh paket Blaze) atau sinyal terputus.";
-            if (kode === "storage/bucket-not-found" || kode === "storage/project-not-found") return "Bucket Firebase Storage tidak ditemukan. Aktifkan Storage di Firebase Console dulu.";
-            return "Gagal upload: " + (msg || kode || "tidak diketahui");
-        }
-
-        function Produk_uploadGambar(fileInput) {
-            const file = fileInput.files[0];
-            if (!file) return;
-
-            const statusBox = document.getElementById("pUploadStatus");
-            const warna = function (c) { statusBox.style.color = c; };
-
-            if (!/^image\//.test(file.type)) {
-                statusBox.textContent = "File harus berupa gambar (JPG, PNG, WEBP).";
-                warna("#c0392b");
-                fileInput.value = "";
-                return;
-            }
-            if (file.size > 15 * 1024 * 1024) {
-                statusBox.textContent = "File terlalu besar (maks 15 MB). Pilih gambar yang lebih kecil.";
-                warna("#c0392b");
-                fileInput.value = "";
-                return;
-            }
-
-            Produk_sedangUpload = true;
-            statusBox.textContent = "Memproses gambar...";
-            warna("#52606d");
-
-            Produk_kecilkanGambar(file)
-                .then(function (blob) {
-                    statusBox.textContent = "Mengupload...";
-                    // Nama file unik supaya tidak saling menimpa
-                    const namaFile = Date.now() + "_" + file.name.replace(/\.[^.]*$/, "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 40) + ".jpg";
-                    const ref = storage.ref("products/" + namaFile);
-                    // Batas waktu: kalau 30 detik tidak ada kemajuan, anggap gagal supaya tidak menggantung
-                    try { storage.setMaxUploadRetryTime(30000); storage.setMaxOperationRetryTime(30000); } catch (e) {}
-                    return new Promise(function (resolve, reject) {
-                        var task = ref.put(blob, { contentType: "image/jpeg", cacheControl: "public,max-age=31536000" });
-                        var macet = setTimeout(function () {
-                            task.cancel();
-                            reject({ code: "storage/macet" });
-                        }, 30000);
-                        task.on("state_changed", function (snap) {
-                            if (snap.bytesTransferred > 0) {
-                                clearTimeout(macet);
-                                macet = setTimeout(function () { task.cancel(); reject({ code: "storage/macet" }); }, 30000);
-                            }
-                            var persen = snap.totalBytes ? Math.round(snap.bytesTransferred / snap.totalBytes * 100) : 0;
-                            statusBox.textContent = "Mengupload... " + persen + "%";
-                        }, function (err) {
-                            clearTimeout(macet);
-                            reject(err);
-                        }, function () {
-                            clearTimeout(macet);
-                            resolve(task.snapshot);
-                        });
-                    });
-                })
-                .then(function (snapshot) {
-                    return snapshot.ref.getDownloadURL();
-                })
-                .then(function (url) {
-                    document.getElementById("pInputGambar").value = url;
-                    statusBox.textContent = "Berhasil diupload \u2713";
-                    warna("#1e7d32");
-                })
-                .catch(function (error) {
-                    statusBox.textContent = Produk_pesanErrorUpload(error);
-                    warna("#c0392b");
-                    fileInput.value = "";
-                })
-                .then(function () { Produk_sedangUpload = false; });
+        function Produk_previewGambar() {
+            var img = document.getElementById("pPreviewGambar");
+            var st = document.getElementById("pPreviewStatus");
+            var v = Produk_normalGambar(document.getElementById("pInputGambar").value);
+            if (!v) { img.style.display = "none"; st.textContent = ""; return; }
+            st.textContent = "Mengecek gambar...";
+            st.style.color = "#52606d";
+            img.src = v;
         }
 
         function Produk_bukaModalTambah() {
             Produk_editingId = null;
-            Produk_sedangUpload = false;
             document.getElementById("modalProdukTitle").textContent = "Tambah Produk";
             document.getElementById("pInputNama").value = "";
             document.getElementById("pInputHarga").value = "";
@@ -868,8 +779,7 @@
             document.getElementById("pInputStatus").value = "aktif";
             document.getElementById("pInputResetHarian").value = "true";
             document.getElementById("pInputGambar").value = "";
-            document.getElementById("pInputFileGambar").value = "";
-            document.getElementById("pUploadStatus").textContent = "";
+            Produk_previewGambar();
             document.getElementById("pInputButuhTopping").value = "false";
             document.getElementById("pFormError").style.display = "none";
             renderModeHargaInputs({});
@@ -888,6 +798,7 @@
                 document.getElementById("pInputStatus").value = p.status;
                 document.getElementById("pInputResetHarian").value = p.resetHarian === false ? "false" : "true";
                 document.getElementById("pInputGambar").value = p.gambarUrl || "";
+                Produk_previewGambar();
                 document.getElementById("pInputButuhTopping").value = p.butuhTopping ? "true" : "false";
                 document.getElementById("pFormError").style.display = "none";
                 renderModeHargaInputs(p.modeHarga || {});
@@ -904,11 +815,10 @@
             const satuan = document.getElementById("pInputSatuan").value.trim() || "pcs";
             const status = document.getElementById("pInputStatus").value;
             const resetHarian = document.getElementById("pInputResetHarian").value === "true";
-            const gambarUrl = document.getElementById("pInputGambar").value.trim();
+            const gambarUrl = Produk_normalGambar(document.getElementById("pInputGambar").value);
             const butuhTopping = document.getElementById("pInputButuhTopping").value === "true";
             const errBox = document.getElementById("pFormError");
 
-            if (Produk_sedangUpload) { errBox.textContent = "Gambar masih diupload. Tunggu sampai selesai, lalu simpan."; errBox.style.display = "block"; return; }
             if (!nama || !harga || harga <= 0) { errBox.textContent = "Nama dan harga wajib diisi."; errBox.style.display = "block"; return; }
 
             const modeHarga = ambilModeHargaDariForm();
