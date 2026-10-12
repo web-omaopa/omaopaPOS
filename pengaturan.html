@@ -782,7 +782,8 @@
             if (kode === "storage/unauthorized") return "Tidak punya izin upload. Aturan Firebase Storage belum mengizinkan, atau sesi login habis (coba login ulang).";
             if (kode === "storage/quota-exceeded") return "Kuota penyimpanan Firebase penuh atau belum aktif. Cek paket Firebase.";
             if (kode === "storage/retry-limit-exceeded" || kode === "storage/network-request-failed") return "Koneksi terputus saat upload. Coba lagi.";
-            if (kode === "storage/canceled") return "Upload dibatalkan.";
+            if (kode === "storage/macet" || kode === "storage/canceled") return "Upload tidak ada kemajuan selama 30 detik. Kemungkinan Firebase Storage belum aktif (cek menu Storage di Firebase Console, mungkin butuh paket Blaze) atau sinyal terputus.";
+            if (kode === "storage/bucket-not-found" || kode === "storage/project-not-found") return "Bucket Firebase Storage tidak ditemukan. Aktifkan Storage di Firebase Console dulu.";
             return "Gagal upload: " + (msg || kode || "tidak diketahui");
         }
 
@@ -816,7 +817,29 @@
                     // Nama file unik supaya tidak saling menimpa
                     const namaFile = Date.now() + "_" + file.name.replace(/\.[^.]*$/, "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 40) + ".jpg";
                     const ref = storage.ref("products/" + namaFile);
-                    return ref.put(blob, { contentType: "image/jpeg", cacheControl: "public,max-age=31536000" });
+                    // Batas waktu: kalau 30 detik tidak ada kemajuan, anggap gagal supaya tidak menggantung
+                    try { storage.setMaxUploadRetryTime(30000); storage.setMaxOperationRetryTime(30000); } catch (e) {}
+                    return new Promise(function (resolve, reject) {
+                        var task = ref.put(blob, { contentType: "image/jpeg", cacheControl: "public,max-age=31536000" });
+                        var macet = setTimeout(function () {
+                            task.cancel();
+                            reject({ code: "storage/macet" });
+                        }, 30000);
+                        task.on("state_changed", function (snap) {
+                            if (snap.bytesTransferred > 0) {
+                                clearTimeout(macet);
+                                macet = setTimeout(function () { task.cancel(); reject({ code: "storage/macet" }); }, 30000);
+                            }
+                            var persen = snap.totalBytes ? Math.round(snap.bytesTransferred / snap.totalBytes * 100) : 0;
+                            statusBox.textContent = "Mengupload... " + persen + "%";
+                        }, function (err) {
+                            clearTimeout(macet);
+                            reject(err);
+                        }, function () {
+                            clearTimeout(macet);
+                            resolve(task.snapshot);
+                        });
+                    });
                 })
                 .then(function (snapshot) {
                     return snapshot.ref.getDownloadURL();
