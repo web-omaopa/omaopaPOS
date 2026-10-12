@@ -747,35 +747,96 @@
            Dipanggil otomatis saat user pilih file di input.
            Hasil URL-nya langsung mengisi kolom "URL Gambar".
         ====================================================== */
+        var Produk_sedangUpload = false;
+
+        // Perkecil gambar di browser sebelum diupload (maks 900px, JPEG) supaya cepat & hemat kuota
+        function Produk_kecilkanGambar(file) {
+            return new Promise(function (resolve, reject) {
+                var url = URL.createObjectURL(file);
+                var img = new Image();
+                img.onload = function () {
+                    URL.revokeObjectURL(url);
+                    var MAKS = 900;
+                    var skala = Math.min(1, MAKS / Math.max(img.width, img.height));
+                    var w = Math.round(img.width * skala), h = Math.round(img.height * skala);
+                    var cv = document.createElement("canvas");
+                    cv.width = w; cv.height = h;
+                    var ctx = cv.getContext("2d");
+                    ctx.fillStyle = "#ffffff";
+                    ctx.fillRect(0, 0, w, h);
+                    ctx.drawImage(img, 0, 0, w, h);
+                    cv.toBlob(function (blob) {
+                        blob ? resolve(blob) : reject(new Error("gagal-proses"));
+                    }, "image/jpeg", 0.82);
+                };
+                img.onerror = function () { URL.revokeObjectURL(url); reject(new Error("bukan-gambar")); };
+                img.src = url;
+            });
+        }
+
+        function Produk_pesanErrorUpload(error) {
+            var kode = (error && error.code) || "";
+            var msg = (error && error.message) || "";
+            if (msg === "bukan-gambar") return "File itu bukan gambar yang bisa dibaca. Pilih file JPG, PNG, atau WEBP.";
+            if (msg === "gagal-proses") return "Gambar gagal diproses. Coba gambar lain.";
+            if (kode === "storage/unauthorized") return "Tidak punya izin upload. Aturan Firebase Storage belum mengizinkan, atau sesi login habis (coba login ulang).";
+            if (kode === "storage/quota-exceeded") return "Kuota penyimpanan Firebase penuh atau belum aktif. Cek paket Firebase.";
+            if (kode === "storage/retry-limit-exceeded" || kode === "storage/network-request-failed") return "Koneksi terputus saat upload. Coba lagi.";
+            if (kode === "storage/canceled") return "Upload dibatalkan.";
+            return "Gagal upload: " + (msg || kode || "tidak diketahui");
+        }
+
         function Produk_uploadGambar(fileInput) {
             const file = fileInput.files[0];
             if (!file) return;
 
             const statusBox = document.getElementById("pUploadStatus");
-            statusBox.textContent = "Mengupload...";
-            statusBox.style.color = "#52606d";
+            const warna = function (c) { statusBox.style.color = c; };
 
-            // Nama file dibuat unik supaya tidak saling menimpa
-            const namaFile = Date.now() + "_" + file.name.replace(/[^a-zA-Z0-9._-]/g, "");
-            const ref = storage.ref("products/" + namaFile);
+            if (!/^image\//.test(file.type)) {
+                statusBox.textContent = "File harus berupa gambar (JPG, PNG, WEBP).";
+                warna("#c0392b");
+                fileInput.value = "";
+                return;
+            }
+            if (file.size > 15 * 1024 * 1024) {
+                statusBox.textContent = "File terlalu besar (maks 15 MB). Pilih gambar yang lebih kecil.";
+                warna("#c0392b");
+                fileInput.value = "";
+                return;
+            }
 
-            ref.put(file)
+            Produk_sedangUpload = true;
+            statusBox.textContent = "Memproses gambar...";
+            warna("#52606d");
+
+            Produk_kecilkanGambar(file)
+                .then(function (blob) {
+                    statusBox.textContent = "Mengupload...";
+                    // Nama file unik supaya tidak saling menimpa
+                    const namaFile = Date.now() + "_" + file.name.replace(/\.[^.]*$/, "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 40) + ".jpg";
+                    const ref = storage.ref("products/" + namaFile);
+                    return ref.put(blob, { contentType: "image/jpeg", cacheControl: "public,max-age=31536000" });
+                })
                 .then(function (snapshot) {
                     return snapshot.ref.getDownloadURL();
                 })
                 .then(function (url) {
                     document.getElementById("pInputGambar").value = url;
                     statusBox.textContent = "Berhasil diupload \u2713";
-                    statusBox.style.color = "#1e7d32";
+                    warna("#1e7d32");
                 })
                 .catch(function (error) {
-                    statusBox.textContent = "Gagal upload: " + error.message;
-                    statusBox.style.color = "#c0392b";
-                });
+                    statusBox.textContent = Produk_pesanErrorUpload(error);
+                    warna("#c0392b");
+                    fileInput.value = "";
+                })
+                .then(function () { Produk_sedangUpload = false; });
         }
 
         function Produk_bukaModalTambah() {
             Produk_editingId = null;
+            Produk_sedangUpload = false;
             document.getElementById("modalProdukTitle").textContent = "Tambah Produk";
             document.getElementById("pInputNama").value = "";
             document.getElementById("pInputHarga").value = "";
@@ -824,6 +885,7 @@
             const butuhTopping = document.getElementById("pInputButuhTopping").value === "true";
             const errBox = document.getElementById("pFormError");
 
+            if (Produk_sedangUpload) { errBox.textContent = "Gambar masih diupload. Tunggu sampai selesai, lalu simpan."; errBox.style.display = "block"; return; }
             if (!nama || !harga || harga <= 0) { errBox.textContent = "Nama dan harga wajib diisi."; errBox.style.display = "block"; return; }
 
             const modeHarga = ambilModeHargaDariForm();
