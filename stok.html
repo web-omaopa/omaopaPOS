@@ -116,24 +116,22 @@
         .loading-state, .empty-state { text-align: center; color: #6b7280; font-size: 12px; padding: 30px 0; }
         .denied-state { text-align: center; color: #6b7280; font-size: 12px; padding: 40px 0; }
 
-        /* ===== Ringkasan semua outlet (per area) ===== */
-        .content.lebar { max-width: none; min-width: 0; }
-        .ringkasan { font-size: 11px; color: #52606d; margin-bottom: 10px; }
-        .ringkasan b { color: #1f2937; }
+        /* ===== Outlet terpilih + daftar outlet lain per area ===== */
+        .judul-outlet { font-size: 13px; font-weight: 800; color: #12305C; margin-bottom: 8px; }
+        .judul-outlet span { font-size: 11px; font-weight: 400; color: #6b7280; }
+        .judul-lain { font-size: 13px; font-weight: 800; color: #1f2937; margin-top: 30px; }
 
-        .matrix-wrap { overflow-x: auto; border: 1px solid #dde3ea; border-radius: 10px; }
-        table.matrix { border: none; border-radius: 0; overflow: visible; width: auto; min-width: 100%; }
-        table.matrix th, table.matrix td { white-space: nowrap; padding: 8px 10px; }
-        table.matrix th.area-head { text-align: center; background: #12305C; color: #ffffff; border-left: 2px solid #ffffff; }
-        table.matrix th.outlet-head { text-align: right; cursor: pointer; color: #12305C; }
-        table.matrix th.outlet-head:hover { text-decoration: underline; }
-        table.matrix .sticky { position: sticky; left: 0; z-index: 1; background: #ffffff; min-width: 150px; box-shadow: 1px 0 0 #e8ecf1; }
-        table.matrix thead .sticky { background: #f1f4f8; z-index: 2; }
-        table.matrix td.sel-habis { background: #fdeaea; color: #c0392b; font-weight: 700; }
-        table.matrix td.sel-menipis { background: #fdf1de; color: #b06d09; font-weight: 700; }
-        table.matrix td.sel-kosong { color: #c4ccd6; }
-        table.matrix .col-total { background: #F6F9FE; font-weight: 700; }
-        table.matrix .batas-area { border-left: 2px solid #dde3ea; }
+        .area-judul {
+            background: #12305C; color: #ffffff; font-size: 12px; font-weight: 700;
+            padding: 8px 12px; border-radius: 8px; margin: 14px 0 12px;
+        }
+        .area-judul span { font-weight: 400; color: #B8C7E0; }
+
+        .kartu-outlet { margin-bottom: 18px; }
+        .kartu-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+        .kartu-nama { font-size: 12.5px; font-weight: 800; color: #12305C; cursor: pointer; }
+        .kartu-nama:hover { text-decoration: underline; }
+        .kartu-info { font-size: 10.5px; color: #6b7280; }
 
         /* ===== Bar Buat Transfer (khusus Forecaster/Admin) ===== */
         .tf-bar {
@@ -211,7 +209,7 @@
                 </div>
             </div>
 
-            <div class="ringkasan" id="ringkasanInfo" style="display:none;"></div>
+            <div class="judul-outlet" id="judulTerpilih" style="display:none;"></div>
 
             <table id="tabelStok">
                 <thead id="stockTableHead"></thead>
@@ -220,14 +218,7 @@
                 </tbody>
             </table>
 
-            <div class="matrix-wrap" id="wadahMatrix" style="display:none;">
-                <table class="matrix">
-                    <thead id="matrixHead"></thead>
-                    <tbody id="matrixBody"></tbody>
-                </table>
-            </div>
-
-            <div class="hint-text" id="hintMatrix" style="display:none;"></div>
+            <div id="daftarOutletLain"></div>
 
             <div class="hint-text" id="hintTransfer" style="display:none;">
                 Pilih outlet tujuan untuk menampilkan kolom transfer. Isi jumlah di produk yang mau dipindah (boleh lebih dari satu produk), lalu klik Buat Transfer. Topping tidak ikut ditransfer.
@@ -371,7 +362,7 @@
                 outletAsal = currentUser.outlet;
                 loadStok(currentUser.outlet);
             } else {
-                // Selain kasir: default tampil ringkasan semua outlet, bisa dipilih per area / per outlet
+                // Selain kasir: outlet terpilih di atas, outlet lain di bawahnya per area
                 db.collection("outlets").get().then(function (snapshot) {
                     daftarOutlet = [];
                     outletArea = {};
@@ -384,7 +375,7 @@
                         if (daftarArea.indexOf(outletArea[o]) === -1) daftarArea.push(outletArea[o]);
                     });
 
-                    outletAsal = "";
+                    outletAsal = daftarOutlet.indexOf(currentUser.outlet) !== -1 ? currentUser.outlet : "";
                     document.getElementById("wadahArea").style.display = "block";
                     document.getElementById("labelOutlet").style.display = "block";
                     isiPilihanArea();
@@ -454,14 +445,15 @@
             sel.value = outletAsal;
         }
 
-        // Klik nama outlet di tabel ringkasan -> buka detail outlet itu
+        // Klik nama outlet di daftar bawah -> jadikan outlet terpilih (paling atas)
         function pilihOutlet(nama) {
             outletAsal = nama;
             document.getElementById("outletSelect").value = nama;
             tampilkan();
+            window.scrollTo(0, 0);
         }
 
-        // Satu outlet dipilih -> tabel detail (+ transfer). Belum dipilih -> ringkasan semua outlet.
+        // Paling atas: outlet terpilih (+ transfer). Di bawahnya: outlet lain, dikelompokkan per area.
         function tampilkan() {
             const modeSatu = !!outletAsal;
             const modeTf = modeSatu && canBuat;
@@ -471,14 +463,12 @@
             document.getElementById("wadahTujuan").style.display = modeTf ? "block" : "none";
             document.getElementById("hintTransfer").style.display = modeTf ? "block" : "none";
 
+            const judul = document.getElementById("judulTerpilih");
+            judul.style.display = modeSatu ? "block" : "none";
+            judul.innerHTML = modeSatu ? esc(outletAsal) + ' <span>· ' + esc(outletArea[outletAsal] || "") + '</span>' : "";
             document.getElementById("tabelStok").style.display = modeSatu ? "" : "none";
-            document.getElementById("wadahMatrix").style.display = modeSatu ? "none" : "block";
-            document.getElementById("hintMatrix").style.display = modeSatu ? "none" : "block";
-            document.getElementById("ringkasanInfo").style.display = modeSatu ? "none" : "block";
-            document.getElementById("mainContent").classList.toggle("lebar", !modeSatu);
 
             if (modeSatu) {
-                tokenRingkasan++;
                 if (canBuat) isiPilihanTujuan();
                 loadStok(outletAsal);
             } else {
@@ -486,32 +476,32 @@
                 outletTujuan = "";
                 stokTujuan = {};
                 updateBar();
-                loadRingkasan();
             }
+            loadOutletLain();
         }
 
-        function loadRingkasan() {
+        function loadOutletLain() {
             const token = ++tokenRingkasan;
-            const cakupan = outletDiArea(pilihArea);
+            const wadah = document.getElementById("daftarOutletLain");
+            const cakupan = outletDiArea(pilihArea).filter(function (o) { return o !== outletAsal; });
 
-            document.getElementById("matrixHead").innerHTML = "";
-            document.getElementById("matrixBody").innerHTML =
-                '<tr><td class="loading-state">Memuat stok ' + cakupan.length + ' outlet...</td></tr>';
-            document.getElementById("ringkasanInfo").innerHTML = "";
-            document.getElementById("hintMatrix").textContent =
-                'Merah = habis, kuning = menipis, "-" = produk belum ada di outlet itu. Klik nama outlet untuk melihat detailnya' +
-                (canBuat ? " dan membuat transfer." : ".");
+            if (cakupan.length === 0) {
+                wadah.innerHTML = "";
+                return;
+            }
+            wadah.innerHTML = '<div class="loading-state">Memuat stok ' + cakupan.length + ' outlet...</div>';
 
             loadProductNames().then(function () {
                 return Promise.all(cakupan.map(function (o) {
                     return db.collection("outlets").doc(o).collection("stock").get().then(function (snapshot) {
-                        const isi = {};
+                        const isi = [];
                         snapshot.forEach(function (doc) {
                             const d = doc.data();
-                            isi[doc.id] = {
+                            isi.push({
+                                nama: productMap[doc.id] || doc.id,
                                 jumlah: d.jumlah || 0,
                                 minStok: d.minStok !== undefined ? d.minStok : 5
-                            };
+                            });
                         });
                         return isi;
                     });
@@ -520,90 +510,61 @@
                 if (token !== tokenRingkasan) return;
                 const stokPerOutlet = {};
                 cakupan.forEach(function (o, i) { stokPerOutlet[o] = hasil[i]; });
-                renderMatrix(cakupan, stokPerOutlet);
+                renderOutletLain(cakupan, stokPerOutlet);
             }).catch(function (error) {
                 if (token !== tokenRingkasan) return;
-                document.getElementById("matrixBody").innerHTML =
-                    '<tr><td class="empty-state">Gagal memuat: ' + esc(error.message) + '</td></tr>';
+                wadah.innerHTML = '<div class="empty-state">Gagal memuat: ' + esc(error.message) + '</div>';
             });
         }
 
-        // Tabel ringkasan: baris = produk, kolom = outlet (dikelompokkan per area)
-        function renderMatrix(cakupan, stokPerOutlet) {
-            const idProduk = {};
-            cakupan.forEach(function (o) {
-                Object.keys(stokPerOutlet[o]).forEach(function (id) { idProduk[id] = true; });
-            });
-            const produk = Object.keys(idProduk).map(function (id) {
-                return { id: id, nama: productMap[id] || id };
-            }).sort(function (a, b) { return a.nama.localeCompare(b.nama, "id"); });
-
+        // Tiap outlet: tabel Produk / Stok / Status (sama seperti tabel atas), dikelompokkan per area
+        function renderOutletLain(cakupan, stokPerOutlet) {
             const grup = [];
-            if (pilihArea) {
-                grup.push({ area: pilihArea, outlets: cakupan });
-            } else {
-                daftarArea.forEach(function (a) {
-                    const list = cakupan.filter(function (o) { return outletArea[o] === a; });
-                    if (list.length > 0) grup.push({ area: a, outlets: list });
-                });
-            }
-            const urutOutlet = grup.reduce(function (acc, g) { return acc.concat(g.outlets); }, []);
-            const awalArea = {};
-            grup.forEach(function (g, i) { if (i > 0) awalArea[g.outlets[0]] = true; });
-
-            let head = "";
-            if (!pilihArea) {
-                head += '<tr><th class="sticky" rowspan="2">Produk</th>';
-                grup.forEach(function (g) {
-                    head += '<th class="area-head" colspan="' + g.outlets.length + '">' + esc(g.area) + '</th>';
-                });
-                head += '<th class="r col-total" rowspan="2">Total</th></tr><tr>';
-            } else {
-                head += '<tr><th class="sticky">Produk</th>';
-            }
-            urutOutlet.forEach(function (o) {
-                head += '<th class="outlet-head' + (awalArea[o] ? " batas-area" : "") + '" title="Lihat detail ' + esc(o) + '" ' +
-                        'onclick="pilihOutlet(\'' + escJsAttr(o) + '\')">' + esc(o) + '</th>';
+            daftarArea.forEach(function (a) {
+                if (pilihArea && a !== pilihArea) return;
+                const list = cakupan.filter(function (o) { return outletArea[o] === a; });
+                if (list.length > 0) grup.push({ area: a, outlets: list });
             });
-            if (pilihArea) head += '<th class="r col-total">Total</th>';
-            head += '</tr>';
-            document.getElementById("matrixHead").innerHTML = head;
 
-            let body = "";
-            let jmlHabis = 0;
-            let jmlMenipis = 0;
+            let html = outletAsal ? '<div class="judul-lain">Outlet lainnya</div>' : '';
 
-            produk.forEach(function (p) {
-                let row = '<td class="sticky">' + esc(p.nama) + '</td>';
-                let total = 0;
-                urutOutlet.forEach(function (o) {
-                    const s = stokPerOutlet[o][p.id];
-                    const batas = awalArea[o] ? " batas-area" : "";
-                    if (!s) {
-                        row += '<td class="r sel-kosong' + batas + '">-</td>';
-                        return;
+            grup.forEach(function (g) {
+                html += '<div class="area-judul">' + esc(g.area) + ' <span>(' + g.outlets.length + ' outlet)</span></div>';
+
+                g.outlets.forEach(function (o) {
+                    const isi = stokPerOutlet[o];
+                    let jmlHabis = 0;
+                    let jmlMenipis = 0;
+                    let rows = "";
+
+                    isi.forEach(function (p) {
+                        const st = statusStok(p.jumlah, p.minStok);
+                        if (st.teks === "Habis") jmlHabis++;
+                        if (st.teks === "Menipis") jmlMenipis++;
+                        rows += '<tr><td>' + esc(p.nama) + '</td>' +
+                                '<td class="r">' + p.jumlah + '</td>' +
+                                '<td class="r"><span class="badge ' + st.kelas + '">' + st.teks + '</span></td></tr>';
+                    });
+                    if (isi.length === 0) {
+                        rows = '<tr><td colspan="3" class="empty-state">Belum ada data stok untuk outlet ini.</td></tr>';
                     }
-                    total += s.jumlah;
-                    const st = statusStok(s.jumlah, s.minStok);
-                    let kelas = "";
-                    if (st.kelas === "badge-habis") { kelas = " sel-habis"; jmlHabis++; }
-                    else if (st.kelas === "badge-menipis") { kelas = " sel-menipis"; jmlMenipis++; }
-                    row += '<td class="r' + kelas + batas + '">' + s.jumlah + '</td>';
+
+                    let info = [];
+                    if (jmlHabis > 0) info.push('<span style="color:#c0392b; font-weight:700;">' + jmlHabis + ' habis</span>');
+                    if (jmlMenipis > 0) info.push('<span style="color:#b06d09; font-weight:700;">' + jmlMenipis + ' menipis</span>');
+
+                    html += '<div class="kartu-outlet">' +
+                            '<div class="kartu-head">' +
+                                '<span class="kartu-nama" title="Tampilkan paling atas" onclick="pilihOutlet(\'' + escJsAttr(o) + '\')">' + esc(o) + '</span>' +
+                                '<span class="kartu-info">' + info.join(" · ") + '</span>' +
+                            '</div>' +
+                            '<table><thead><tr><th>Produk</th><th class="r">Stok</th><th class="r">Status</th></tr></thead>' +
+                            '<tbody>' + rows + '</tbody></table>' +
+                            '</div>';
                 });
-                row += '<td class="r col-total">' + total + '</td>';
-                body += '<tr>' + row + '</tr>';
             });
 
-            if (produk.length === 0) {
-                body = '<tr><td colspan="' + (urutOutlet.length + 2) + '" class="empty-state">Belum ada data stok untuk outlet di area ini.</td></tr>';
-            }
-            document.getElementById("matrixBody").innerHTML = body;
-
-            document.getElementById("ringkasanInfo").innerHTML =
-                '<b>' + urutOutlet.length + ' outlet</b> ' + (pilihArea ? 'di ' + esc(pilihArea) : 'di ' + grup.length + ' area') +
-                ' · ' + produk.length + ' produk · ' +
-                '<span style="color:#c0392b; font-weight:700;">' + jmlHabis + ' stok habis</span> · ' +
-                '<span style="color:#b06d09; font-weight:700;">' + jmlMenipis + ' menipis</span>';
+            document.getElementById("daftarOutletLain").innerHTML = html;
         }
 
         // Isi dropdown tujuan (semua outlet kecuali asal, dikelompokkan per area)
