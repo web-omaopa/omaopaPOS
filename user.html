@@ -308,12 +308,12 @@
 
                 tbody.innerHTML = rows.map(function (u) {
                     return '<tr>' +
-                        '<td>' + u.nama + '</td>' +
-                        '<td><span class="role-badge">' + u.role + '</span></td>' +
-                        '<td>' + u.outlet + '</td>' +
+                        '<td>' + escapeHtmlAman(u.nama) + '</td>' +
+                        '<td><span class="role-badge">' + escapeHtmlAman(u.role) + '</span></td>' +
+                        '<td>' + escapeHtmlAman(u.outlet) + '</td>' +
                         '<td style="text-align:right; white-space:nowrap;">' +
                             '<button class="action-btn" onclick="bukaModalEdit(\'' + u.uid + '\')">Edit</button>' +
-                            '<button class="action-btn danger" onclick="hapusUser(\'' + u.uid + '\', \'' + u.nama.replace(/'/g, "") + '\')">Hapus</button>' +
+                            '<button class="action-btn danger" onclick="hapusUser(\'' + u.uid + '\', \'' + escJsAttr(u.nama) + '\')">Hapus</button>' +
                         '</td>' +
                     '</tr>';
                 }).join("");

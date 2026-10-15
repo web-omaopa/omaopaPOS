@@ -605,8 +605,8 @@
                 const svg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="' + p.warna + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8h12l1 12H5L6 8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>';
                 return '<div class="preset-row">' +
                     '<div class="preset-icon" style="background:' + p.bg + ';">' + svg + '</div>' +
-                    '<span class="preset-name">' + p.nama + '</span>' +
-                    '<button type="button" class="preset-add-btn" onclick="ModePenjualan_pilihPreset(\'' + p.nama + '\')">+</button>' +
+                    '<span class="preset-name">' + escapeHtmlAman(p.nama) + '</span>' +
+                    '<button type="button" class="preset-add-btn" onclick="ModePenjualan_pilihPreset(\'' + escJsAttr(p.nama) + '\')">+</button>' +
                 '</div>';
             }).join("");
         }
@@ -733,13 +733,13 @@
                 snapshot.forEach(function (doc) { rows.push(Object.assign({ id: doc.id }, doc.data())); });
 
                 tbody.innerHTML = rows.map(function (p) {
-                    return '<tr><td>' + p.nama + '<div style="font-size:10px; color:#a89a8c;">satuan: ' + (p.satuan || "pcs") + '</div></td><td>' + (p.kategori || "-") + '</td>' +
+                    return '<tr><td>' + escapeHtmlAman(p.nama) + '<div style="font-size:10px; color:#a89a8c;">satuan: ' + escapeHtmlAman(p.satuan || "pcs") + '</div></td><td>' + escapeHtmlAman(p.kategori || "-") + '</td>' +
                         '<td style="text-align:right;">Rp ' + Number(p.harga).toLocaleString("id-ID") + '</td>' +
                         '<td style="text-align:right;"><span class="badge badge-' + p.status + '">' + (p.status === "aktif" ? "Aktif" : "Nonaktif") + '</span></td>' +
                         '<td style="font-size:11px; color:#6b7280;">' + (p.butuhTopping ? "Ya" : "Tidak") + '</td>' +
                         '<td style="text-align:right; white-space:nowrap;">' +
                             '<button class="action-btn" onclick="Produk_bukaModalEdit(\'' + p.id + '\')">Edit</button>' +
-                            '<button class="action-btn danger" onclick="Produk_hapus(\'' + p.id + '\', \'' + p.nama.replace(/'/g, "") + '\')">Hapus</button></td></tr>';
+                            '<button class="action-btn danger" onclick="Produk_hapus(\'' + p.id + '\', \'' + escJsAttr(p.nama) + '\')">Hapus</button></td></tr>';
                 }).join("");
             });
         }
@@ -862,11 +862,11 @@
                     outlets.forEach(function (o) {
                         const alamatText = o.alamat ? o.alamat : '<span style="color:#a8b3c2;">-</span>';
                         const mapsIcon = o.linkMaps ? ' <a href="' + o.linkMaps + '" target="_blank" style="color:#e87913;">(Maps)</a>' : '';
-                        html += '<tr><td>' + o.nama + '</td>' +
+                        html += '<tr><td>' + escapeHtmlAman(o.nama) + '</td>' +
                             '<td style="font-size:11px; color:#52606d;">' + alamatText + mapsIcon + '</td>' +
                             '<td style="text-align:right; white-space:nowrap;">' +
-                                '<button class="action-btn" onclick="Outlet_bukaModalEdit(\'' + o.nama + '\')">Edit</button>' +
-                                '<button class="action-btn danger" onclick="Outlet_hapus(\'' + o.nama + '\')">Hapus</button></td></tr>';
+                                '<button class="action-btn" onclick="Outlet_bukaModalEdit(\'' + escJsAttr(o.nama) + '\')">Edit</button>' +
+                                '<button class="action-btn danger" onclick="Outlet_hapus(\'' + escJsAttr(o.nama) + '\')">Hapus</button></td></tr>';
                     });
                     html += '</tbody></table>';
                 });
@@ -971,10 +971,10 @@
                 rows.sort(function (a, b) { return a.nama.localeCompare(b.nama); });
 
                 tbody.innerHTML = rows.map(function (u) {
-                    return '<tr><td>' + u.nama + '</td><td><span class="badge role-badge">' + u.role + '</span></td><td>' + u.outlet + '</td>' +
+                    return '<tr><td>' + escapeHtmlAman(u.nama) + '</td><td><span class="badge role-badge">' + escapeHtmlAman(u.role) + '</span></td><td>' + escapeHtmlAman(u.outlet) + '</td>' +
                         '<td style="text-align:right; white-space:nowrap;">' +
                             '<button class="action-btn" onclick="User_bukaModalEdit(\'' + u.uid + '\')">Edit</button>' +
-                            '<button class="action-btn danger" onclick="User_hapus(\'' + u.uid + '\', \'' + u.nama.replace(/'/g, "") + '\')">Hapus</button></td></tr>';
+                            '<button class="action-btn danger" onclick="User_hapus(\'' + u.uid + '\', \'' + escJsAttr(u.nama) + '\')">Hapus</button></td></tr>';
                 }).join("");
             });
         }
@@ -1130,7 +1130,7 @@
                 return '<div style="background:#ffffff; border:1px solid #dde3ea; border-radius:12px; padding:14px 16px; margin-bottom:10px; display:flex; align-items:center; gap:14px;' + (st.label === "BERAKHIR" ? " opacity:0.6;" : "") + '">' +
                     '<div style="flex:1;">' +
                         '<div style="display:flex; align-items:center; gap:8px; margin-bottom:4px; flex-wrap:wrap;">' +
-                            '<span style="font-size:13px; font-weight:800;">' + p.nama + '</span>' +
+                            '<span style="font-size:13px; font-weight:800;">' + escapeHtmlAman(p.nama) + '</span>' +
                             '<span class="badge ' + st.cls + '">' + st.label + '</span>' +
                             '<span class="badge role-badge">' + (TIPE_PROMO_LABEL[p.tipe] || p.tipe) + '</span>' +
                         '</div>' +
@@ -1138,7 +1138,7 @@
                         '<div style="font-size:10px; color:#9aa5b1; margin-top:3px;">' + scopeOutlet + ' · ' + scopeMode + '</div>' +
                     '</div>' +
                     '<button class="action-btn" onclick="Promo_bukaModalEdit(\'' + p.id + '\')">Edit</button>' +
-                    '<button class="action-btn danger" onclick="Promo_hapus(\'' + p.id + '\', \'' + p.nama.replace(/'/g, "") + '\')">Hapus</button>' +
+                    '<button class="action-btn danger" onclick="Promo_hapus(\'' + p.id + '\', \'' + escJsAttr(p.nama) + '\')">Hapus</button>' +
                 '</div>';
             }).join("");
         }
@@ -1154,14 +1154,14 @@
             return daftarProdukPromo.map(function (p) {
                 const checked = selectedIds.indexOf(p.id) !== -1 ? "checked" : "";
                 return '<label style="display:flex; align-items:center; gap:8px; padding:4px 0; font-size:12px; font-weight:400;">' +
-                    '<input type="checkbox" class="' + kelasCss + '" value="' + p.id + '" ' + checked + ' style="width:14px; height:14px;"> ' + p.nama +
+                    '<input type="checkbox" class="' + kelasCss + '" value="' + p.id + '" ' + checked + ' style="width:14px; height:14px;"> ' + escapeHtmlAman(p.nama) +
                 '</label>';
             }).join("");
         }
 
         function Promo_buatOptionProduk(selectedId) {
             return daftarProdukPromo.map(function (p) {
-                return '<option value="' + p.id + '"' + (p.id === selectedId ? " selected" : "") + '>' + p.nama + '</option>';
+                return '<option value="' + p.id + '"' + (p.id === selectedId ? " selected" : "") + '>' + escapeHtmlAman(p.nama) + '</option>';
             }).join("");
         }
 

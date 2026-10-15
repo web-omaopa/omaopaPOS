@@ -260,14 +260,14 @@
                     const p = doc.data();
                     const row = document.createElement("tr");
                     row.innerHTML =
-                        '<td>' + p.nama + '</td>' +
-                        '<td>' + (p.kategori || "-") + '</td>' +
+                        '<td>' + escapeHtmlAman(p.nama) + '</td>' +
+                        '<td>' + escapeHtmlAman(p.kategori || "-") + '</td>' +
                         '<td style="text-align:right;">Rp ' + Number(p.harga).toLocaleString("id-ID") + '</td>' +
                         '<td style="text-align:right;"><span class="badge badge-' + p.status + '">' +
                             (p.status === "aktif" ? "Aktif" : "Nonaktif") + '</span></td>' +
                         '<td style="text-align:right; white-space:nowrap;">' +
                             '<button class="action-btn" onclick="bukaModalEdit(\'' + doc.id + '\')">Edit</button>' +
-                            '<button class="action-btn danger" onclick="hapusProduk(\'' + doc.id + '\', \'' + p.nama.replace(/'/g, "") + '\')">Hapus</button>' +
+                            '<button class="action-btn danger" onclick="hapusProduk(\'' + doc.id + '\', \'' + escJsAttr(p.nama) + '\')">Hapus</button>' +
                         '</td>';
                     tbody.appendChild(row);
                 });

@@ -42,6 +42,25 @@ function bolehBuatTransfer(role) {
     return ROLE_BUAT_TRANSFER.indexOf(role) !== -1;
 }
 
+/* Helper keamanan: escape data dari Firestore sebelum disisipkan ke HTML.
+   escapeHtmlAman  -> untuk teks biasa / isi elemen / isi atribut.
+   escJsAttr       -> untuk string di dalam handler inline, misalnya
+                      onclick="hapus('...')". Semua karakter non-alfanumerik
+                      diubah ke \xNN supaya tidak bisa keluar dari string/atribut. */
+function escapeHtmlAman(t) {
+    return String(t == null ? "" : t).replace(/[&<>"']/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+}
+function escJsAttr(t) {
+    return String(t == null ? "" : t).replace(/[^a-zA-Z0-9 ._-]/g, function (c) {
+        const code = c.charCodeAt(0);
+        return code < 256
+            ? "\\x" + ("0" + code.toString(16)).slice(-2)
+            : "\\u" + ("000" + code.toString(16)).slice(-4);
+    });
+}
+
 /* Cek apakah sebuah role boleh mengakses halaman tertentu.
    Kalau role tidak dikenali (typo/belum didaftarkan), otomatis
    dianggap tidak punya akses sama sekali (aman by default). */
@@ -97,8 +116,8 @@ function renderSidebar(currentUser, activeKey) {
     }
 
     html += '<div class="user-block">';
-    html += '<div class="user-name">' + currentUser.nama + '</div>';
-    html += '<div class="user-role">' + currentUser.role + ' · ' + currentUser.outlet + '</div>';
+    html += '<div class="user-name">' + escapeHtmlAman(currentUser.nama) + '</div>';
+    html += '<div class="user-role">' + escapeHtmlAman(currentUser.role) + ' · ' + escapeHtmlAman(currentUser.outlet) + '</div>';
     html += '<button class="logout-link" onclick="logout()">Keluar</button>';
     html += '</div>';
 

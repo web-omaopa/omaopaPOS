@@ -182,7 +182,7 @@
                     '<h2>Manajemen Menu \u2013 Lapor Stok</h2>' +
                     '<p>Hitung fisik kue yang sampai di outlet, lalu kirim. Stok POS langsung berubah saat itu juga, dan akan dikoreksi lagi kalau admin mengedit sebelum ACC.</p>' +
                 '</div>' +
-                '<div class="header-outlet">\ud83d\udccd Outlet: ' + currentUser.outlet + '</div>' +
+                '<div class="header-outlet">\ud83d\udccd Outlet: ' + escapeHtmlAman(currentUser.outlet) + '</div>' +
                 '<div class="msg-box" id="msgBox"></div>' +
                 '<div id="produkListLapor"><div class="loading-state">Memuat menu...</div></div>' +
                 '<div style="margin-top:14px;">' +
@@ -211,8 +211,8 @@
 
                 const container = document.getElementById("produkListLapor");
                 container.innerHTML = daftarProduk.map(function (p) {
-                    return '<div class="product-row"><div class="info"><div class="nama">' + p.nama +
-                        '</div><div class="meta">' + (p.kategori || "-") + '</div></div>' +
+                    return '<div class="product-row"><div class="info"><div class="nama">' + escapeHtmlAman(p.nama) +
+                        '</div><div class="meta">' + escapeHtmlAman(p.kategori || "-") + '</div></div>' +
                         '<input type="number" min="0" class="qty-input" id="qtyLapor_' + p.id + '" placeholder="0"></div>';
                 }).join("");
 
@@ -322,7 +322,7 @@
 
                         const detailItems = (d.items || []).map(function (item) {
                             return '<div style="display:flex; justify-content:space-between; padding:3px 0;">' +
-                                '<span>' + item.nama + '</span><span style="font-weight:700;">' + item.jumlahDiterima + '</span></div>';
+                                '<span>' + escapeHtmlAman(item.nama) + '</span><span style="font-weight:700;">' + item.jumlahDiterima + '</span></div>';
                         }).join("");
 
                         return '<div class="riwayat-item" style="cursor:pointer;" onclick="toggleRiwayatDetail(' + i + ')">' +
@@ -395,14 +395,14 @@
                         const d = doc.data();
                         const waktu = d.waktuLapor ? d.waktuLapor.toDate().toLocaleString("id-ID") : "-";
                         return '<div class="laporan-card">' +
-                            '<div class="laporan-header"><div><div class="outlet">' + d.outlet + '</div>' +
-                            '<div class="meta">Dilaporkan oleh ' + d.kasirNama + ' \u00b7 ' + waktu + '</div>' +
-                            (d.catatan ? '<div class="meta" style="margin-top:4px; font-style:italic;">\ud83d\udcdd ' + d.catatan + '</div>' : '') +
+                            '<div class="laporan-header"><div><div class="outlet">' + escapeHtmlAman(d.outlet) + '</div>' +
+                            '<div class="meta">Dilaporkan oleh ' + escapeHtmlAman(d.kasirNama) + ' \u00b7 ' + waktu + '</div>' +
+                            (d.catatan ? '<div class="meta" style="margin-top:4px; font-style:italic;">\ud83d\udcdd ' + escapeHtmlAman(d.catatan) + '</div>' : '') +
                             '</div></div>' +
                             '<table class="item-table"><thead><tr><th>Menu</th><th>Diterima</th><th>Tipe</th></tr></thead><tbody>' +
                             d.items.map(function (item) {
                                 const isReset = item.resetHarian !== false;
-                                return '<tr><td>' + item.nama + '</td>' +
+                                return '<tr><td>' + escapeHtmlAman(item.nama) + '</td>' +
                                     '<td><input type="number" min="0" class="qty-input" style="width:70px; height:32px;" id="acc_' + doc.id + '_' + item.productId + '" value="' + item.jumlahDiterima + '"></td>' +
                                     '<td><span class="tipe-badge ' + (isReset ? "tipe-reset" : "tipe-akumulasi") + '">' + (isReset ? "Reset" : "Tambah") + '</span></td></tr>';
                             }).join("") +
