@@ -68,7 +68,7 @@
 
         .header-row h2 { font-size: 16px; font-weight: 700; }
 
-        .header-controls { display: flex; align-items: flex-end; gap: 10px; }
+        .header-controls { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
         .ctrl-label { font-size: 10px; font-weight: 700; color: #6b7280; margin-bottom: 3px; }
         .ctrl-arrow { margin-bottom: 9px; color: #8A95A5; font-size: 14px; }
 
@@ -115,6 +115,25 @@
 
         .loading-state, .empty-state { text-align: center; color: #6b7280; font-size: 12px; padding: 30px 0; }
         .denied-state { text-align: center; color: #6b7280; font-size: 12px; padding: 40px 0; }
+
+        /* ===== Ringkasan semua outlet (per area) ===== */
+        .content.lebar { max-width: none; }
+        .ringkasan { font-size: 11px; color: #52606d; margin-bottom: 10px; }
+        .ringkasan b { color: #1f2937; }
+
+        .matrix-wrap { overflow-x: auto; border: 1px solid #dde3ea; border-radius: 10px; }
+        table.matrix { border: none; border-radius: 0; overflow: visible; width: auto; min-width: 100%; }
+        table.matrix th, table.matrix td { white-space: nowrap; padding: 8px 10px; }
+        table.matrix th.area-head { text-align: center; background: #12305C; color: #ffffff; border-left: 2px solid #ffffff; }
+        table.matrix th.outlet-head { text-align: right; cursor: pointer; color: #12305C; }
+        table.matrix th.outlet-head:hover { text-decoration: underline; }
+        table.matrix .sticky { position: sticky; left: 0; z-index: 1; background: #ffffff; min-width: 150px; box-shadow: 1px 0 0 #e8ecf1; }
+        table.matrix thead .sticky { background: #f1f4f8; z-index: 2; }
+        table.matrix td.sel-habis { background: #fdeaea; color: #c0392b; font-weight: 700; }
+        table.matrix td.sel-menipis { background: #fdf1de; color: #b06d09; font-weight: 700; }
+        table.matrix td.sel-kosong { color: #c4ccd6; }
+        table.matrix .col-total { background: #F6F9FE; font-weight: 700; }
+        table.matrix .batas-area { border-left: 2px solid #dde3ea; }
 
         /* ===== Bar Buat Transfer (khusus Forecaster/Admin) ===== */
         .tf-bar {
@@ -176,8 +195,12 @@
             <div class="header-row">
                 <h2>Stok Produk</h2>
                 <div class="header-controls">
+                    <div id="wadahArea" style="display:none;">
+                        <div class="ctrl-label">Area</div>
+                        <select class="outlet-select" id="areaSelect"></select>
+                    </div>
                     <div>
-                        <div class="ctrl-label" id="labelOutlet" style="display:none;">Outlet asal</div>
+                        <div class="ctrl-label" id="labelOutlet" style="display:none;">Outlet</div>
                         <select class="outlet-select" id="outletSelect"></select>
                     </div>
                     <span class="ctrl-arrow" id="panahTujuan" style="display:none;">&rarr;</span>
@@ -188,12 +211,23 @@
                 </div>
             </div>
 
-            <table>
+            <div class="ringkasan" id="ringkasanInfo" style="display:none;"></div>
+
+            <table id="tabelStok">
                 <thead id="stockTableHead"></thead>
                 <tbody id="stockTableBody">
                     <tr><td colspan="3" class="loading-state">Memuat data stok...</td></tr>
                 </tbody>
             </table>
+
+            <div class="matrix-wrap" id="wadahMatrix" style="display:none;">
+                <table class="matrix">
+                    <thead id="matrixHead"></thead>
+                    <tbody id="matrixBody"></tbody>
+                </table>
+            </div>
+
+            <div class="hint-text" id="hintMatrix" style="display:none;"></div>
 
             <div class="hint-text" id="hintTransfer" style="display:none;">
                 Pilih outlet tujuan untuk menampilkan kolom transfer. Isi jumlah di produk yang mau dipindah (boleh lebih dari satu produk), lalu klik Buat Transfer. Topping tidak ikut ditransfer.
@@ -276,6 +310,13 @@
         let daftarOutlet = [];
         let qty = {};                 // { productId: jumlah transfer }
 
+        // Pembagian area (field "area" di koleksi outlets, diatur di Pengaturan)
+        const DAFTAR_AREA = ["Area 1", "Area 2", "Area 3"];
+        let daftarArea = DAFTAR_AREA.slice();
+        let outletArea = {};          // { namaOutlet: "Area 1" }
+        let pilihArea = "";           // "" = semua area
+        let tokenRingkasan = 0;       // abaikan hasil muat ringkasan yang sudah usang
+
         function esc(t) {
             return String(t == null ? "" : t).replace(/[&<>"']/g, function (c) {
                 return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
@@ -330,34 +371,38 @@
                 outletAsal = currentUser.outlet;
                 loadStok(currentUser.outlet);
             } else {
+                // Selain kasir: default tampil ringkasan semua outlet, bisa dipilih per area / per outlet
                 db.collection("outlets").get().then(function (snapshot) {
-                    outletSelect.innerHTML = "";
                     daftarOutlet = [];
+                    outletArea = {};
                     snapshot.forEach(function (doc) {
                         daftarOutlet.push(doc.id);
-                        const opt = document.createElement("option");
-                        opt.value = doc.id;
-                        opt.textContent = doc.id;
-                        if (doc.id === currentUser.outlet) opt.selected = true;
-                        outletSelect.appendChild(opt);
+                        outletArea[doc.id] = doc.data().area || "Area 1";
                     });
-                    outletAsal = outletSelect.value || currentUser.outlet;
+                    daftarArea = DAFTAR_AREA.slice();
+                    daftarOutlet.forEach(function (o) {
+                        if (daftarArea.indexOf(outletArea[o]) === -1) daftarArea.push(outletArea[o]);
+                    });
 
-                    if (canBuat) {
-                        document.getElementById("labelOutlet").style.display = "block";
-                        document.getElementById("panahTujuan").style.display = "inline";
-                        document.getElementById("wadahTujuan").style.display = "block";
-                        document.getElementById("hintTransfer").style.display = "block";
-                        isiPilihanTujuan();
-                    }
-                    loadStok(outletAsal);
+                    outletAsal = "";
+                    document.getElementById("wadahArea").style.display = "block";
+                    document.getElementById("labelOutlet").style.display = "block";
+                    isiPilihanArea();
+                    isiPilihanOutlet();
+                    tampilkan();
                 });
             }
 
+            document.getElementById("areaSelect").addEventListener("change", function () {
+                pilihArea = this.value;
+                outletAsal = "";
+                isiPilihanOutlet();
+                tampilkan();
+            });
+
             outletSelect.addEventListener("change", function () {
                 outletAsal = this.value;
-                if (canBuat) isiPilihanTujuan();
-                loadStok(this.value);
+                tampilkan();
             });
 
             document.getElementById("tujuanSelect").addEventListener("change", function () {
@@ -371,13 +416,201 @@
             });
         }
 
-        // Isi dropdown tujuan (semua outlet kecuali asal)
+        function outletDiArea(area) {
+            return daftarOutlet.filter(function (o) { return !area || outletArea[o] === area; });
+        }
+
+        function opsiOutlet(list) {
+            return list.map(function (o) {
+                return '<option value="' + esc(o) + '">' + esc(o) + '</option>';
+            }).join("");
+        }
+
+        // Opsi outlet dikelompokkan per area (optgroup)
+        function opsiOutletPerArea(kecuali) {
+            let html = "";
+            daftarArea.forEach(function (a) {
+                const list = outletDiArea(a).filter(function (o) { return o !== kecuali; });
+                if (list.length > 0) html += '<optgroup label="' + esc(a) + '">' + opsiOutlet(list) + '</optgroup>';
+            });
+            return html;
+        }
+
+        function isiPilihanArea() {
+            const sel = document.getElementById("areaSelect");
+            let html = '<option value="">Semua area (' + daftarOutlet.length + ' outlet)</option>';
+            daftarArea.forEach(function (a) {
+                html += '<option value="' + esc(a) + '">' + esc(a) + ' (' + outletDiArea(a).length + ' outlet)</option>';
+            });
+            sel.innerHTML = html;
+            sel.value = pilihArea;
+        }
+
+        function isiPilihanOutlet() {
+            const sel = document.getElementById("outletSelect");
+            let html = '<option value="">Semua outlet' + (pilihArea ? ' ' + esc(pilihArea) : '') + '</option>';
+            html += pilihArea ? opsiOutlet(outletDiArea(pilihArea)) : opsiOutletPerArea(null);
+            sel.innerHTML = html;
+            sel.value = outletAsal;
+        }
+
+        // Klik nama outlet di tabel ringkasan -> buka detail outlet itu
+        function pilihOutlet(nama) {
+            outletAsal = nama;
+            document.getElementById("outletSelect").value = nama;
+            tampilkan();
+        }
+
+        // Satu outlet dipilih -> tabel detail (+ transfer). Belum dipilih -> ringkasan semua outlet.
+        function tampilkan() {
+            const modeSatu = !!outletAsal;
+            const modeTf = modeSatu && canBuat;
+
+            document.getElementById("labelOutlet").textContent = modeTf ? "Outlet asal" : "Outlet";
+            document.getElementById("panahTujuan").style.display = modeTf ? "inline" : "none";
+            document.getElementById("wadahTujuan").style.display = modeTf ? "block" : "none";
+            document.getElementById("hintTransfer").style.display = modeTf ? "block" : "none";
+
+            document.getElementById("tabelStok").style.display = modeSatu ? "" : "none";
+            document.getElementById("wadahMatrix").style.display = modeSatu ? "none" : "block";
+            document.getElementById("hintMatrix").style.display = modeSatu ? "none" : "block";
+            document.getElementById("ringkasanInfo").style.display = modeSatu ? "none" : "block";
+            document.getElementById("mainContent").classList.toggle("lebar", !modeSatu);
+
+            if (modeSatu) {
+                tokenRingkasan++;
+                if (canBuat) isiPilihanTujuan();
+                loadStok(outletAsal);
+            } else {
+                qty = {};
+                outletTujuan = "";
+                stokTujuan = {};
+                updateBar();
+                loadRingkasan();
+            }
+        }
+
+        function loadRingkasan() {
+            const token = ++tokenRingkasan;
+            const cakupan = outletDiArea(pilihArea);
+
+            document.getElementById("matrixHead").innerHTML = "";
+            document.getElementById("matrixBody").innerHTML =
+                '<tr><td class="loading-state">Memuat stok ' + cakupan.length + ' outlet...</td></tr>';
+            document.getElementById("ringkasanInfo").innerHTML = "";
+            document.getElementById("hintMatrix").textContent =
+                'Merah = habis, kuning = menipis, "-" = produk belum ada di outlet itu. Klik nama outlet untuk melihat detailnya' +
+                (canBuat ? " dan membuat transfer." : ".");
+
+            loadProductNames().then(function () {
+                return Promise.all(cakupan.map(function (o) {
+                    return db.collection("outlets").doc(o).collection("stock").get().then(function (snapshot) {
+                        const isi = {};
+                        snapshot.forEach(function (doc) {
+                            const d = doc.data();
+                            isi[doc.id] = {
+                                jumlah: d.jumlah || 0,
+                                minStok: d.minStok !== undefined ? d.minStok : 5
+                            };
+                        });
+                        return isi;
+                    });
+                }));
+            }).then(function (hasil) {
+                if (token !== tokenRingkasan) return;
+                const stokPerOutlet = {};
+                cakupan.forEach(function (o, i) { stokPerOutlet[o] = hasil[i]; });
+                renderMatrix(cakupan, stokPerOutlet);
+            }).catch(function (error) {
+                if (token !== tokenRingkasan) return;
+                document.getElementById("matrixBody").innerHTML =
+                    '<tr><td class="empty-state">Gagal memuat: ' + esc(error.message) + '</td></tr>';
+            });
+        }
+
+        // Tabel ringkasan: baris = produk, kolom = outlet (dikelompokkan per area)
+        function renderMatrix(cakupan, stokPerOutlet) {
+            const idProduk = {};
+            cakupan.forEach(function (o) {
+                Object.keys(stokPerOutlet[o]).forEach(function (id) { idProduk[id] = true; });
+            });
+            const produk = Object.keys(idProduk).map(function (id) {
+                return { id: id, nama: productMap[id] || id };
+            }).sort(function (a, b) { return a.nama.localeCompare(b.nama, "id"); });
+
+            const grup = [];
+            if (pilihArea) {
+                grup.push({ area: pilihArea, outlets: cakupan });
+            } else {
+                daftarArea.forEach(function (a) {
+                    const list = cakupan.filter(function (o) { return outletArea[o] === a; });
+                    if (list.length > 0) grup.push({ area: a, outlets: list });
+                });
+            }
+            const urutOutlet = grup.reduce(function (acc, g) { return acc.concat(g.outlets); }, []);
+            const awalArea = {};
+            grup.forEach(function (g, i) { if (i > 0) awalArea[g.outlets[0]] = true; });
+
+            let head = "";
+            if (!pilihArea) {
+                head += '<tr><th class="sticky" rowspan="2">Produk</th>';
+                grup.forEach(function (g) {
+                    head += '<th class="area-head" colspan="' + g.outlets.length + '">' + esc(g.area) + '</th>';
+                });
+                head += '<th class="r col-total" rowspan="2">Total</th></tr><tr>';
+            } else {
+                head += '<tr><th class="sticky">Produk</th>';
+            }
+            urutOutlet.forEach(function (o) {
+                head += '<th class="outlet-head' + (awalArea[o] ? " batas-area" : "") + '" title="Lihat detail ' + esc(o) + '" ' +
+                        'onclick="pilihOutlet(\'' + escJsAttr(o) + '\')">' + esc(o) + '</th>';
+            });
+            if (pilihArea) head += '<th class="r col-total">Total</th>';
+            head += '</tr>';
+            document.getElementById("matrixHead").innerHTML = head;
+
+            let body = "";
+            let jmlHabis = 0;
+            let jmlMenipis = 0;
+
+            produk.forEach(function (p) {
+                let row = '<td class="sticky">' + esc(p.nama) + '</td>';
+                let total = 0;
+                urutOutlet.forEach(function (o) {
+                    const s = stokPerOutlet[o][p.id];
+                    const batas = awalArea[o] ? " batas-area" : "";
+                    if (!s) {
+                        row += '<td class="r sel-kosong' + batas + '">-</td>';
+                        return;
+                    }
+                    total += s.jumlah;
+                    const st = statusStok(s.jumlah, s.minStok);
+                    let kelas = "";
+                    if (st.kelas === "badge-habis") { kelas = " sel-habis"; jmlHabis++; }
+                    else if (st.kelas === "badge-menipis") { kelas = " sel-menipis"; jmlMenipis++; }
+                    row += '<td class="r' + kelas + batas + '">' + s.jumlah + '</td>';
+                });
+                row += '<td class="r col-total">' + total + '</td>';
+                body += '<tr>' + row + '</tr>';
+            });
+
+            if (produk.length === 0) {
+                body = '<tr><td colspan="' + (urutOutlet.length + 2) + '" class="empty-state">Belum ada data stok untuk outlet di area ini.</td></tr>';
+            }
+            document.getElementById("matrixBody").innerHTML = body;
+
+            document.getElementById("ringkasanInfo").innerHTML =
+                '<b>' + urutOutlet.length + ' outlet</b> ' + (pilihArea ? 'di ' + esc(pilihArea) : 'di ' + grup.length + ' area') +
+                ' · ' + produk.length + ' produk · ' +
+                '<span style="color:#c0392b; font-weight:700;">' + jmlHabis + ' stok habis</span> · ' +
+                '<span style="color:#b06d09; font-weight:700;">' + jmlMenipis + ' menipis</span>';
+        }
+
+        // Isi dropdown tujuan (semua outlet kecuali asal, dikelompokkan per area)
         function isiPilihanTujuan() {
             const sel = document.getElementById("tujuanSelect");
             let html = '<option value="">- tidak transfer -</option>';
-            daftarOutlet.forEach(function (o) {
-                if (o !== outletAsal) html += '<option value="' + esc(o) + '">' + esc(o) + '</option>';
-            });
+            html += opsiOutletPerArea(outletAsal);
             sel.innerHTML = html;
             sel.classList.remove("dipilih");
             outletTujuan = "";
