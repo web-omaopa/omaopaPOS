@@ -269,7 +269,7 @@
             const daftarRole = Object.keys(ROLE_PERMISSIONS);
             [document.getElementById("inputRoleUser"), document.getElementById("editRoleUser")].forEach(function (select) {
                 select.innerHTML = daftarRole.map(function (r) {
-                    return '<option value="' + r + '">' + r + '</option>';
+                    return '<option value="' + escapeHtmlAman(r) + '">' + escapeHtmlAman(r) + '</option>';
                 }).join("");
             });
         }
@@ -281,7 +281,7 @@
                 daftarOutlet.sort();
 
                 const optionsHtml = daftarOutlet.map(function (o) {
-                    return '<option value="' + o + '">' + o + '</option>';
+                    return '<option value="' + escapeHtmlAman(o) + '">' + escapeHtmlAman(o) + '</option>';
                 }).join("");
 
                 document.getElementById("inputOutletUser").innerHTML = optionsHtml || '<option value="">Belum ada outlet</option>';
