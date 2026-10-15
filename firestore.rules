@@ -1,0 +1,158 @@
+rules_version = '2';
+
+/* =====================================================================
+   DRAF Firestore Security Rules - Oma Opa POS
+   Disusun dari cara aplikasi saat ini membaca/menulis data.
+
+   PENTING:
+   - Ini DRAF. Uji di Firebase Emulator / project staging dulu.
+   - Jangan langsung diterapkan ke project produksi "omaopa-pos".
+   - Rules tidak bisa menghitung ulang total dari daftar item. Validasi
+     harga/diskon yang penuh butuh Cloud Functions (lihat README PR).
+   ===================================================================== */
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Helper ----------
+    function signedIn() {
+      return request.auth != null;
+    }
+    function profilePath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+    // Akun Auth tanpa dokumen users TIDAK punya akses apa pun
+    // (mencegah orang luar yang mendaftar lewat API key publik).
+    function hasProfile() {
+      return signedIn() && exists(profilePath());
+    }
+    function me() {
+      return get(profilePath()).data;
+    }
+    function isAdmin() {
+      return hasProfile() && me().role in ['management', 'admin', 'owner'];
+    }
+    // Sama dengan ROLE_BUAT_TRANSFER di roles.js
+    function canCreateTransfer() {
+      return hasProfile() && me().role in ['management', 'admin', 'owner', 'forecaster'];
+    }
+    function myOutlet() {
+      return me().outlet;
+    }
+    function onlyChanges(keys) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
+    }
+    function stockValid() {
+      return request.resource.data.jumlah is number
+          && request.resource.data.jumlah >= 0;
+    }
+
+    // ---------- Pengguna ----------
+    // Dibaca: dokumen sendiri (saat login) atau oleh admin.
+    // Ditulis: hanya admin. Pengguna TIDAK boleh mengubah role/outlet sendiri.
+    match /users/{uid} {
+      allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ---------- Data master ----------
+    match /products/{id}         { allow read: if hasProfile(); allow write: if isAdmin(); }
+    match /promo/{id}            { allow read: if hasProfile(); allow write: if isAdmin(); }
+    match /kategori_produk/{id}  { allow read: if hasProfile(); allow write: if isAdmin(); }
+    match /mode_penjualan/{id}   { allow read: if hasProfile(); allow write: if isAdmin(); }
+
+    // ---------- Outlet dan stok ----------
+    match /outlets/{outletId} {
+      allow read: if hasProfile();
+      allow write: if isAdmin();
+
+      // Kasir hanya boleh mengubah stok OUTLET-nya sendiri (jual, lapor,
+      // kirim, terima). Admin boleh semua outlet.
+      match /stock/{productId} {
+        allow read: if hasProfile();
+        allow create, update: if hasProfile() && stockValid()
+                              && (isAdmin() || outletId == myOutlet());
+        allow delete: if isAdmin();
+      }
+    }
+
+    // ---------- Transaksi penjualan ----------
+    match /transactions/{trxId} {
+      allow create: if hasProfile()
+                    && request.resource.data.outlet == myOutlet()
+                    && request.resource.data.kasirUid == request.auth.uid
+                    && request.resource.data.status == 'aktif'
+                    && request.resource.data.subtotal >= 0
+                    && request.resource.data.diskonPromo >= 0
+                    && request.resource.data.total ==
+                       (request.resource.data.subtotal - request.resource.data.diskonPromo >= 0
+                          ? request.resource.data.subtotal - request.resource.data.diskonPromo
+                          : 0);
+      allow read: if isAdmin()
+                  || (hasProfile() && resource.data.outlet == myOutlet());
+      // Transaksi tidak boleh diubah/dihapus dari aplikasi.
+      allow update, delete: if false;
+    }
+
+    // ---------- Laporan stok harian (alokasi) ----------
+    match /laporan_stok/{id} {
+      allow create: if hasProfile()
+                    && request.resource.data.outlet == myOutlet()
+                    && request.resource.data.kasirUid == request.auth.uid
+                    && request.resource.data.status == 'pending';
+      allow read: if isAdmin()
+                  || (hasProfile() && resource.data.kasirUid == request.auth.uid);
+      allow update: if isAdmin();   // ACC / tolak
+      allow delete: if false;
+    }
+
+    match /alokasi_log/{id} {
+      allow create, read: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    // ---------- Transfer stok antar outlet ----------
+    match /transfer_stok/{id} {
+      allow read: if isAdmin() || canCreateTransfer()
+                  || (hasProfile() && (resource.data.dari == myOutlet()
+                                    || resource.data.ke == myOutlet()));
+
+      allow create: if canCreateTransfer()
+                    && request.resource.data.status == 'menunggu_kirim'
+                    && request.resource.data.dibuatOleh.uid == request.auth.uid;
+
+      allow update: if
+        // Admin
+        isAdmin()
+        // Outlet asal mengirim
+        || (hasProfile()
+            && resource.data.status == 'menunggu_kirim'
+            && resource.data.dari == myOutlet()
+            && request.resource.data.status == 'dikirim'
+            && onlyChanges(['status', 'dikirimOleh', 'dikirimPada']))
+        // Outlet tujuan menerima
+        || (hasProfile()
+            && resource.data.status == 'dikirim'
+            && resource.data.ke == myOutlet()
+            && request.resource.data.status == 'selesai'
+            && onlyChanges(['status', 'items', 'selisih', 'selisihDicek',
+                            'catatanSelisih', 'diterimaOleh', 'diterimaPada']))
+        // Pembuat transfer: batalkan (sebelum dikirim)
+        || (canCreateTransfer()
+            && resource.data.status == 'menunggu_kirim'
+            && request.resource.data.status == 'dibatalkan'
+            && onlyChanges(['status', 'dibatalkanPada']))
+        // Pembuat transfer: tandai selisih sudah dicek
+        || (canCreateTransfer()
+            && onlyChanges(['selisihDicek']));
+
+      allow delete: if false;
+    }
+
+    // Semua koleksi lain: tolak.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
