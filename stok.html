@@ -359,16 +359,19 @@
             if (currentUser.role === "kasir") {
                 outletSelect.innerHTML = '<option value="' + esc(currentUser.outlet) + '">' + esc(currentUser.outlet) + '</option>';
                 outletSelect.disabled = true;
+                // Kasir hanya punya satu outlet; nama outlet sudah tampil di judul, jadi dropdown disembunyikan
+                outletSelect.parentElement.style.display = "none";
                 outletAsal = currentUser.outlet;
+                const judul = document.getElementById("judulTerpilih");
+                judul.textContent = currentUser.outlet;
+                judul.style.display = "block";
                 loadStok(currentUser.outlet);
 
                 // Kasir: di bawah stok outletnya, tampilkan outlet lain yang se-area (hanya lihat)
                 db.collection("outlets").get().then(function (snapshot) {
                     muatDaftarOutlet(snapshot);
                     pilihArea = outletArea[currentUser.outlet] || "Area 1";
-                    const judul = document.getElementById("judulTerpilih");
                     judul.innerHTML = esc(currentUser.outlet) + ' <span>· ' + esc(pilihArea) + '</span>';
-                    judul.style.display = "block";
                     loadOutletLain();
                 }).catch(function (error) {
                     document.getElementById("daftarOutletLain").innerHTML =
