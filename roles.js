@@ -30,7 +30,8 @@ const ROLE_PERMISSIONS = {
     management: ["kasir", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
     admin:      ["kasir", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
     owner:      ["kasir", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
-    kasir:      ["kasir", "alokasi", "stok", "transfer"]
+    kasir:      ["kasir", "alokasi", "stok", "transfer"],
+    forecaster: ["stok", "transfer"]
 };
 
 /* Role yang boleh MEMBUAT perintah transfer antar outlet (di halaman Stok).
@@ -130,7 +131,8 @@ function renderSidebar(currentUser, activeKey) {
 
 /* Hitung transfer yang menunggu aksi user ini lalu tampilkan di badge menu:
    - Kasir: perlu dikirim (outlet asal) + perlu diterima (outlet tujuan)
-   - Forecaster/admin: transfer dengan selisih yang belum dicek */
+   - Forecaster/admin: transfer dengan selisih yang belum dicek
+     + rekomendasi transfer dari kasir yang menunggu ACC */
 function muatBadgeTransfer(currentUser) {
     const el = document.getElementById("badgeTransfer");
     if (!el) return;
@@ -141,7 +143,10 @@ function muatBadgeTransfer(currentUser) {
     let queries;
 
     if (bolehBuatTransfer(currentUser.role)) {
-        queries = [col.where("selisih", "==", true).where("selisihDicek", "==", false)];
+        queries = [
+            col.where("selisih", "==", true).where("selisihDicek", "==", false),
+            col.where("status", "==", "menunggu_acc")
+        ];
     } else if (currentUser.role === "kasir") {
         queries = [
             col.where("dari", "==", currentUser.outlet).where("status", "==", "menunggu_kirim"),

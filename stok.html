@@ -206,6 +206,7 @@
                         <div class="ctrl-label">Transfer ke (opsional)</div>
                         <select class="outlet-select tujuan-select" id="tujuanSelect"></select>
                     </div>
+                    <button class="btn btn-primary" id="btnRekom" style="display:none; height:34px; padding:0 14px;" onclick="bukaRekom()">+ Rekomendasi Transfer</button>
                 </div>
             </div>
 
@@ -268,6 +269,48 @@
             <div class="modal-aksi">
                 <button class="btn" onclick="tutupKonfirmasi()">Kembali</button>
                 <button class="btn btn-primary" id="btnKirimPerintah" style="flex:1.3;" onclick="kirimPerintah()">Kirim Perintah</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal rekomendasi transfer (kasir) -->
+    <div class="modal-backdrop" id="modalRekom">
+        <div class="modal-box" style="max-width:460px;">
+            <div class="modal-title">Ajukan Rekomendasi Transfer</div>
+            <div style="font-size:11px; color:#6b7280; margin-top:4px; line-height:1.5;">
+                Rekomendasi dikirim ke Forecaster. Transfer baru berjalan setelah di-ACC.
+            </div>
+
+            <div style="display:flex; gap:10px; margin-top:14px; align-items:flex-end;">
+                <div style="flex:1;">
+                    <div class="ctrl-label">DARI</div>
+                    <select class="outlet-select" id="rkDari" style="width:100%;" onchange="gantiRkDari()"></select>
+                </div>
+                <span class="ctrl-arrow">&rarr;</span>
+                <div style="flex:1;">
+                    <div class="ctrl-label">KE</div>
+                    <select class="outlet-select" id="rkKe" style="width:100%;"></select>
+                </div>
+            </div>
+
+            <div class="sec-label">JUMLAH YANG DIREKOMENDASIKAN</div>
+            <div id="rkIsi"></div>
+
+            <div style="font-size:11px; font-weight:700; margin-top:14px;">Alasan <span style="color:#c0392b;">(wajib diisi)</span></div>
+            <textarea class="modal-input" id="rkAlasan" style="height:64px; padding:8px 10px; resize:vertical;" maxlength="300"
+                      placeholder="Contoh: Ogura Cheese di Tajem habis, di Nusa Indah masih banyak"></textarea>
+
+            <div class="alur-box">
+                <div>1. Forecaster cek lalu <b>ACC</b> atau <b>tolak</b> rekomendasi ini.</div>
+                <div>2. Setelah di-ACC, kasir outlet asal dapat tugas <b>Kirim</b>.</div>
+                <div>3. Kasir outlet tujuan klik <b>Terima</b>. Status bisa dipantau di menu Transfer.</div>
+            </div>
+
+            <div class="modal-error" id="rkError" style="display:none;"></div>
+
+            <div class="modal-aksi">
+                <button class="btn" onclick="tutupRekom()">Batal</button>
+                <button class="btn btn-primary" id="btnKirimRekom" style="flex:1.3;" onclick="kirimRekom()">Ajukan ke Forecaster</button>
             </div>
         </div>
     </div>
@@ -373,6 +416,9 @@
                     pilihArea = outletArea[currentUser.outlet] || "Area 1";
                     judul.innerHTML = esc(currentUser.outlet) + ' <span>· ' + esc(pilihArea) + '</span>';
                     loadOutletLain();
+
+                    document.getElementById("btnRekom").style.display = "inline-block";
+                    if (window.location.hash === "#rekomendasi") bukaRekom();
                 }).catch(function (error) {
                     document.getElementById("daftarOutletLain").innerHTML =
                         '<div class="empty-state">Stok outlet lain se-area belum bisa ditampilkan: ' + esc(error.message) + '</div>';
@@ -835,6 +881,113 @@
                 btn.disabled = false;
                 err.textContent = "Gagal membuat transfer: " + e.message;
                 err.style.display = "block";
+            });
+        }
+
+        // ===== Rekomendasi transfer (kasir) =====
+        // Kasir mengusulkan transfer antar outlet se-area. Disimpan di transfer_stok
+        // dengan status "menunggu_acc"; setelah di-ACC Forecaster berubah jadi
+        // "menunggu_kirim" dan berjalan seperti perintah transfer biasa.
+        let rkStokDari = [];          // [{id, nama, jumlah}] stok outlet asal (tanpa topping)
+
+        function bukaRekom() {
+            const seArea = outletDiArea(pilihArea);
+            document.getElementById("rkDari").innerHTML = opsiOutlet(seArea);
+            document.getElementById("rkDari").value = currentUser.outlet;
+            document.getElementById("rkAlasan").value = "";
+            document.getElementById("rkError").style.display = "none";
+            document.getElementById("btnKirimRekom").disabled = false;
+            gantiRkDari();
+            document.getElementById("modalRekom").classList.add("tampil");
+        }
+
+        function tutupRekom() {
+            document.getElementById("modalRekom").classList.remove("tampil");
+        }
+
+        function gantiRkDari() {
+            const dari = document.getElementById("rkDari").value;
+            const keSel = document.getElementById("rkKe");
+            const keLama = keSel.value;
+            const pilihan = outletDiArea(pilihArea).filter(function (o) { return o !== dari; });
+            keSel.innerHTML = '<option value="">- pilih tujuan -</option>' + opsiOutlet(pilihan);
+            if (pilihan.indexOf(keLama) !== -1) keSel.value = keLama;
+
+            const wadah = document.getElementById("rkIsi");
+            wadah.innerHTML = '<div class="loading-state" style="padding:14px 0;">Memuat stok ' + esc(dari) + '...</div>';
+            rkStokDari = [];
+
+            loadProductNames().then(function () {
+                return db.collection("outlets").doc(dari).collection("stock").get();
+            }).then(function (snapshot) {
+                if (document.getElementById("rkDari").value !== dari) return;
+                snapshot.forEach(function (doc) {
+                    if (kategoriMap[doc.id] === "Topping") return;
+                    rkStokDari.push({ id: doc.id, nama: productMap[doc.id] || doc.id, jumlah: doc.data().jumlah || 0 });
+                });
+
+                if (rkStokDari.length === 0) {
+                    wadah.innerHTML = '<div class="empty-state" style="padding:14px 0;">Belum ada data stok di ' + esc(dari) + '.</div>';
+                    return;
+                }
+                let html = "";
+                rkStokDari.forEach(function (p) {
+                    html += '<div class="isi-row"><div>' + esc(p.nama) +
+                            '<div class="isi-sub">Stok ' + esc(dari) + ': ' + p.jumlah + '</div></div>' +
+                            '<input class="qty-input rk-qty" type="number" min="0" max="' + p.jumlah + '" placeholder="0" ' +
+                            'data-pid="' + esc(p.id) + '"' + (p.jumlah <= 0 ? ' disabled' : '') + '></div>';
+                });
+                wadah.innerHTML = html;
+            }).catch(function (e) {
+                wadah.innerHTML = '<div class="empty-state" style="padding:14px 0;">Gagal memuat stok: ' + esc(e.message) + '</div>';
+            });
+        }
+
+        function kirimRekom() {
+            const dari = document.getElementById("rkDari").value;
+            const ke = document.getElementById("rkKe").value;
+            const alasan = document.getElementById("rkAlasan").value.trim();
+            const err = document.getElementById("rkError");
+            const salah = function (pesan) { err.textContent = pesan; err.style.display = "block"; };
+            err.style.display = "none";
+
+            if (!ke || ke === dari) return salah("Pilih outlet tujuan.");
+
+            const items = [];
+            let valid = true;
+            document.querySelectorAll("#rkIsi .rk-qty").forEach(function (el) {
+                if (el.disabled || el.value === "") return;
+                const v = parseInt(el.value, 10);
+                const p = rkStokDari.find(function (x) { return x.id === el.dataset.pid; });
+                if (!p || isNaN(v) || v < 0 || v > p.jumlah) { valid = false; return; }
+                if (v > 0) items.push({ productId: p.id, nama: p.nama, jumlah: v });
+            });
+            if (!valid) return salah("Jumlah harus angka 0 sampai stok yang ada di " + dari + ".");
+            if (items.length === 0) return salah("Isi jumlah minimal satu produk.");
+            if (!alasan) return salah("Alasan rekomendasi wajib diisi.");
+
+            const btn = document.getElementById("btnKirimRekom");
+            btn.disabled = true;
+
+            const pengaju = { uid: auth.currentUser.uid, nama: currentUser.nama || "" };
+            db.collection("transfer_stok").add({
+                dari: dari,
+                ke: ke,
+                items: items,
+                status: "menunggu_acc",
+                selisih: false,
+                selisihDicek: false,
+                catatan: alasan,
+                diajukanOleh: Object.assign({ outlet: currentUser.outlet }, pengaju),
+                dibuatOleh: pengaju,
+                dibuatPada: firebase.firestore.FieldValue.serverTimestamp()
+            }).then(function () {
+                tutupRekom();
+                tampilToast('Rekomendasi <b>' + esc(dari) + ' &rarr; ' + esc(ke) + '</b> dikirim ke Forecaster. ' +
+                            'Tunggu ACC sebelum transfer berjalan. <a href="transfer.html">Pantau di menu Transfer</a>');
+            }).catch(function (e) {
+                btn.disabled = false;
+                salah("Gagal mengirim rekomendasi: " + e.message);
             });
         }
 
