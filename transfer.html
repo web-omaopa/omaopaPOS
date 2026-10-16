@@ -187,6 +187,38 @@
         table.tbl-item td.berubah { animation: kedip 1.2s ease-out; }
         .fc-warn { background: #FFF8E8; border: 1px solid #F0DBA0; border-radius: 8px; padding: 8px 11px; font-size: 11px; color: #7a5410; margin-top: 8px; }
         .tolak-box { margin-top: 10px; background: #FFF8F7; border: 1px solid #F3C4C0; border-radius: 8px; padding: 10px 12px; }
+        /* ===== Buat Transfer (forecaster) ===== */
+        .bt-langkah { font-size: 12px; font-weight: 800; color: #52606d; margin: 18px 0 8px; display: flex; align-items: center; gap: 10px; }
+        .bt-langkah .fc-select { margin-left: auto; height: 30px; }
+        .bt-outlet { border: 1px solid #dde3ea; border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; background: #ffffff; }
+        .bt-outlet-head { display: flex; align-items: baseline; gap: 8px; font-size: 13.5px; font-weight: 800; }
+        .bt-area { font-size: 10.5px; font-weight: 400; color: #8A95A5; }
+        .bt-baris { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 0 2px; border-top: 1px solid #eef1f5; margin-top: 8px; font-size: 12px; }
+        .bt-baris:first-of-type { border-top: none; margin-top: 4px; }
+        .bt-produk { min-width: 150px; font-weight: 700; }
+        .bt-tag { font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
+        .bt-tag.habis { background: #fdeaea; color: #c0392b; }
+        .bt-tag.menipis { background: #fdf1de; color: #b06d09; }
+        .bt-ambil { display: flex; align-items: center; gap: 6px; margin-left: auto; flex-wrap: wrap; }
+        .bt-ambil select, .bt-ambil input, .bt-manual select, .bt-manual input {
+            height: 32px; border: 1px solid #d1d5db; border-radius: 6px; padding: 0 8px; font-size: 12px; font-family: inherit; background: #ffffff;
+        }
+        .bt-ambil select { max-width: 270px; }
+        .bt-ambil input, .bt-manual input { width: 64px; text-align: center; }
+        .bt-catatan-kecil { font-size: 10.5px; color: #8A95A5; margin-top: 2px; }
+        .bt-rute { border: 1px solid #9DB8DE; border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; background: #F8FBFF; }
+        .bt-rute-head { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 800; }
+        .bt-rute-head .btn { margin-left: auto; }
+        .bt-item { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid #e3ebf6; font-size: 12px; }
+        .bt-item:first-of-type { border-top: none; }
+        .bt-item .nama { flex: 1; }
+        .bt-item .info { font-size: 10.5px; color: #8A95A5; }
+        .bt-item input { width: 64px; height: 30px; text-align: center; border: 1px solid #d1d5db; border-radius: 6px; font-size: 12.5px; font-weight: 700; font-family: inherit; }
+        .bt-item input.lebih { border: 2px solid #c0392b; color: #c0392b; }
+        .bt-hapus { background: none; border: none; color: #b03a2e; font-size: 16px; cursor: pointer; padding: 0 4px; }
+        .bt-manual { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 4px; padding: 10px 12px; background: #F7F8FA; border-radius: 10px; font-size: 11.5px; }
+        .bt-warn { background: #FFF8E8; border: 1px solid #F0DBA0; border-radius: 8px; padding: 8px 11px; font-size: 11px; color: #7a5410; margin-top: 8px; }
+        .bt-kosong { text-align: center; color: #6b7280; font-size: 12px; padding: 14px 0; }
         .banner-ok {
             background: #E7F6ED; border: 1px solid #A8D8B5; border-radius: 10px; padding: 10px 14px;
             margin-bottom: 14px; font-size: 12px; color: #1E5A2E;
@@ -204,6 +236,47 @@
                 <a class="btn btn-primary" id="btnBuat" href="stok.html" style="display:none;">+ Buat Transfer</a>
             </div>
             <div id="isiHalaman"><div class="loading-state">Memuat data transfer...</div></div>
+        </div>
+    </div>
+
+    <!-- Modal buat transfer (forecaster/admin) -->
+    <div class="modal-backdrop" id="modalBuat">
+        <div class="modal-box">
+            <div style="display:flex; align-items:baseline; gap:10px;">
+                <div class="modal-title">Buat Transfer</div>
+                <span class="pm-live" id="btLive" style="display:none;">&#9679; semua area &middot; stok real time</span>
+            </div>
+            <div class="modal-desc">
+                Pilih dari daftar outlet yang kekurangan stok, atau tambah manual. Sumber bisa dari area mana pun.
+                Produk dengan rute yang sama digabung jadi satu transfer.
+            </div>
+
+            <div class="bt-langkah">1. OUTLET YANG KEKURANGAN STOK
+                <select class="fc-select" id="btFilterArea" onchange="renderKurangBt()"></select>
+            </div>
+            <div id="btKurang" onfocusout="selesaiKetikBt()"></div>
+            <div class="bt-catatan-kecil">Kurang = stok &le; minimum. Jumlah terisi sampai 2&times; minimum; sumber diurutkan dari stok berlebih terbanyak.</div>
+
+            <div class="bt-langkah">2. TRANSFER YANG AKAN DIKIRIM</div>
+            <div id="btRute" onfocusout="selesaiKetikBt()"></div>
+            <div class="bt-manual">
+                <b>Tambah manual:</b>
+                <select id="btMDari" onchange="isiBtMKe()"></select> &rarr;
+                <select id="btMKe"></select>
+                <select id="btMProduk"></select>
+                <input type="number" id="btMJumlah" min="1" placeholder="0">
+                <button class="btn btn-sm" onclick="tambahManualBt()">Tambah</button>
+            </div>
+
+            <div style="font-size:11px; font-weight:700; margin-top:14px;">Catatan untuk kasir (opsional, berlaku untuk semua perintah)</div>
+            <input class="catatan-in" type="text" id="btCatatan" maxlength="200" placeholder="Contoh: pemerataan stok sebelum akhir pekan">
+
+            <div class="pm-error" id="btError" style="display:none;"></div>
+
+            <div class="pm-aksi">
+                <button class="btn" onclick="tutupBuat()">Batal</button>
+                <button class="btn btn-primary" id="btnKirimBuat" style="flex:2;" onclick="kirimBuat()">Kirim perintah transfer</button>
+            </div>
         </div>
     </div>
 
@@ -317,7 +390,11 @@
 
             if (canBuat) {
                 document.getElementById("judulHalaman").textContent = "Transfer Antar Outlet";
-                document.getElementById("btnBuat").style.display = "inline-flex";
+                const btnB = document.getElementById("btnBuat");
+                btnB.textContent = "+ Buat Transfer";
+                btnB.href = "#buat";
+                btnB.onclick = function (e) { e.preventDefault(); bukaBuat(); };
+                btnB.style.display = "inline-flex";
             } else {
                 document.getElementById("judulHalaman").textContent = "Transfer · " + currentUser.outlet;
                 const btn = document.getElementById("btnBuat");
@@ -331,7 +408,10 @@
                 // area tiap outlet untuk filter & label di tampilan forecaster
                 db.collection("outlets").get().then(function (snap) {
                     snap.forEach(function (d) { areaOutletFc[d.id] = d.data().area || "Area 1"; });
-                }).catch(function () { /* filter area jadi tidak tersedia */ }).then(muatTransfer);
+                }).catch(function () { /* filter area jadi tidak tersedia */ }).then(function () {
+                    muatTransfer();
+                    if (window.location.hash === "#buat") bukaBuat();
+                });
             } else {
                 muatTransfer();
                 if (window.location.hash === "#permintaan") bukaPermintaan();
@@ -445,7 +525,12 @@
             });
             daftarArea.sort();
 
-            let html = '<div class="fc-bar"><span class="fc-label">Area</span>' +
+            let html = "";
+            if (pesanSukses) {
+                html += '<div class="banner-ok">' + pesanSukses + '</div>';
+                pesanSukses = "";
+            }
+            html += '<div class="fc-bar"><span class="fc-label">Area</span>' +
                 '<select class="fc-select" onchange="gantiAreaFc(this.value)"><option value="">Semua area</option>' +
                 daftarArea.map(function (a) { return '<option value="' + esc(a) + '"' + (a === areaFc ? ' selected' : '') + '>' + esc(a) + '</option>'; }).join("") +
                 '</select></div>';
@@ -674,6 +759,430 @@
             if (t.alasanTolak) html += '<div class="sub" style="color:#B03A2E; margin-top:6px;">Alasan tolak: ' + esc(t.alasanTolak) + '</div>';
             if (t.catatanSelisih) html += '<div class="sub" style="margin-top:6px;">Catatan penerima: ' + esc(t.catatanSelisih) + '</div>';
             return html + '</div>';
+        }
+
+        // ===================================================================
+        //  BUAT TRANSFER (FORECASTER / ADMIN)
+        //  1. Daftar outlet yang kekurangan stok (semua area), tiap produk dengan
+        //     pilihan sumber dari area mana pun dan jumlah terisi otomatis.
+        //  2. Daftar transfer yang akan dikirim, digabung per rute asal -> tujuan.
+        //  Lalu semua perintah dibuat sekaligus (menunggu_kirim).
+        //  Patokan: kurang = stok <= minStok, diisi sampai 2x minStok;
+        //  berlebih = stok di atas 2x minStok.
+        // ===================================================================
+        let btProduk = null;         // [{id, nama}] tanpa topping & produk nonaktif
+        let btStok = {};             // { outlet: { productId: {jumlah, minStok} } } real time
+        let btLangganan = [];        // fungsi berhenti memantau
+        let btRute = {};             // { "asal|tujuan": { dari, ke, items: { productId: jumlah } } }
+        let btPilih = {};            // isian di daftar kekurangan: { "outlet|produk": { dari, qty } }
+        let btBaris = [];            // baris daftar kekurangan yang sedang tampil: [{ o, pid }]
+        let btTunda = false;         // stok berubah saat kasir/forecaster sedang mengetik: gambar ulang nanti
+
+        function semuaOutletBt() {
+            return Object.keys(areaOutletFc).sort(function (a, b) {
+                return areaDari(a).localeCompare(areaDari(b)) || a.localeCompare(b);
+            });
+        }
+
+        function stokBt(o, pid) {
+            return (btStok[o] && btStok[o][pid]) || null;
+        }
+
+        function namaProdukBt(pid) {
+            const p = (btProduk || []).find(function (x) { return x.id === pid; });
+            return p ? p.nama : pid;
+        }
+
+        function labelOutletBt(o) {
+            return esc(o) + ' <span class="bt-area">' + esc(areaDari(o)) + '</span>';
+        }
+
+        function opsiOutletBt(kecuali, pilih) {
+            const perArea = {};
+            semuaOutletBt().forEach(function (o) {
+                if (o === kecuali) return;
+                (perArea[areaDari(o)] = perArea[areaDari(o)] || []).push(o);
+            });
+            return Object.keys(perArea).sort().map(function (a) {
+                return '<optgroup label="' + esc(a) + '">' + perArea[a].map(function (o) {
+                    return '<option value="' + esc(o) + '"' + (o === pilih ? ' selected' : '') + '>' + esc(o) + '</option>';
+                }).join("") + '</optgroup>';
+            }).join("");
+        }
+
+        // Jumlah yang sudah direncanakan masuk ke / keluar dari outlet untuk satu produk
+        function rencanaBt(o, pid, arah) {
+            let n = 0;
+            Object.keys(btRute).forEach(function (k) {
+                const r = btRute[k];
+                if ((arah === "masuk" ? r.ke : r.dari) === o) n += r.items[pid] || 0;
+            });
+            return n;
+        }
+
+        function kebutuhanBt(o, pid) {
+            const s = stokBt(o, pid);
+            if (!s || s.minStok <= 0 || s.jumlah > s.minStok) return 0;
+            return Math.max(0, 2 * s.minStok - s.jumlah - rencanaBt(o, pid, "masuk"));
+        }
+
+        // Sumber untuk satu produk: outlet lain (area mana pun) yang masih punya stok,
+        // diurutkan dari kelebihan terbanyak
+        function sumberBt(pid, kecuali) {
+            const hasil = [];
+            semuaOutletBt().forEach(function (o) {
+                if (o === kecuali) return;
+                const s = stokBt(o, pid);
+                if (!s) return;
+                const sisa = s.jumlah - rencanaBt(o, pid, "keluar");
+                if (sisa <= 0) return;
+                hasil.push({ o: o, sisa: sisa, lebih: sisa - 2 * s.minStok, minStok: s.minStok });
+            });
+            hasil.sort(function (a, b) { return b.lebih - a.lebih || b.sisa - a.sisa; });
+            return hasil;
+        }
+
+        function saranJumlahBt(perlu, sumber) {
+            if (!sumber) return 0;
+            const boleh = sumber.lebih > 0 ? sumber.lebih : Math.max(0, sumber.sisa - sumber.minStok);
+            return Math.min(perlu, boleh);
+        }
+
+        function bukaBuat() {
+            const outlets = semuaOutletBt();
+            if (outlets.length === 0) { alert("Daftar outlet belum termuat. Muat ulang halaman."); return; }
+
+            const area = [];
+            outlets.forEach(function (o) { if (area.indexOf(areaDari(o)) === -1) area.push(areaDari(o)); });
+            document.getElementById("btFilterArea").innerHTML = '<option value="">Semua area</option>' +
+                area.sort().map(function (a) { return '<option value="' + esc(a) + '">' + esc(a) + '</option>'; }).join("");
+            document.getElementById("btFilterArea").value = areaFc && area.indexOf(areaFc) !== -1 ? areaFc : "";
+
+            btRute = {};
+            btPilih = {};
+            document.getElementById("btCatatan").value = "";
+            document.getElementById("btError").style.display = "none";
+            document.getElementById("btnKirimBuat").disabled = false;
+            document.getElementById("btKurang").innerHTML = '<div class="loading-state" style="padding:18px 0;">Memuat stok ' + outlets.length + ' outlet...</div>';
+            document.getElementById("btRute").innerHTML = "";
+            document.getElementById("modalBuat").classList.add("tampil");
+
+            const muatProduk = btProduk ? Promise.resolve() : db.collection("products").get().then(function (snap) {
+                btProduk = [];
+                snap.forEach(function (d) {
+                    const x = d.data();
+                    if ((x.kategori || "") === "Topping" || (x.status && x.status !== "aktif")) return;
+                    btProduk.push({ id: d.id, nama: x.nama || d.id });
+                });
+            });
+            muatProduk.then(function () { pantauBt(outlets); }).catch(function (e) {
+                document.getElementById("btKurang").innerHTML = '<div class="empty-state" style="padding:18px 0;">Gagal memuat produk: ' + esc(e.message) + '</div>';
+            });
+        }
+
+        function pantauBt(outlets) {
+            hentikanPantauBt();
+            btStok = {};
+            let belum = outlets.length;
+            outlets.forEach(function (o) {
+                let pertama = true;
+                btLangganan.push(db.collection("outlets").doc(o).collection("stock").onSnapshot(function (snap) {
+                    const isi = {};
+                    snap.forEach(function (d) {
+                        const x = d.data();
+                        isi[d.id] = { jumlah: x.jumlah || 0, minStok: x.minStok !== undefined ? x.minStok : 5 };
+                    });
+                    btStok[o] = isi;
+                    if (pertama) {
+                        pertama = false;
+                        if (--belum === 0) {
+                            document.getElementById("btLive").style.display = "inline";
+                            isiManualBt();
+                            renderKurangBt();
+                            renderRuteBt();
+                        }
+                    } else if (belum === 0) {
+                        perbaruiBt();
+                    }
+                }, function (e) {
+                    document.getElementById("btKurang").innerHTML = '<div class="empty-state" style="padding:18px 0;">Gagal memuat stok: ' + esc(e.message) + '</div>';
+                }));
+            });
+        }
+
+        function hentikanPantauBt() {
+            btLangganan.forEach(function (stop) { stop(); });
+            btLangganan = [];
+            document.getElementById("btLive").style.display = "none";
+        }
+
+        function tutupBuat() {
+            hentikanPantauBt();
+            document.getElementById("modalBuat").classList.remove("tampil");
+        }
+
+        // Stok berubah: gambar ulang, kecuali sedang mengetik di salah satu daftar (ditunda sampai selesai)
+        function perbaruiBt() {
+            const aktif = document.activeElement;
+            if (aktif && aktif.tagName === "INPUT" &&
+                (document.getElementById("btKurang").contains(aktif) || document.getElementById("btRute").contains(aktif))) {
+                btTunda = true;
+                return;
+            }
+            btTunda = false;
+            renderKurangBt();
+            renderRuteBt();
+        }
+
+        function selesaiKetikBt() {
+            if (btTunda) setTimeout(perbaruiBt, 0);
+        }
+
+        // ----- Langkah 1: daftar outlet yang kekurangan stok -----
+        function renderKurangBt() {
+            const wadah = document.getElementById("btKurang");
+            const filter = document.getElementById("btFilterArea").value;
+            btBaris = [];
+            let html = "";
+
+            semuaOutletBt().forEach(function (o) {
+                if (filter && areaDari(o) !== filter) return;
+                let baris = "";
+                (btProduk || []).forEach(function (p) {
+                    const perlu = kebutuhanBt(o, p.id);
+                    if (perlu <= 0) return;
+                    const s = stokBt(o, p.id);
+                    const sumber = sumberBt(p.id, o);
+                    const key = o + "|" + p.id;
+                    const pilih = btPilih[key] || {};
+                    const dari = sumber.some(function (x) { return x.o === pilih.dari; }) ? pilih.dari : (sumber[0] ? sumber[0].o : "");
+                    const sDari = sumber.find(function (x) { return x.o === dari; });
+                    const qty = pilih.qty !== undefined && pilih.dari === dari ? pilih.qty : saranJumlahBt(perlu, sDari);
+                    const i = btBaris.length;
+                    btBaris.push({ o: o, pid: p.id });
+                    const masuk = rencanaBt(o, p.id, "masuk");
+
+                    baris += '<div class="bt-baris"><span class="bt-produk">' + esc(p.nama) + '</span>' +
+                             '<span class="bt-tag ' + (s.jumlah <= 0 ? "habis" : "menipis") + '">' + (s.jumlah <= 0 ? "habis" : "menipis") + ' · ' + s.jumlah + ' / min ' + s.minStok + '</span>' +
+                             '<span class="bt-area">perlu ' + perlu + (masuk > 0 ? ' (sudah direncanakan +' + masuk + ')' : '') + '</span>';
+                    if (sumber.length === 0) {
+                        baris += '<span class="bt-ambil bt-area">Tidak ada outlet lain yang punya stok</span></div>';
+                        return;
+                    }
+                    baris += '<span class="bt-ambil"><span class="bt-area">Ambil dari</span>' +
+                             '<select id="btSel_' + i + '" onchange="gantiSumberBt(' + i + ')">' +
+                             sumber.map(function (x) {
+                                 return '<option value="' + esc(x.o) + '"' + (x.o === dari ? ' selected' : '') + '>' + esc(x.o) + ' (' + esc(areaDari(x.o)) + ') · stok ' + x.sisa +
+                                        (x.lebih > 0 ? ' · lebih ' + x.lebih : '') + '</option>';
+                             }).join("") + '</select>' +
+                             '<input type="number" min="1" id="btQty_' + i + '" value="' + (qty > 0 ? qty : "") + '" placeholder="0" oninput="ketikQtyBt(' + i + ')">' +
+                             '<button class="btn btn-sm btn-primary" onclick="tambahkanBt(' + i + ')">Tambahkan</button></span></div>';
+                });
+                if (baris) html += '<div class="bt-outlet"><div class="bt-outlet-head">' + labelOutletBt(o) + '</div>' + baris + '</div>';
+            });
+
+            wadah.innerHTML = html || '<div class="bt-kosong">Tidak ada outlet yang kekurangan stok' + (filter ? ' di ' + esc(filter) : '') +
+                                     '. Gunakan Tambah manual di bawah bila tetap perlu transfer.</div>';
+        }
+
+        function gantiSumberBt(i) {
+            const b = btBaris[i];
+            const dari = document.getElementById("btSel_" + i).value;
+            const sDari = sumberBt(b.pid, b.o).find(function (x) { return x.o === dari; });
+            const qty = saranJumlahBt(kebutuhanBt(b.o, b.pid), sDari);
+            btPilih[b.o + "|" + b.pid] = { dari: dari, qty: qty };
+            document.getElementById("btQty_" + i).value = qty > 0 ? qty : "";
+        }
+
+        function ketikQtyBt(i) {
+            const b = btBaris[i];
+            const v = parseInt(document.getElementById("btQty_" + i).value, 10);
+            btPilih[b.o + "|" + b.pid] = { dari: document.getElementById("btSel_" + i).value, qty: isNaN(v) ? 0 : v };
+        }
+
+        function tambahkanBt(i) {
+            const b = btBaris[i];
+            const dari = document.getElementById("btSel_" + i).value;
+            const v = parseInt(document.getElementById("btQty_" + i).value, 10);
+            const sDari = sumberBt(b.pid, b.o).find(function (x) { return x.o === dari; });
+            const err = document.getElementById("btError");
+            if (isNaN(v) || v <= 0) { err.textContent = "Isi jumlah untuk " + namaProdukBt(b.pid) + " ke " + b.o + "."; err.style.display = "block"; return; }
+            if (!sDari || v > sDari.sisa) { err.textContent = "Stok " + namaProdukBt(b.pid) + " di " + dari + " tidak cukup (tersisa " + (sDari ? sDari.sisa : 0) + ")."; err.style.display = "block"; return; }
+            err.style.display = "none";
+            tambahRuteBt(dari, b.o, b.pid, v);
+            delete btPilih[b.o + "|" + b.pid];
+            renderKurangBt();
+            renderRuteBt();
+        }
+
+        function tambahRuteBt(dari, ke, pid, v) {
+            const k = dari + "|" + ke;
+            if (!btRute[k]) btRute[k] = { dari: dari, ke: ke, items: {} };
+            btRute[k].items[pid] = (btRute[k].items[pid] || 0) + v;
+        }
+
+        // ----- Langkah 2: transfer yang akan dikirim -----
+        function renderRuteBt() {
+            const wadah = document.getElementById("btRute");
+            const keys = Object.keys(btRute);
+            const tombol = document.getElementById("btnKirimBuat");
+            if (keys.length === 0) {
+                wadah.innerHTML = '<div class="bt-kosong">Belum ada transfer. Klik Tambahkan di daftar atas, atau tambah manual di bawah.</div>';
+                tombol.textContent = "Kirim perintah transfer";
+                return;
+            }
+            let html = "";
+            keys.forEach(function (k) {
+                const r = btRute[k];
+                html += '<div class="bt-rute"><div class="bt-rute-head">' + labelOutletBt(r.dari) + ' &rarr; ' + labelOutletBt(r.ke) +
+                        '<button class="btn btn-sm btn-danger" onclick="hapusRuteBt(\'' + escJsAttr(k) + '\')">Hapus</button></div>';
+                Object.keys(r.items).forEach(function (pid) {
+                    const sA = stokBt(r.dari, pid), sT = stokBt(r.ke, pid);
+                    html += '<div class="bt-item"><span class="nama">' + esc(namaProdukBt(pid)) +
+                            '<div class="info">stok ' + esc(r.dari) + ' ' + (sA ? sA.jumlah : 0) + ' · stok ' + esc(r.ke) + ' ' + (sT ? sT.jumlah : 0) + '</div></span>' +
+                            '<input type="number" min="0" value="' + r.items[pid] + '" data-k="' + esc(k) + '" data-pid="' + esc(pid) + '" oninput="ubahRuteBt(this)">' +
+                            '<button class="bt-hapus" title="Hapus produk" onclick="hapusItemBt(\'' + escJsAttr(k) + '\', \'' + escJsAttr(pid) + '\')">&times;</button></div>';
+                });
+                html += '</div>';
+            });
+            html += '<div class="bt-warn" id="btWarn" style="display:none;"></div>';
+            wadah.innerHTML = html;
+            tombol.textContent = "Kirim " + keys.length + " perintah transfer";
+            cekLebihBt();
+        }
+
+        function ubahRuteBt(el) {
+            let v = parseInt(el.value, 10);
+            if (isNaN(v) || v < 0) v = 0;
+            const r = btRute[el.dataset.k];
+            if (r) r.items[el.dataset.pid] = v;
+            cekLebihBt();
+            renderKurangBt();
+        }
+
+        function hapusItemBt(k, pid) {
+            if (!btRute[k]) return;
+            delete btRute[k].items[pid];
+            if (Object.keys(btRute[k].items).length === 0) delete btRute[k];
+            renderKurangBt();
+            renderRuteBt();
+        }
+
+        function hapusRuteBt(k) {
+            delete btRute[k];
+            renderKurangBt();
+            renderRuteBt();
+        }
+
+        // Total keluar dari satu outlet untuk satu produk tidak boleh melebihi stoknya
+        function cekLebihBt() {
+            const keluar = {};
+            Object.keys(btRute).forEach(function (k) {
+                const r = btRute[k];
+                Object.keys(r.items).forEach(function (pid) {
+                    const key = r.dari + "|" + pid;
+                    keluar[key] = (keluar[key] || 0) + (r.items[pid] || 0);
+                });
+            });
+            const masalah = [];
+            const lebihKey = {};
+            Object.keys(keluar).forEach(function (key) {
+                const b = key.split("|");
+                const s = stokBt(b[0], b[1]);
+                const ada = s ? s.jumlah : 0;
+                if (keluar[key] > ada) {
+                    masalah.push(namaProdukBt(b[1]) + " dari " + b[0] + " (keluar " + keluar[key] + ", stok " + ada + ")");
+                    lebihKey[key] = true;
+                }
+            });
+            document.querySelectorAll("#btRute input[data-k]").forEach(function (el) {
+                const r = btRute[el.dataset.k];
+                el.classList.toggle("lebih", !!(r && lebihKey[r.dari + "|" + el.dataset.pid]));
+            });
+            const warn = document.getElementById("btWarn");
+            if (warn) {
+                warn.style.display = masalah.length ? "block" : "none";
+                warn.textContent = masalah.length ? "Melebihi stok asal: " + masalah.join("; ") + ". Kurangi jumlahnya sebelum mengirim." : "";
+            }
+            return masalah.length === 0;
+        }
+
+        // ----- Tambah manual (semua outlet, semua area) -----
+        function isiManualBt() {
+            const dariSel = document.getElementById("btMDari");
+            dariSel.innerHTML = opsiOutletBt(null, null);
+            document.getElementById("btMProduk").innerHTML = (btProduk || []).map(function (p) {
+                return '<option value="' + esc(p.id) + '">' + esc(p.nama) + '</option>';
+            }).join("");
+            document.getElementById("btMJumlah").value = "";
+            isiBtMKe();
+        }
+
+        function isiBtMKe() {
+            const dari = document.getElementById("btMDari").value;
+            document.getElementById("btMKe").innerHTML = opsiOutletBt(dari, null);
+        }
+
+        function tambahManualBt() {
+            const dari = document.getElementById("btMDari").value;
+            const ke = document.getElementById("btMKe").value;
+            const pid = document.getElementById("btMProduk").value;
+            const v = parseInt(document.getElementById("btMJumlah").value, 10);
+            const err = document.getElementById("btError");
+            if (!dari || !ke || dari === ke || !pid) { err.textContent = "Pilih outlet asal, tujuan, dan produk."; err.style.display = "block"; return; }
+            if (isNaN(v) || v <= 0) { err.textContent = "Isi jumlah lebih dari 0."; err.style.display = "block"; return; }
+            err.style.display = "none";
+            tambahRuteBt(dari, ke, pid, v);
+            document.getElementById("btMJumlah").value = "";
+            renderKurangBt();
+            renderRuteBt();
+        }
+
+        function kirimBuat() {
+            const err = document.getElementById("btError");
+            const salah = function (pesan) { err.textContent = pesan; err.style.display = "block"; };
+            err.style.display = "none";
+
+            const perintah = [];
+            Object.keys(btRute).forEach(function (k) {
+                const r = btRute[k];
+                const items = Object.keys(r.items).filter(function (pid) { return r.items[pid] > 0; }).map(function (pid) {
+                    return { productId: pid, nama: namaProdukBt(pid), jumlah: r.items[pid] };
+                });
+                if (items.length > 0) perintah.push({ dari: r.dari, ke: r.ke, items: items });
+            });
+            if (perintah.length === 0) return salah("Belum ada transfer dengan jumlah lebih dari 0.");
+            if (!cekLebihBt()) return salah("Ada jumlah yang melebihi stok outlet asal.");
+            if (!confirm("Kirim " + perintah.length + " perintah transfer?\nKasir outlet asal masing-masing akan langsung dapat tugas Kirim.")) return;
+
+            const btn = document.getElementById("btnKirimBuat");
+            btn.disabled = true;
+            const catatan = document.getElementById("btCatatan").value.trim();
+            const pembuat = { uid: auth.currentUser.uid, nama: currentUser.nama || "" };
+            const batch = db.batch();
+            perintah.forEach(function (p) {
+                batch.set(db.collection("transfer_stok").doc(), {
+                    dari: p.dari,
+                    ke: p.ke,
+                    items: p.items,
+                    status: "menunggu_kirim",
+                    selisih: false,
+                    selisihDicek: false,
+                    catatan: catatan,
+                    dibuatOleh: pembuat,
+                    dibuatPada: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            });
+            batch.commit().then(function () {
+                tutupBuat();
+                pesanSukses = '<b>' + perintah.length + ' perintah transfer</b> terkirim. Kasir outlet asal sekarang dapat tugas Kirim.';
+                tabFc = "proses";
+                muatTransfer();
+                muatBadgeTransfer(currentUser);
+            }).catch(function (e) {
+                btn.disabled = false;
+                salah("Gagal mengirim perintah: " + e.message);
+            });
         }
 
         function badgeStatus(t) {
