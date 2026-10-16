@@ -361,19 +361,23 @@
                 outletSelect.disabled = true;
                 outletAsal = currentUser.outlet;
                 loadStok(currentUser.outlet);
+
+                // Kasir: di bawah stok outletnya, tampilkan outlet lain yang se-area (hanya lihat)
+                db.collection("outlets").get().then(function (snapshot) {
+                    muatDaftarOutlet(snapshot);
+                    pilihArea = outletArea[currentUser.outlet] || "Area 1";
+                    const judul = document.getElementById("judulTerpilih");
+                    judul.innerHTML = esc(currentUser.outlet) + ' <span>· ' + esc(pilihArea) + '</span>';
+                    judul.style.display = "block";
+                    loadOutletLain();
+                }).catch(function (error) {
+                    document.getElementById("daftarOutletLain").innerHTML =
+                        '<div class="empty-state">Stok outlet lain se-area belum bisa ditampilkan: ' + esc(error.message) + '</div>';
+                });
             } else {
                 // Selain kasir: outlet terpilih di atas, outlet lain di bawahnya per area
                 db.collection("outlets").get().then(function (snapshot) {
-                    daftarOutlet = [];
-                    outletArea = {};
-                    snapshot.forEach(function (doc) {
-                        daftarOutlet.push(doc.id);
-                        outletArea[doc.id] = doc.data().area || "Area 1";
-                    });
-                    daftarArea = DAFTAR_AREA.slice();
-                    daftarOutlet.forEach(function (o) {
-                        if (daftarArea.indexOf(outletArea[o]) === -1) daftarArea.push(outletArea[o]);
-                    });
+                    muatDaftarOutlet(snapshot);
 
                     outletAsal = daftarOutlet.indexOf(currentUser.outlet) !== -1 ? currentUser.outlet : "";
                     document.getElementById("wadahArea").style.display = "block";
@@ -404,6 +408,20 @@
                     renderTabel();
                     updateBar();
                 });
+            });
+        }
+
+        // Isi daftarOutlet, outletArea, dan daftarArea dari koleksi outlets
+        function muatDaftarOutlet(snapshot) {
+            daftarOutlet = [];
+            outletArea = {};
+            snapshot.forEach(function (doc) {
+                daftarOutlet.push(doc.id);
+                outletArea[doc.id] = doc.data().area || "Area 1";
+            });
+            daftarArea = DAFTAR_AREA.slice();
+            daftarOutlet.forEach(function (o) {
+                if (daftarArea.indexOf(outletArea[o]) === -1) daftarArea.push(outletArea[o]);
             });
         }
 
@@ -513,7 +531,11 @@
                 renderOutletLain(cakupan, stokPerOutlet);
             }).catch(function (error) {
                 if (token !== tokenRingkasan) return;
-                wadah.innerHTML = '<div class="empty-state">Gagal memuat: ' + esc(error.message) + '</div>';
+                wadah.innerHTML = '<div class="empty-state">' +
+                    (error.code === "permission-denied"
+                        ? "Stok outlet lain belum bisa ditampilkan: akses akun ini dibatasi oleh aturan Firestore."
+                        : "Gagal memuat: " + esc(error.message)) +
+                    '</div>';
             });
         }
 
@@ -526,7 +548,9 @@
                 if (list.length > 0) grup.push({ area: a, outlets: list });
             });
 
-            let html = outletAsal ? '<div class="judul-lain">Outlet lainnya</div>' : '';
+            // Kasir hanya melihat; tidak bisa memindah outlet lain ke atas
+            const kasir = currentUser.role === "kasir";
+            let html = outletAsal ? '<div class="judul-lain">' + (kasir ? 'Outlet lain di ' + esc(pilihArea) : 'Outlet lainnya') + '</div>' : '';
 
             grup.forEach(function (g) {
                 html += '<div class="area-judul">' + esc(g.area) + ' <span>(' + g.outlets.length + ' outlet)</span></div>';
@@ -555,7 +579,9 @@
 
                     html += '<div class="kartu-outlet">' +
                             '<div class="kartu-head">' +
-                                '<span class="kartu-nama" title="Tampilkan paling atas" onclick="pilihOutlet(\'' + escJsAttr(o) + '\')">' + esc(o) + '</span>' +
+                                (kasir
+                                    ? '<span class="kartu-nama" style="cursor:default; text-decoration:none;">' + esc(o) + '</span>'
+                                    : '<span class="kartu-nama" title="Tampilkan paling atas" onclick="pilihOutlet(\'' + escJsAttr(o) + '\')">' + esc(o) + '</span>') +
                                 '<span class="kartu-info">' + info.join(" · ") + '</span>' +
                             '</div>' +
                             '<table><thead><tr><th>Produk</th><th class="r">Stok</th><th class="r">Status</th></tr></thead>' +
