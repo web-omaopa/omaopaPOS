@@ -166,6 +166,27 @@
         .pm-error { color: #c0392b; font-size: 11px; margin-top: 10px; }
         .pm-aksi { display: flex; gap: 8px; margin-top: 16px; }
         .pm-aksi .btn { flex: 1; justify-content: center; height: 38px; }
+        /* ===== Tampilan forecaster ===== */
+        .fc-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+        .fc-label { font-size: 10.5px; font-weight: 800; color: #8A95A5; letter-spacing: 0.04em; }
+        .fc-select { height: 32px; border: 1px solid #d1d5db; border-radius: 6px; padding: 0 10px; font-size: 12px; background: #ffffff; font-family: inherit; }
+        .card.acc { border-color: #B79AD9; }
+        .card.selisih { border-color: #E8A8A0; }
+        .alasan-box { background: #F7F2FD; border: 1px solid #E4D6F5; border-radius: 8px; padding: 8px 11px; font-size: 12px; color: #3f2a5c; margin-bottom: 10px; line-height: 1.5; }
+        table.tbl-item { font-size: 12px; border-radius: 8px; overflow: hidden; }
+        table.tbl-item th, table.tbl-item td { vertical-align: middle; padding: 8px 10px; }
+        table.tbl-item .r { text-align: right; }
+        table.tbl-item .c { text-align: center; }
+        table.tbl-item td.angka { text-align: right; font-weight: 700; }
+        table.tbl-item .col-dari { background: #E3EEFB; }
+        table.tbl-item th.col-dari { color: #1F5FA8; }
+        table.tbl-item .col-ke { background: #E7F6ED; }
+        table.tbl-item th.col-ke { color: #1E7D32; }
+        table.tbl-item .habis { color: #c0392b; }
+        table.tbl-item .menipis { color: #b06d09; }
+        table.tbl-item td.berubah { animation: kedip 1.2s ease-out; }
+        .fc-warn { background: #FFF8E8; border: 1px solid #F0DBA0; border-radius: 8px; padding: 8px 11px; font-size: 11px; color: #7a5410; margin-top: 8px; }
+        .tolak-box { margin-top: 10px; background: #FFF8F7; border: 1px solid #F3C4C0; border-radius: 8px; padding: 10px 12px; }
         .banner-ok {
             background: #E7F6ED; border: 1px solid #A8D8B5; border-radius: 10px; padding: 10px 14px;
             margin-bottom: 14px; font-size: 12px; color: #1E5A2E;
@@ -306,8 +327,15 @@
                 btn.style.display = "inline-flex";
             }
 
-            muatTransfer();
-            if (!canBuat && window.location.hash === "#permintaan") bukaPermintaan();
+            if (canBuat) {
+                // area tiap outlet untuk filter & label di tampilan forecaster
+                db.collection("outlets").get().then(function (snap) {
+                    snap.forEach(function (d) { areaOutletFc[d.id] = d.data().area || "Area 1"; });
+                }).catch(function () { /* filter area jadi tidak tersedia */ }).then(muatTransfer);
+            } else {
+                muatTransfer();
+                if (window.location.hash === "#permintaan") bukaPermintaan();
+            }
         }
 
         // ===== Ambil data =====
@@ -362,66 +390,290 @@
             if (canBuat) renderForecaster(); else renderKasir();
         }
 
+        let tabFc = null;            // tab forecaster: acc | proses | selisih | riwayat
+        let areaFc = "";             // filter area ("" = semua area)
+        let areaOutletFc = {};       // { outlet: area }
+        let stokFc = {};             // { outlet: { productId: {jumlah, minStok} } } - real time untuk kartu ACC
+        let langgananFc = {};        // { outlet: fungsi berhenti memantau }
+        let accQty = {};             // { transferId: { productId: jumlah disetujui } }
+        let tolakTerbuka = {};       // { transferId: true } kotak alasan tolak sedang terbuka
+
+        function areaDari(o) {
+            return areaOutletFc[o] || "Area 1";
+        }
+
+        function cocokAreaFc(t) {
+            return !areaFc || areaDari(t.dari) === areaFc || areaDari(t.ke) === areaFc;
+        }
+
+        function pilihTabFc(t) {
+            tabFc = t;
+            renderForecaster();
+        }
+
+        function gantiAreaFc(a) {
+            areaFc = a;
+            renderForecaster();
+        }
+
+        function tombolTabFc(key, label, jumlah, warna) {
+            return '<button class="tab' + (tabFc === key ? " on" : "") + '" onclick="pilihTabFc(\'' + key + '\')">' + label +
+                   (jumlah > 0 ? ' <span class="cnt"' + (warna ? ' style="background:' + warna + ';"' : '') + '>' + jumlah + '</span>' : '') + '</button>';
+        }
+
         // ===================================================================
         //  TAMPILAN FORECASTER / ADMIN
+        //  Tab mengikuti alur: Perlu ACC -> Dalam Proses (kirim/terima) -> Selisih -> Riwayat
         // ===================================================================
         function renderForecaster() {
             const wadah = document.getElementById("isiHalaman");
+            const semua = daftarTransfer.filter(cocokAreaFc);
+            const perluCek = function (t) { return t.status === "selesai" && t.selisih && !t.selisihDicek; };
+            const grup = {
+                acc: semua.filter(function (t) { return t.status === "menunggu_acc"; }),
+                proses: semua.filter(function (t) { return t.status === "menunggu_kirim" || t.status === "dikirim"; }),
+                selisih: semua.filter(perluCek),
+                riwayat: semua.filter(function (t) {
+                    return (t.status === "selesai" && !perluCek(t)) || t.status === "dibatalkan" || t.status === "ditolak";
+                }).slice(0, 50)
+            };
+            if (!tabFc) tabFc = grup.acc.length > 0 ? "acc" : grup.selisih.length > 0 ? "selisih" : "proses";
 
-            if (daftarTransfer.length === 0) {
-                wadah.innerHTML = '<div class="empty-state">Belum ada transfer. Buat dari halaman Stok dengan memilih outlet tujuan.</div>';
-                return;
-            }
-
-            const jmlSelisih = daftarTransfer.filter(function (t) { return t.selisih && !t.selisihDicek; }).length;
-            const jmlAcc = daftarTransfer.filter(function (t) { return t.status === "menunggu_acc"; }).length;
-            let html = "";
-
-            if (jmlAcc > 0) {
-                html += '<div class="banner-acc"><b>' + jmlAcc + ' permintaan transfer dari kasir</b> menunggu ACC. ' +
-                        'Transfer baru berjalan setelah di-ACC.</div>';
-            }
-            if (jmlSelisih > 0) {
-                html += '<div class="banner-selisih"><b>' + jmlSelisih + ' transfer selisih:</b> jumlah diterima tidak sama dengan jumlah dikirim. Perlu dicek.</div>';
-            }
-
-            html += '<table><thead><tr><th style="width:190px;">Transfer</th><th>Isi (dikirim &rarr; diterima)</th><th style="width:170px;">Status</th><th style="width:110px;"></th></tr></thead><tbody>';
-
-            daftarTransfer.forEach(function (t) {
-                const adaSelisih = t.selisih && !t.selisihDicek;
-                const perluAcc = t.status === "menunggu_acc";
-                html += '<tr' + (adaSelisih ? ' style="background:#FFF8F7;"' : perluAcc ? ' style="background:#FBF8FE;"' : '') + '>';
-                html += '<td><b>' + esc(t.dari) + ' &rarr; ' + esc(t.ke) + '</b><div class="sub">' + waktu(t.dibuatPada) + '</div>' +
-                        (t.diajukanOleh ? '<div class="sub">Permintaan kasir ' + esc(t.diajukanOleh.nama) + ' (' + esc(t.diajukanOleh.outlet) + ')</div>' : '') +
-                        '</td>';
-
-                html += '<td>';
-                (t.items || []).forEach(function (it) {
-                    const diterima = it.jumlahDiterima !== undefined ? it.jumlahDiterima : "-";
-                    const beda = it.jumlahDiterima !== undefined && it.jumlahDiterima !== it.jumlah;
-                    html += '<div class="ln"' + (beda ? ' style="color:#B03A2E; font-weight:800;"' : '') + '>' +
-                            esc(it.nama) + ': ' + it.jumlah + ' &rarr; ' + diterima + '</div>';
-                });
-                if (t.catatan) html += '<div class="sub">' + (t.diajukanOleh ? 'Alasan' : 'Catatan') + ': ' + esc(t.catatan) + '</div>';
-                if (t.catatanSelisih) html += '<div class="sub" style="color:#B03A2E;">Catatan penerima: ' + esc(t.catatanSelisih) + '</div>';
-                html += '</td>';
-
-                html += '<td>' + badgeStatus(t) + subStatus(t) + '</td>';
-
-                html += '<td>';
-                if (perluAcc) {
-                    html += '<button class="btn btn-sm btn-ok" style="margin-bottom:6px;" onclick="accPermintaan(\'' + t.id + '\')">ACC</button><br>' +
-                            '<button class="btn btn-sm btn-danger" onclick="tolakPermintaan(\'' + t.id + '\')">Tolak</button>';
-                } else if (t.status === "menunggu_kirim") {
-                    html += '<button class="btn btn-sm btn-danger" onclick="batalkanTransfer(\'' + t.id + '\')">Batalkan</button>';
-                } else if (adaSelisih) {
-                    html += '<button class="btn btn-sm" onclick="tandaiDicek(\'' + t.id + '\')">Tandai dicek</button>';
-                }
-                html += '</td></tr>';
+            const daftarArea = [];
+            Object.keys(areaOutletFc).forEach(function (o) {
+                if (daftarArea.indexOf(areaOutletFc[o]) === -1) daftarArea.push(areaOutletFc[o]);
             });
+            daftarArea.sort();
 
-            html += '</tbody></table>';
+            let html = '<div class="fc-bar"><span class="fc-label">Area</span>' +
+                '<select class="fc-select" onchange="gantiAreaFc(this.value)"><option value="">Semua area</option>' +
+                daftarArea.map(function (a) { return '<option value="' + esc(a) + '"' + (a === areaFc ? ' selected' : '') + '>' + esc(a) + '</option>'; }).join("") +
+                '</select></div>';
+
+            html += '<div class="tabs">' +
+                tombolTabFc("acc", "Perlu ACC", grup.acc.length, "#6B3FA0") +
+                tombolTabFc("proses", "Dalam Proses", grup.proses.length) +
+                tombolTabFc("selisih", "Selisih", grup.selisih.length, "#B03A2E") +
+                tombolTabFc("riwayat", "Riwayat", 0) + '</div>';
+
+            const daftar = grup[tabFc];
+            if (tabFc === "acc") {
+                if (daftar.length === 0) {
+                    html += '<div class="empty-state">Tidak ada permintaan transfer yang menunggu ACC.</div>';
+                } else {
+                    html += '<div class="banner-acc"><b>' + daftar.length + ' permintaan dari kasir</b> menunggu keputusan. ' +
+                            'Cek stok asal & tujuan (real time), sesuaikan jumlah bila perlu, lalu ACC atau tolak.</div>';
+                    daftar.forEach(function (t) { html += kartuAcc(t); });
+                }
+            } else if (tabFc === "proses") {
+                if (daftar.length === 0) {
+                    html += '<div class="empty-state">Tidak ada transfer yang sedang berjalan. Buat perintah baru dari tombol + Buat Transfer.</div>';
+                } else {
+                    const tunggu = daftar.filter(function (t) { return t.status === "menunggu_kirim"; });
+                    const jalan = daftar.filter(function (t) { return t.status === "dikirim"; });
+                    if (tunggu.length > 0) {
+                        html += '<div class="sec-label">MENUNGGU DIKIRIM OUTLET ASAL (' + tunggu.length + ')</div>';
+                        tunggu.forEach(function (t) { html += kartuProses(t); });
+                    }
+                    if (jalan.length > 0) {
+                        html += '<div class="sec-label">DALAM PERJALANAN, MENUNGGU DITERIMA (' + jalan.length + ')</div>';
+                        jalan.forEach(function (t) { html += kartuProses(t); });
+                    }
+                }
+            } else if (tabFc === "selisih") {
+                if (daftar.length === 0) {
+                    html += '<div class="empty-state">Tidak ada transfer selisih yang perlu dicek.</div>';
+                } else {
+                    html += '<div class="banner-selisih"><b>' + daftar.length + ' transfer selisih:</b> jumlah diterima tidak sama dengan jumlah dikirim. Cek lalu tandai sudah dicek.</div>';
+                    daftar.forEach(function (t) { html += kartuSelisih(t); });
+                }
+            } else {
+                if (daftar.length === 0) {
+                    html += '<div class="empty-state">Belum ada riwayat transfer.</div>';
+                } else {
+                    daftar.forEach(function (t) { html += kartuRiwayatFc(t); });
+                }
+            }
+
             wadah.innerHTML = html;
+            pantauStokFc(tabFc === "acc" ? daftar : []);
+        }
+
+        function daftarItem(t, opsi) {
+            let html = "";
+            (t.items || []).forEach(function (it) {
+                const diterima = it.jumlahDiterima;
+                const beda = diterima !== undefined && diterima !== it.jumlah;
+                let kanan = '<b>' + it.jumlah + '</b>';
+                if (opsi && opsi.terima && diterima !== undefined) {
+                    kanan = '<span class="sent">dikirim ' + it.jumlah + '</span><b' + (beda ? ' style="color:#B03A2E;"' : '') + '>diterima ' + diterima + '</b>';
+                }
+                const diubah = it.jumlahDiminta !== undefined && it.jumlahDiminta !== it.jumlah;
+                html += '<div class="li"' + (beda ? ' style="background:#FFF8F7;"' : '') + '><span>' + esc(it.nama) +
+                        (diubah ? ' <span class="sub" style="display:inline;">(diminta ' + it.jumlahDiminta + ')</span>' : '') + '</span>' +
+                        '<span>' + kanan + '</span></div>';
+            });
+            return html;
+        }
+
+        function selStokFc(o, pid, kelas) {
+            const s = stokFc[o] ? stokFc[o][pid] : undefined;
+            const teks = stokFc[o] ? (s ? s.jumlah : "-") : "…";
+            const k = s ? (s.jumlah <= 0 ? " habis" : s.jumlah <= s.minStok ? " menipis" : "") : "";
+            return '<td class="angka ' + kelas + k + '" data-fo="' + esc(o) + '" data-fpid="' + esc(pid) + '">' + teks + '</td>';
+        }
+
+        // Kartu permintaan yang menunggu ACC: stok asal & tujuan real time, jumlah disetujui bisa disesuaikan
+        function kartuAcc(t) {
+            if (!accQty[t.id]) {
+                accQty[t.id] = {};
+                (t.items || []).forEach(function (it) { accQty[t.id][it.productId] = it.jumlah; });
+            }
+            const q = accQty[t.id];
+            const pengaju = t.diajukanOleh || {};
+
+            let html = '<div class="card aktif acc"><div class="card-title">' + esc(t.dari) + ' &rarr; ' + esc(t.ke) + ' ' + badgeStatus(t) + '</div>' +
+                       '<div class="card-meta">Permintaan ' + esc(pengaju.nama) + ' (' + esc(pengaju.outlet) + ') · ' + waktu(t.dibuatPada) +
+                       ' · ' + esc(areaDari(t.dari)) + '</div>' +
+                       '<div class="alasan-box"><b>Alasan:</b> ' + esc(t.catatan) + '</div>';
+
+            html += '<table class="tbl-item"><thead><tr><th>Produk</th>' +
+                    '<th class="r col-dari">Stok ' + esc(t.dari) + '<div class="sub" style="color:#1F5FA8;">asal · real time</div></th>' +
+                    '<th class="r col-ke">Stok ' + esc(t.ke) + '<div class="sub" style="color:#1E7D32;">tujuan · real time</div></th>' +
+                    '<th class="r">Diminta</th><th class="c">Disetujui</th></tr></thead><tbody>';
+            (t.items || []).forEach(function (it) {
+                html += '<tr><td>' + esc(it.nama) + '</td>' +
+                        selStokFc(t.dari, it.productId, "col-dari") +
+                        selStokFc(t.ke, it.productId, "col-ke") +
+                        '<td class="r">' + it.jumlah + '</td>' +
+                        '<td class="c"><input class="qty-in fc-qty" type="number" min="0" value="' + q[it.productId] + '" ' +
+                        'data-tid="' + t.id + '" data-pid="' + esc(it.productId) + '" data-dari="' + esc(t.dari) + '" data-minta="' + it.jumlah + '" ' +
+                        'oninput="ubahAccQty(this)"></td></tr>';
+            });
+            html += '</tbody></table>';
+            html += '<div class="fc-warn" id="warn_' + t.id + '" style="display:none;"></div>';
+
+            if (tolakTerbuka[t.id]) {
+                html += '<div class="tolak-box"><div style="font-size:11px; font-weight:700;">Alasan menolak <span style="color:#B03A2E;">(wajib, terlihat oleh kasir)</span></div>' +
+                        '<input class="catatan-in" type="text" id="tolak_' + t.id + '" maxlength="200" placeholder="Contoh: Stok Tajem cukup untuk 2 hari, tunggu kiriman pusat"></div>';
+            }
+
+            html += '<div class="card-foot"><div class="foot-note">Setelah di-ACC, kasir ' + esc(t.dari) + ' dapat tugas Kirim dengan jumlah yang disetujui.</div>' +
+                    '<div style="display:flex; gap:8px;">' +
+                    (tolakTerbuka[t.id]
+                        ? '<button class="btn" onclick="batalTolak(\'' + t.id + '\')">Batal</button>' +
+                          '<button class="btn btn-danger" id="btnTolak_' + t.id + '" onclick="tolakPermintaan(\'' + t.id + '\')">Kirim Penolakan</button>'
+                        : '<button class="btn btn-danger" onclick="tolakPermintaan(\'' + t.id + '\')">Tolak</button>' +
+                          '<button class="btn btn-primary btn-big" id="btnAcc_' + t.id + '" onclick="accPermintaan(\'' + t.id + '\')">ACC &rarr;</button>') +
+                    '</div></div>' +
+                    '<div class="err" id="err_' + t.id + '" style="display:none;"></div></div>';
+            return html;
+        }
+
+        function ubahAccQty(el) {
+            let v = parseInt(el.value, 10);
+            if (isNaN(v) || v < 0) v = 0;
+            accQty[el.dataset.tid][el.dataset.pid] = v;
+            el.classList.toggle("beda", v !== parseInt(el.dataset.minta, 10));
+            cekStokAcc(el.dataset.tid);
+        }
+
+        // Peringatan bila jumlah disetujui melebihi stok asal saat ini
+        function cekStokAcc(tid) {
+            const warn = document.getElementById("warn_" + tid);
+            if (!warn) return;
+            const kurang = [];
+            document.querySelectorAll('input.fc-qty[data-tid="' + tid + '"]').forEach(function (el) {
+                const st = stokFc[el.dataset.dari];
+                if (!st) return;
+                const s = st[el.dataset.pid];
+                const ada = s ? s.jumlah : 0;
+                const v = accQty[tid][el.dataset.pid] || 0;
+                if (v > ada) kurang.push(el.closest("tr").children[0].textContent + " (stok " + ada + ")");
+            });
+            warn.style.display = kurang.length ? "block" : "none";
+            warn.textContent = kurang.length ? "Stok asal sekarang kurang: " + kurang.join(", ") + ". Kurangi jumlah disetujui sebelum ACC." : "";
+        }
+
+        // Pantau stok outlet yang terlibat di kartu ACC selama tab Perlu ACC terbuka
+        function pantauStokFc(daftar) {
+            const perlu = {};
+            daftar.forEach(function (t) { perlu[t.dari] = true; perlu[t.ke] = true; });
+            Object.keys(langgananFc).forEach(function (o) {
+                if (!perlu[o]) { langgananFc[o](); delete langgananFc[o]; delete stokFc[o]; }
+            });
+            Object.keys(perlu).forEach(function (o) {
+                if (langgananFc[o]) { perbaruiStokFc(o); return; }
+                langgananFc[o] = db.collection("outlets").doc(o).collection("stock").onSnapshot(function (snap) {
+                    const isi = {};
+                    snap.forEach(function (d) {
+                        const x = d.data();
+                        isi[d.id] = { jumlah: x.jumlah || 0, minStok: x.minStok !== undefined ? x.minStok : 5 };
+                    });
+                    stokFc[o] = isi;
+                    perbaruiStokFc(o);
+                }, function () { /* stok hanya pelengkap keputusan; abaikan kalau gagal */ });
+            });
+            daftar.forEach(function (t) { cekStokAcc(t.id); });
+        }
+
+        function perbaruiStokFc(o) {
+            document.querySelectorAll("#isiHalaman td[data-fo]").forEach(function (td) {
+                if (td.dataset.fo !== o || !stokFc[o]) return;
+                const s = stokFc[o][td.dataset.fpid];
+                const teks = s ? String(s.jumlah) : "-";
+                if (td.textContent === teks) return;
+                const awal = td.textContent === "…";
+                td.textContent = teks;
+                td.classList.remove("habis", "menipis", "berubah");
+                if (s) { if (s.jumlah <= 0) td.classList.add("habis"); else if (s.jumlah <= s.minStok) td.classList.add("menipis"); }
+                if (!awal) { void td.offsetWidth; td.classList.add("berubah"); }
+            });
+            const tids = {};
+            document.querySelectorAll("#isiHalaman input.fc-qty").forEach(function (el) { if (el.dataset.dari === o) tids[el.dataset.tid] = true; });
+            Object.keys(tids).forEach(cekStokAcc);
+        }
+
+        function kartuProses(t) {
+            const dikirim = t.status === "dikirim";
+            let html = '<div class="card ' + (dikirim ? "pasif" : "aktif") + '"><div class="card-title" style="font-size:13px;">' +
+                       esc(t.dari) + ' &rarr; ' + esc(t.ke) + ' ' + badgeStatus(t) + '</div>' +
+                       '<div class="card-meta">' + asalPerintah(t) + '</div>';
+            html += daftarItem(t);
+            html += '<div class="card-foot"><div class="foot-note">' +
+                    (dikirim
+                        ? 'Dikirim ' + waktu(t.dikirimPada) + (t.dikirimOleh ? ' oleh ' + esc(t.dikirimOleh.nama) : '') + '. Menunggu kasir ' + esc(t.ke) + ' klik Terima.'
+                        : 'Menunggu kasir ' + esc(t.dari) + ' klik Kirim. Stok belum berpindah.') + '</div>' +
+                    (dikirim ? '' : '<button class="btn btn-sm btn-danger" onclick="batalkanTransfer(\'' + t.id + '\')">Batalkan</button>') +
+                    '</div></div>';
+            return html;
+        }
+
+        function kartuSelisih(t) {
+            const total = (t.items || []).reduce(function (a, it) { return a + Math.abs(it.jumlah - (it.jumlahDiterima || 0)); }, 0);
+            let html = '<div class="card aktif selisih"><div class="card-title" style="font-size:13px;">' +
+                       esc(t.dari) + ' &rarr; ' + esc(t.ke) + ' ' + badgeStatus(t) + '</div>' +
+                       '<div class="card-meta">Diterima ' + waktu(t.diterimaPada) + (t.diterimaOleh ? ' oleh ' + esc(t.diterimaOleh.nama) : '') +
+                       ' · selisih ' + total + ' pcs</div>';
+            html += daftarItem(t, { terima: true });
+            if (t.catatanSelisih) html += '<div class="alasan-box" style="background:#FFF8F7; border-color:#F3C4C0;"><b>Catatan penerima:</b> ' + esc(t.catatanSelisih) + '</div>';
+            html += '<div class="card-foot"><div class="foot-note">Cek ke outlet terkait, lalu tandai sudah dicek.</div>' +
+                    '<button class="btn btn-sm" onclick="tandaiDicek(\'' + t.id + '\')">Tandai dicek</button></div></div>';
+            return html;
+        }
+
+        function kartuRiwayatFc(t) {
+            let ket = "";
+            if (t.status === "selesai") ket = "Diterima " + waktu(t.diterimaPada);
+            else if (t.status === "ditolak") ket = "Ditolak " + waktu(t.ditolakPada) + (t.ditolakOleh ? " oleh " + esc(t.ditolakOleh.nama) : "");
+            else ket = "Dibatalkan " + waktu(t.dibatalkanPada);
+            let html = '<div class="card pasif"><div class="card-title" style="font-size:13px; color:#52606d;">' +
+                       esc(t.dari) + ' &rarr; ' + esc(t.ke) + ' ' + badgeStatus(t) + '</div>' +
+                       '<div class="card-meta">' + ket + ' · ' + asalPerintah(t) + '</div>';
+            html += daftarItem(t, { terima: t.status === "selesai" });
+            if (t.alasanTolak) html += '<div class="sub" style="color:#B03A2E; margin-top:6px;">Alasan tolak: ' + esc(t.alasanTolak) + '</div>';
+            if (t.catatanSelisih) html += '<div class="sub" style="margin-top:6px;">Catatan penerima: ' + esc(t.catatanSelisih) + '</div>';
+            return html + '</div>';
         }
 
         function badgeStatus(t) {
@@ -764,24 +1016,53 @@
 
         function accPermintaan(id) {
             const t = daftarTransfer.find(function (x) { return x.id === id; });
-            if (!t || !confirm("ACC permintaan " + t.dari + " → " + t.ke + "?\nKasir " + t.dari + " akan langsung dapat tugas Kirim.")) return;
+            if (!t) return;
+            const q = accQty[id] || {};
+            const st = stokFc[t.dari];
+            const items = [];
+            let lebih = "";
+            (t.items || []).forEach(function (it) {
+                const v = q[it.productId] !== undefined ? q[it.productId] : it.jumlah;
+                if (st && v > (st[it.productId] ? st[it.productId].jumlah : 0)) lebih = it.nama;
+                if (v > 0) items.push(Object.assign({}, it, { jumlah: v, jumlahDiminta: it.jumlah }));
+            });
+            if (lebih) { tampilError(id, "Jumlah " + lebih + " melebihi stok " + t.dari + " saat ini."); return; }
+            if (items.length === 0) { tampilError(id, "Isi jumlah disetujui minimal satu produk, atau tolak permintaan ini."); return; }
+
+            const diubah = items.length !== t.items.length || items.some(function (it) { return it.jumlah !== it.jumlahDiminta; });
+            if (!confirm("ACC permintaan " + t.dari + " → " + t.ke + "?" + (diubah ? "\nJumlah disesuaikan dari permintaan kasir." : "") +
+                         "\nKasir " + t.dari + " akan langsung dapat tugas Kirim.")) return;
             ubahStatusPermintaan(id, {
                 status: "menunggu_kirim",
+                items: items,
                 disetujuiOleh: { uid: auth.currentUser.uid, nama: currentUser.nama || "" },
                 disetujuiPada: firebase.firestore.FieldValue.serverTimestamp()
-            }, "Permintaan ini sudah diproses.");
+            }, "Permintaan ini sudah diproses.").then(function () { delete accQty[id]; });
         }
 
+        // Klik pertama membuka kotak alasan di kartu; klik kedua mengirim penolakan
         function tolakPermintaan(id) {
-            const alasan = prompt("Alasan menolak permintaan ini (akan terlihat oleh kasir):");
-            if (alasan === null) return;
-            if (!alasan.trim()) { alert("Alasan penolakan wajib diisi."); return; }
+            if (!tolakTerbuka[id]) {
+                tolakTerbuka[id] = true;
+                renderForecaster();
+                const el = document.getElementById("tolak_" + id);
+                if (el) el.focus();
+                return;
+            }
+            const el = document.getElementById("tolak_" + id);
+            const alasan = el ? el.value.trim() : "";
+            if (!alasan) { tampilError(id, "Alasan penolakan wajib diisi."); return; }
             ubahStatusPermintaan(id, {
                 status: "ditolak",
-                alasanTolak: alasan.trim().slice(0, 200),
+                alasanTolak: alasan.slice(0, 200),
                 ditolakOleh: { uid: auth.currentUser.uid, nama: currentUser.nama || "" },
                 ditolakPada: firebase.firestore.FieldValue.serverTimestamp()
-            }, "Permintaan ini sudah diproses.");
+            }, "Permintaan ini sudah diproses.").then(function () { delete tolakTerbuka[id]; });
+        }
+
+        function batalTolak(id) {
+            delete tolakTerbuka[id];
+            renderForecaster();
         }
 
         function batalPermintaan(id) {
@@ -883,9 +1164,7 @@
             let html = '<div class="card ' + (aktif ? "aktif" : "pasif") + '"><div class="card-title" style="font-size:13px;">' +
                        esc(t.dari) + ' &rarr; ' + esc(t.ke) + ' ' + badgeStatus(t) + '</div>' +
                        '<div class="card-meta">Diajukan ' + esc(t.diajukanOleh.nama) + ' ' + waktu(t.dibuatPada) + ' · Alasan: ' + esc(t.catatan) + '</div>';
-            (t.items || []).forEach(function (it) {
-                html += '<div class="li"><span>' + esc(it.nama) + '</span><b>' + it.jumlah + '</b></div>';
-            });
+            html += daftarItem(t);
             if (t.status === "ditolak") {
                 html += '<div class="sub" style="color:#B03A2E; margin-top:8px;">Ditolak' + (t.ditolakOleh ? ' oleh ' + esc(t.ditolakOleh.nama) : '') +
                         (t.alasanTolak ? ': ' + esc(t.alasanTolak) : '') + '</div>';
