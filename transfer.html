@@ -91,6 +91,13 @@
         .s-selisih { background: #FDEAEA; color: #B03A2E; }
         .s-batal { background: #EEF1F5; color: #8A95A5; }
         .s-perlu { background: #FFF1D6; color: #9A6B1C; }
+        .s-acc { background: #F1E9FB; color: #6B3FA0; }
+        .s-tolak { background: #FDEAEA; color: #B03A2E; }
+        .banner-acc {
+            background: #F7F2FD; border: 1px solid #DCC9F2; border-radius: 10px; padding: 10px 14px;
+            margin-bottom: 14px; font-size: 12px; color: #4F2C7A;
+        }
+        .btn-ok { color: #1E7D32; border-color: #A8D8B5; }
 
         /* Kartu kasir */
         .card { border: 1px solid #dde3ea; border-radius: 12px; padding: 16px; margin-bottom: 12px; background: #ffffff; }
@@ -112,6 +119,57 @@
         .err { color: #c0392b; font-size: 11px; margin-top: 8px; }
 
         .loading-state, .empty-state { text-align: center; color: #6b7280; font-size: 12px; padding: 30px 0; }
+
+        /* ===== Modal permintaan transfer (kasir) ===== */
+        .modal-backdrop {
+            display: none; position: fixed; inset: 0; background: rgba(18,48,92,0.35);
+            align-items: flex-start; justify-content: center; padding: 30px 16px; z-index: 100; overflow-y: auto;
+        }
+        .modal-backdrop.tampil { display: flex; }
+        .modal-box { background: #ffffff; border-radius: 12px; padding: 22px; width: 100%; max-width: 720px; }
+        .modal-title { font-size: 15px; font-weight: 800; }
+        .modal-desc { font-size: 11px; color: #6b7280; margin-top: 4px; line-height: 1.5; }
+        .pm-rute { display: flex; gap: 10px; margin-top: 16px; align-items: flex-end; }
+        .pm-rute > div { flex: 1; }
+        .pm-label { font-size: 10px; font-weight: 800; letter-spacing: 0.04em; color: #8A95A5; margin-bottom: 4px; }
+        .pm-select { width: 100%; height: 36px; border: 1px solid #d1d5db; border-radius: 6px; padding: 0 10px; font-size: 12.5px; background: #ffffff; font-family: inherit; }
+        .pm-select.dari { border: 2px solid #1F5FA8; }
+        .pm-select.ke { border: 2px solid #1E7D32; }
+        .pm-panah { font-size: 16px; color: #8A95A5; margin-bottom: 8px; flex: 0 0 auto !important; }
+
+        .pm-wrap { overflow-x: auto; border: 1px solid #dde3ea; border-radius: 10px; margin-top: 8px; }
+        table.pm-tabel { border: none; font-size: 12px; }
+        table.pm-tabel th, table.pm-tabel td { white-space: nowrap; padding: 8px 10px; vertical-align: middle; }
+        table.pm-tabel th { text-align: right; }
+        table.pm-tabel th:first-child, table.pm-tabel td:first-child {
+            text-align: left; position: sticky; left: 0; background: #ffffff; z-index: 1; box-shadow: 1px 0 0 #e8ecf1;
+        }
+        table.pm-tabel th:first-child { background: #f1f4f8; }
+        table.pm-tabel td.angka { text-align: right; }
+        table.pm-tabel .col-dari { background: #E3EEFB; }
+        table.pm-tabel th.col-dari { color: #1F5FA8; }
+        table.pm-tabel .col-ke { background: #E7F6ED; }
+        table.pm-tabel th.col-ke { color: #1E7D32; }
+        table.pm-tabel .habis { color: #c0392b; font-weight: 800; }
+        table.pm-tabel .menipis { color: #b06d09; font-weight: 800; }
+        table.pm-tabel th.col-jml, table.pm-tabel td.col-jml { text-align: center; background: #F7F8FA; }
+        .pm-qty { width: 64px; height: 30px; text-align: center; border: 1px solid #d1d5db; border-radius: 6px; font-size: 12.5px; font-weight: 700; font-family: inherit; }
+        .pm-qty.terisi { border: 2px solid #12305C; color: #12305C; background: #F1F6FF; }
+        .pm-qty:disabled { background: #f3f4f6; }
+        .pm-legend { font-size: 10.5px; color: #8A95A5; margin-top: 6px; }
+        .pm-tabel-head { display: flex; align-items: center; gap: 10px; margin-top: 16px; min-height: 28px; }
+        .pm-live { font-size: 10px; font-weight: 700; color: #1E7D32; }
+        table.pm-tabel td.berubah { animation: kedip 1.2s ease-out; }
+        @keyframes kedip { from { box-shadow: inset 0 0 0 2px #E8A33D; } to { box-shadow: inset 0 0 0 2px transparent; } }
+        .pm-catatan-qty { font-size: 9.5px; color: #b06d09; margin-top: 2px; }
+        .pm-alasan { width: 100%; height: 64px; border: 1px solid #d1d5db; border-radius: 6px; padding: 8px 10px; font-size: 12px; font-family: inherit; resize: vertical; margin-top: 5px; }
+        .pm-error { color: #c0392b; font-size: 11px; margin-top: 10px; }
+        .pm-aksi { display: flex; gap: 8px; margin-top: 16px; }
+        .pm-aksi .btn { flex: 1; justify-content: center; height: 38px; }
+        .banner-ok {
+            background: #E7F6ED; border: 1px solid #A8D8B5; border-radius: 10px; padding: 10px 14px;
+            margin-bottom: 14px; font-size: 12px; color: #1E5A2E;
+        }
     </style>
 </head>
 <body>
@@ -125,6 +183,53 @@
                 <a class="btn btn-primary" id="btnBuat" href="stok.html" style="display:none;">+ Buat Transfer</a>
             </div>
             <div id="isiHalaman"><div class="loading-state">Memuat data transfer...</div></div>
+        </div>
+    </div>
+
+    <!-- Modal permintaan transfer (kasir) -->
+    <div class="modal-backdrop" id="modalPermintaan">
+        <div class="modal-box">
+            <div class="modal-title">Ajukan Permintaan Transfer</div>
+            <div class="modal-desc">
+                Bandingkan stok outlet se-area di bawah, pilih dari mana ke mana, lalu isi jumlahnya.
+                Permintaan dikirim ke Forecaster dan transfer baru berjalan setelah di-ACC.
+            </div>
+
+            <div class="pm-rute">
+                <div>
+                    <div class="pm-label">DARI (OUTLET ASAL)</div>
+                    <select class="pm-select dari" id="pmDari" onchange="gantiPmDari()"></select>
+                </div>
+                <span class="pm-panah">&rarr;</span>
+                <div>
+                    <div class="pm-label">KE (OUTLET TUJUAN)</div>
+                    <select class="pm-select ke" id="pmKe" onchange="gantiPmKe()"></select>
+                </div>
+            </div>
+
+            <div class="pm-tabel-head">
+                <div class="pm-label" style="margin:0;" id="pmJudulTabel">STOK OUTLET SE-AREA</div>
+                <span class="pm-live" id="pmLive" style="display:none;">&#9679; real time</span>
+                <button class="btn btn-sm" id="pmToggle" style="display:none; margin-left:auto;" onclick="togglePmSemua()"></button>
+            </div>
+            <div class="pm-wrap" id="pmIsi"></div>
+            <div class="pm-legend">
+                <span style="color:#1F5FA8; font-weight:800;">Biru</span> = outlet asal,
+                <span style="color:#1E7D32; font-weight:800;">hijau</span> = outlet tujuan.
+                <span style="color:#c0392b; font-weight:800;">Merah</span> = habis,
+                <span style="color:#b06d09; font-weight:800;">kuning</span> = menipis. Topping tidak ikut ditransfer.
+            </div>
+
+            <div style="font-size:11px; font-weight:700; margin-top:14px;">Alasan <span style="color:#c0392b;">(wajib diisi)</span></div>
+            <textarea class="pm-alasan" id="pmAlasan" maxlength="300"
+                      placeholder="Contoh: Ogura Cheese di Tajem habis, di Nusa Indah masih banyak"></textarea>
+
+            <div class="pm-error" id="pmError" style="display:none;"></div>
+
+            <div class="pm-aksi">
+                <button class="btn" onclick="tutupPermintaan()">Batal</button>
+                <button class="btn btn-primary" id="btnKirimPermintaan" style="flex:1.3;" onclick="kirimPermintaan()">Ajukan ke Forecaster</button>
+            </div>
         </div>
     </div>
 
@@ -147,6 +252,7 @@
         let daftarTransfer = [];     // semua transfer yang relevan, terbaru di atas
         let tabAktif = "kirim";      // khusus kasir: kirim | terima | riwayat
         let sedangProses = {};       // cegah klik ganda per transfer
+        let pesanSukses = "";        // banner sekali tampil setelah permintaan terkirim
 
         function esc(t) {
             return String(t == null ? "" : t).replace(/[&<>"']/g, function (c) {
@@ -193,9 +299,15 @@
                 document.getElementById("btnBuat").style.display = "inline-flex";
             } else {
                 document.getElementById("judulHalaman").textContent = "Transfer · " + currentUser.outlet;
+                const btn = document.getElementById("btnBuat");
+                btn.textContent = "+ Permintaan Transfer";
+                btn.href = "#permintaan";
+                btn.onclick = function (e) { e.preventDefault(); bukaPermintaan(); };
+                btn.style.display = "inline-flex";
             }
 
             muatTransfer();
+            if (!canBuat && window.location.hash === "#permintaan") bukaPermintaan();
         }
 
         // ===== Ambil data =====
@@ -209,7 +321,9 @@
                 const col = db.collection("transfer_stok");
                 pekerjaan = Promise.all([
                     col.where("dari", "==", currentUser.outlet).get(),
-                    col.where("ke", "==", currentUser.outlet).get()
+                    col.where("ke", "==", currentUser.outlet).get(),
+                    // permintaan yang diajukan outlet ini (bisa antar outlet lain se-area)
+                    col.where("diajukanOleh.outlet", "==", currentUser.outlet).get()
                 ]).then(function (hasil) {
                     const gabung = {};
                     hasil.forEach(function (snap) { snap.forEach(function (d) { gabung[d.id] = d; }); });
@@ -260,8 +374,13 @@
             }
 
             const jmlSelisih = daftarTransfer.filter(function (t) { return t.selisih && !t.selisihDicek; }).length;
+            const jmlAcc = daftarTransfer.filter(function (t) { return t.status === "menunggu_acc"; }).length;
             let html = "";
 
+            if (jmlAcc > 0) {
+                html += '<div class="banner-acc"><b>' + jmlAcc + ' permintaan transfer dari kasir</b> menunggu ACC. ' +
+                        'Transfer baru berjalan setelah di-ACC.</div>';
+            }
             if (jmlSelisih > 0) {
                 html += '<div class="banner-selisih"><b>' + jmlSelisih + ' transfer selisih:</b> jumlah diterima tidak sama dengan jumlah dikirim. Perlu dicek.</div>';
             }
@@ -270,8 +389,11 @@
 
             daftarTransfer.forEach(function (t) {
                 const adaSelisih = t.selisih && !t.selisihDicek;
-                html += '<tr' + (adaSelisih ? ' style="background:#FFF8F7;"' : '') + '>';
-                html += '<td><b>' + esc(t.dari) + ' &rarr; ' + esc(t.ke) + '</b><div class="sub">' + waktu(t.dibuatPada) + '</div></td>';
+                const perluAcc = t.status === "menunggu_acc";
+                html += '<tr' + (adaSelisih ? ' style="background:#FFF8F7;"' : perluAcc ? ' style="background:#FBF8FE;"' : '') + '>';
+                html += '<td><b>' + esc(t.dari) + ' &rarr; ' + esc(t.ke) + '</b><div class="sub">' + waktu(t.dibuatPada) + '</div>' +
+                        (t.diajukanOleh ? '<div class="sub">Permintaan kasir ' + esc(t.diajukanOleh.nama) + ' (' + esc(t.diajukanOleh.outlet) + ')</div>' : '') +
+                        '</td>';
 
                 html += '<td>';
                 (t.items || []).forEach(function (it) {
@@ -280,14 +402,17 @@
                     html += '<div class="ln"' + (beda ? ' style="color:#B03A2E; font-weight:800;"' : '') + '>' +
                             esc(it.nama) + ': ' + it.jumlah + ' &rarr; ' + diterima + '</div>';
                 });
-                if (t.catatan) html += '<div class="sub">Catatan: ' + esc(t.catatan) + '</div>';
+                if (t.catatan) html += '<div class="sub">' + (t.diajukanOleh ? 'Alasan' : 'Catatan') + ': ' + esc(t.catatan) + '</div>';
                 if (t.catatanSelisih) html += '<div class="sub" style="color:#B03A2E;">Catatan penerima: ' + esc(t.catatanSelisih) + '</div>';
                 html += '</td>';
 
                 html += '<td>' + badgeStatus(t) + subStatus(t) + '</td>';
 
                 html += '<td>';
-                if (t.status === "menunggu_kirim") {
+                if (perluAcc) {
+                    html += '<button class="btn btn-sm btn-ok" style="margin-bottom:6px;" onclick="accPermintaan(\'' + t.id + '\')">ACC</button><br>' +
+                            '<button class="btn btn-sm btn-danger" onclick="tolakPermintaan(\'' + t.id + '\')">Tolak</button>';
+                } else if (t.status === "menunggu_kirim") {
                     html += '<button class="btn btn-sm btn-danger" onclick="batalkanTransfer(\'' + t.id + '\')">Batalkan</button>';
                 } else if (adaSelisih) {
                     html += '<button class="btn btn-sm" onclick="tandaiDicek(\'' + t.id + '\')">Tandai dicek</button>';
@@ -300,6 +425,8 @@
         }
 
         function badgeStatus(t) {
+            if (t.status === "menunggu_acc") return '<span class="badge s-acc">MENUNGGU ACC</span>';
+            if (t.status === "ditolak") return '<span class="badge s-tolak">DITOLAK</span>';
             if (t.status === "dibatalkan") return '<span class="badge s-batal">DIBATALKAN</span>';
             if (t.status === "menunggu_kirim") return '<span class="badge s-menunggu">MENUNGGU KIRIM</span>';
             if (t.status === "dikirim") return '<span class="badge s-dikirim">DALAM PERJALANAN</span>';
@@ -315,6 +442,8 @@
         }
 
         function subStatus(t) {
+            if (t.status === "menunggu_acc") return '<div class="sub">Menunggu keputusan Forecaster</div>';
+            if (t.status === "ditolak") return '<div class="sub">Ditolak ' + waktu(t.ditolakPada) + (t.alasanTolak ? ': ' + esc(t.alasanTolak) : '') + '</div>';
             if (t.status === "menunggu_kirim") return '<div class="sub">Belum diklik Kirim oleh ' + esc(t.dari) + '</div>';
             if (t.status === "dikirim") return '<div class="sub">Dikirim ' + waktu(t.dikirimPada) + ', menunggu ' + esc(t.ke) + '</div>';
             if (t.status === "selesai" && !t.selisih) return '<div class="sub">Diterima ' + waktu(t.diterimaPada) + '</div>';
@@ -336,6 +465,333 @@
             });
         }
 
+        // ===================================================================
+        //  FORM PERMINTAAN TRANSFER (KASIR)
+        //  Kasir membandingkan stok outlet se-area, memilih asal & tujuan,
+        //  mengisi jumlah dan alasan. Disimpan di transfer_stok dengan status
+        //  "menunggu_acc"; setelah di-ACC jadi "menunggu_kirim".
+        // ===================================================================
+        let pmOutlet = [];           // outlet se-area dengan outlet kasir
+        let pmProduk = [];           // [{id, nama}] tanpa topping
+        let pmStok = {};             // { outlet: { productId: {jumlah, minStok} } } - diperbarui real time
+        let pmQty = {};              // { productId: jumlah diminta }
+        let pmDasar = null;          // Promise daftar outlet & produk (dimuat sekali per buka halaman)
+        let pmLangganan = [];        // fungsi untuk berhenti memantau stok (onSnapshot)
+        let pmSemua = false;         // tampilkan semua outlet walau asal & tujuan sudah dipilih
+
+        function muatDasarPermintaan() {
+            if (pmDasar) return pmDasar;
+            pmDasar = Promise.all([db.collection("outlets").get(), db.collection("products").get()]).then(function (hasil) {
+                const area = {};
+                hasil[0].forEach(function (d) { area[d.id] = d.data().area || "Area 1"; });
+                const areaSaya = area[currentUser.outlet] || "Area 1";
+                pmOutlet = Object.keys(area).filter(function (o) { return area[o] === areaSaya; });
+
+                pmProduk = [];
+                hasil[1].forEach(function (d) {
+                    if ((d.data().kategori || "") === "Topping") return;
+                    pmProduk.push({ id: d.id, nama: d.data().nama || d.id });
+                });
+            });
+            pmDasar.catch(function () { pmDasar = null; });   // boleh dicoba lagi kalau gagal
+            return pmDasar;
+        }
+
+        // Pantau stok tiap outlet se-area selama form terbuka. Selesai saat semua outlet sudah termuat sekali.
+        function pantauStokPermintaan() {
+            hentikanPantauStok();
+            return new Promise(function (resolve, reject) {
+                let belum = pmOutlet.length;
+                if (belum === 0) { resolve(); return; }
+                pmOutlet.forEach(function (o) {
+                    let pertama = true;
+                    const stop = db.collection("outlets").doc(o).collection("stock").onSnapshot(function (snap) {
+                        const isi = {};
+                        snap.forEach(function (d) {
+                            const x = d.data();
+                            isi[d.id] = { jumlah: x.jumlah || 0, minStok: x.minStok !== undefined ? x.minStok : 5 };
+                        });
+                        pmStok[o] = isi;
+                        if (pertama) {
+                            pertama = false;
+                            if (--belum === 0) resolve();
+                        } else {
+                            perbaruiAngkaPm(o);
+                        }
+                    }, function (e) {
+                        reject(e);
+                    });
+                    pmLangganan.push(stop);
+                });
+            });
+        }
+
+        function hentikanPantauStok() {
+            pmLangganan.forEach(function (stop) { stop(); });
+            pmLangganan = [];
+            document.getElementById("pmLive").style.display = "none";
+        }
+
+        function bukaPermintaan() {
+            pmQty = {};
+            pmSemua = false;
+            document.getElementById("pmAlasan").value = "";
+            document.getElementById("pmError").style.display = "none";
+            document.getElementById("pmToggle").style.display = "none";
+            document.getElementById("btnKirimPermintaan").disabled = false;
+            document.getElementById("pmIsi").innerHTML = '<div class="loading-state" style="padding:18px 0;">Memuat stok outlet se-area...</div>';
+            document.getElementById("modalPermintaan").classList.add("tampil");
+
+            muatDasarPermintaan().then(pantauStokPermintaan).then(function () {
+                if (!document.getElementById("modalPermintaan").classList.contains("tampil")) { hentikanPantauStok(); return; }
+                const opsi = pmOutlet.map(function (o) { return '<option value="' + esc(o) + '">' + esc(o) + '</option>'; }).join("");
+                document.getElementById("pmDari").innerHTML = opsi;
+                document.getElementById("pmDari").value = currentUser.outlet;
+                document.getElementById("pmKe").value = "";
+                document.getElementById("pmLive").style.display = "inline";
+                gantiPmDari();
+            }).catch(function (e) {
+                hentikanPantauStok();
+                document.getElementById("pmIsi").innerHTML = '<div class="empty-state" style="padding:18px 0;">' +
+                    (e.code === "permission-denied"
+                        ? "Stok outlet lain belum bisa ditampilkan: akses akun ini dibatasi oleh aturan Firestore."
+                        : "Gagal memuat stok: " + esc(e.message)) + '</div>';
+            });
+        }
+
+        function tutupPermintaan() {
+            hentikanPantauStok();
+            document.getElementById("modalPermintaan").classList.remove("tampil");
+        }
+
+        function gantiPmDari() {
+            const dari = document.getElementById("pmDari").value;
+            const keSel = document.getElementById("pmKe");
+            const keLama = keSel.value;
+            const pilihan = pmOutlet.filter(function (o) { return o !== dari; });
+            keSel.innerHTML = '<option value="">- pilih tujuan -</option>' +
+                pilihan.map(function (o) { return '<option value="' + esc(o) + '">' + esc(o) + '</option>'; }).join("");
+            if (pilihan.indexOf(keLama) !== -1) keSel.value = keLama;
+            pmQty = {};   // batas jumlah ikut stok asal yang baru
+            pmSemua = false;
+            renderPmTabel();
+        }
+
+        function gantiPmKe() {
+            pmSemua = false;   // tujuan baru dipilih: ringkas ke asal & tujuan
+            renderPmTabel();
+        }
+
+        function togglePmSemua() {
+            pmSemua = !pmSemua;
+            renderPmTabel();
+        }
+
+        function stokPm(o, pid) {
+            return (pmStok[o] && pmStok[o][pid]) || null;
+        }
+
+        function kelasStok(s) {
+            if (!s) return "";
+            return s.jumlah <= 0 ? "habis" : s.jumlah <= s.minStok ? "menipis" : "";
+        }
+
+        // Tabel: baris = produk, kolom = outlet (asal biru, tujuan hijau), kolom terakhir = jumlah diminta.
+        // Sebelum tujuan dipilih semua outlet se-area tampil; setelah asal & tujuan dipilih tabel diringkas
+        // ke dua outlet itu saja, dengan tombol untuk menampilkan semua lagi.
+        function renderPmTabel() {
+            const dari = document.getElementById("pmDari").value;
+            const ke = document.getElementById("pmKe").value;
+            const wadah = document.getElementById("pmIsi");
+            const lain = pmOutlet.filter(function (o) { return o !== dari && o !== ke; });
+            const ringkas = !!ke && !pmSemua;
+
+            const toggle = document.getElementById("pmToggle");
+            if (ke && lain.length > 0) {
+                toggle.style.display = "inline-flex";
+                toggle.textContent = ringkas ? "Tampilkan semua outlet (" + lain.length + " lainnya)" : "Ringkas: asal & tujuan saja";
+            } else {
+                toggle.style.display = "none";
+            }
+            document.getElementById("pmJudulTabel").textContent = ringkas ? "STOK ASAL & TUJUAN" : "STOK OUTLET SE-AREA";
+
+            if (pmProduk.length === 0) {
+                wadah.innerHTML = '<div class="empty-state" style="padding:18px 0;">Belum ada produk.</div>';
+                return;
+            }
+
+            // Asal dan tujuan selalu paling kiri supaya mudah dibandingkan
+            const urut = [dari].concat(ke ? [ke] : []).concat(ringkas ? [] : lain);
+            const kelasKolom = function (o) { return o === dari ? " col-dari" : o === ke ? " col-ke" : ""; };
+
+            let html = '<table class="pm-tabel"><thead><tr><th>Produk</th>';
+            urut.forEach(function (o) {
+                html += '<th class="' + kelasKolom(o).trim() + '">' + esc(o) +
+                        (o === dari ? '<div class="sub" style="color:#1F5FA8;">asal</div>' : o === ke ? '<div class="sub" style="color:#1E7D32;">tujuan</div>' : '') + '</th>';
+            });
+            html += '<th class="col-jml">Jumlah diminta</th></tr></thead><tbody>';
+
+            pmProduk.forEach(function (p) {
+                html += '<tr><td>' + esc(p.nama) + '</td>';
+                urut.forEach(function (o) {
+                    const s = stokPm(o, p.id);
+                    html += '<td class="angka' + kelasKolom(o) + (s ? " " + kelasStok(s) : "") + '" data-o="' + esc(o) + '" data-pid="' + esc(p.id) + '"' +
+                            (s ? '' : ' style="color:#c4ccd6;"') + '>' + (s ? s.jumlah : "-") + '</td>';
+                });
+
+                const sAsal = stokPm(dari, p.id);
+                const maks = sAsal ? sAsal.jumlah : 0;
+                const nilai = pmQty[p.id] > 0 ? pmQty[p.id] : "";
+                html += '<td class="col-jml"><input class="pm-qty' + (nilai ? " terisi" : "") + '" type="number" min="0" max="' + maks + '" ' +
+                        'placeholder="0" value="' + nilai + '" data-pid="' + esc(p.id) + '" oninput="ubahPmQty(this)"' +
+                        (maks <= 0 ? ' disabled title="Stok ' + esc(dari) + ' kosong"' : '') + '>' +
+                        '<div class="pm-catatan-qty" data-catatan="' + esc(p.id) + '" style="display:none;"></div></td></tr>';
+            });
+
+            wadah.innerHTML = html + '</tbody></table>';
+        }
+
+        // Stok sebuah outlet berubah saat form terbuka: perbarui angka di tempat (tanpa menggambar ulang tabel,
+        // supaya isian kasir dan kursor tidak hilang). Kalau outlet asal berkurang, batas jumlah ikut turun.
+        function perbaruiAngkaPm(o) {
+            const wadah = document.getElementById("pmIsi");
+            wadah.querySelectorAll("td[data-o]").forEach(function (td) {
+                if (td.dataset.o !== o) return;
+                const s = stokPm(o, td.dataset.pid);
+                const teks = s ? String(s.jumlah) : "-";
+                if (td.textContent === teks) return;
+                td.textContent = teks;
+                td.classList.remove("habis", "menipis", "berubah");
+                if (s) { const k = kelasStok(s); if (k) td.classList.add(k); td.style.color = ""; } else { td.style.color = "#c4ccd6"; }
+                void td.offsetWidth;   // mulai ulang animasi
+                td.classList.add("berubah");
+            });
+
+            if (o !== document.getElementById("pmDari").value) return;
+            wadah.querySelectorAll("input.pm-qty").forEach(function (el) {
+                const pid = el.dataset.pid;
+                const s = stokPm(o, pid);
+                const maks = s ? s.jumlah : 0;
+                el.max = maks;
+                el.disabled = maks <= 0;
+                const catatan = wadah.querySelector('[data-catatan="' + pid + '"]');
+                if (pmQty[pid] > maks) {
+                    if (maks > 0) pmQty[pid] = maks; else delete pmQty[pid];
+                    el.value = maks > 0 ? maks : "";
+                    el.classList.toggle("terisi", maks > 0);
+                    if (catatan) { catatan.textContent = "Disesuaikan: stok asal tinggal " + maks; catatan.style.display = "block"; }
+                }
+            });
+        }
+
+        function ubahPmQty(el) {
+            const s = stokPm(document.getElementById("pmDari").value, el.dataset.pid);
+            const maks = s ? s.jumlah : 0;
+            let v = parseInt(el.value, 10);
+            if (isNaN(v) || v < 0) v = 0;
+            if (v > maks) { v = maks; el.value = maks; }
+            if (v > 0) pmQty[el.dataset.pid] = v; else delete pmQty[el.dataset.pid];
+            el.classList.toggle("terisi", v > 0);
+            const catatan = document.querySelector('#pmIsi [data-catatan="' + el.dataset.pid + '"]');
+            if (catatan) catatan.style.display = "none";
+        }
+
+        function kirimPermintaan() {
+            const dari = document.getElementById("pmDari").value;
+            const ke = document.getElementById("pmKe").value;
+            const alasan = document.getElementById("pmAlasan").value.trim();
+            const err = document.getElementById("pmError");
+            const salah = function (pesan) { err.textContent = pesan; err.style.display = "block"; };
+            err.style.display = "none";
+
+            if (!dari) return salah("Data outlet belum termuat.");
+            if (!ke || ke === dari) return salah("Pilih outlet tujuan.");
+
+            const items = [];
+            let lebih = "";
+            pmProduk.forEach(function (p) {
+                const v = pmQty[p.id];
+                if (!(v > 0)) return;
+                const s = stokPm(dari, p.id);
+                if (!s || v > s.jumlah) lebih = p.nama;
+                items.push({ productId: p.id, nama: p.nama, jumlah: v });
+            });
+            if (lebih) return salah("Jumlah " + lebih + " melebihi stok " + dari + ".");
+            if (items.length === 0) return salah("Isi jumlah minimal satu produk.");
+            if (!alasan) return salah("Alasan permintaan wajib diisi.");
+
+            const btn = document.getElementById("btnKirimPermintaan");
+            btn.disabled = true;
+
+            const pengaju = { uid: auth.currentUser.uid, nama: currentUser.nama || "" };
+            db.collection("transfer_stok").add({
+                dari: dari,
+                ke: ke,
+                items: items,
+                status: "menunggu_acc",
+                selisih: false,
+                selisihDicek: false,
+                catatan: alasan,
+                diajukanOleh: Object.assign({ outlet: currentUser.outlet }, pengaju),
+                dibuatOleh: pengaju,
+                dibuatPada: firebase.firestore.FieldValue.serverTimestamp()
+            }).then(function () {
+                tutupPermintaan();
+                pesanSukses = 'Permintaan <b>' + esc(dari) + ' &rarr; ' + esc(ke) + '</b> terkirim ke Forecaster. Tunggu ACC sebelum transfer berjalan.';
+                tabAktif = "permintaan";
+                muatTransfer();
+            }).catch(function (e) {
+                btn.disabled = false;
+                salah("Gagal mengirim permintaan: " + e.message);
+            });
+        }
+
+        // ===== Permintaan dari kasir: ACC / tolak (Forecaster), batal (kasir pengaju) =====
+        function ubahStatusPermintaan(id, data, pesanSudah) {
+            const ref = db.collection("transfer_stok").doc(id);
+            return db.runTransaction(async function (tx) {
+                const d = await tx.get(ref);
+                if (!d.exists || d.data().status !== "menunggu_acc") throw new Error(pesanSudah);
+                tx.update(ref, data);
+            }).then(function () {
+                muatTransfer();
+                muatBadgeTransfer(currentUser);
+            }).catch(function (e) {
+                alert(e.message);
+                muatTransfer();
+            });
+        }
+
+        function accPermintaan(id) {
+            const t = daftarTransfer.find(function (x) { return x.id === id; });
+            if (!t || !confirm("ACC permintaan " + t.dari + " → " + t.ke + "?\nKasir " + t.dari + " akan langsung dapat tugas Kirim.")) return;
+            ubahStatusPermintaan(id, {
+                status: "menunggu_kirim",
+                disetujuiOleh: { uid: auth.currentUser.uid, nama: currentUser.nama || "" },
+                disetujuiPada: firebase.firestore.FieldValue.serverTimestamp()
+            }, "Permintaan ini sudah diproses.");
+        }
+
+        function tolakPermintaan(id) {
+            const alasan = prompt("Alasan menolak permintaan ini (akan terlihat oleh kasir):");
+            if (alasan === null) return;
+            if (!alasan.trim()) { alert("Alasan penolakan wajib diisi."); return; }
+            ubahStatusPermintaan(id, {
+                status: "ditolak",
+                alasanTolak: alasan.trim().slice(0, 200),
+                ditolakOleh: { uid: auth.currentUser.uid, nama: currentUser.nama || "" },
+                ditolakPada: firebase.firestore.FieldValue.serverTimestamp()
+            }, "Permintaan ini sudah diproses.");
+        }
+
+        function batalPermintaan(id) {
+            if (!confirm("Batalkan permintaan ini? (Hanya bisa selama belum di-ACC)")) return;
+            ubahStatusPermintaan(id, {
+                status: "dibatalkan",
+                dibatalkanPada: firebase.firestore.FieldValue.serverTimestamp()
+            }, "Permintaan sudah diputuskan Forecaster, tidak bisa dibatalkan.");
+        }
+
         function tandaiDicek(id) {
             db.collection("transfer_stok").doc(id).update({ selisihDicek: true }).then(muatTransfer).catch(function (e) {
                 alert("Gagal: " + e.message);
@@ -355,11 +811,16 @@
             const perluKirim = daftarTransfer.filter(function (t) { return t.dari === outlet && t.status === "menunggu_kirim"; });
             const menungguPenerima = daftarTransfer.filter(function (t) { return t.dari === outlet && t.status === "dikirim"; });
             const perluTerima = daftarTransfer.filter(function (t) { return t.ke === outlet && t.status === "dikirim"; });
-            const riwayat = daftarTransfer.filter(function (t) { return t.status === "selesai" || t.status === "dibatalkan"; }).slice(0, 30);
+            const riwayat = daftarTransfer.filter(function (t) {
+                return (t.dari === outlet || t.ke === outlet) && (t.status === "selesai" || t.status === "dibatalkan");
+            }).slice(0, 30);
+            const permintaan = daftarTransfer.filter(function (t) { return t.diajukanOleh && t.diajukanOleh.outlet === outlet; }).slice(0, 30);
+            const permintaanMenunggu = permintaan.filter(function (t) { return t.status === "menunggu_acc"; }).length;
 
             let html = '<div class="tabs">' +
                 tombolTab("kirim", "Perlu Dikirim", perluKirim.length) +
                 tombolTab("terima", "Perlu Diterima", perluTerima.length) +
+                tombolTab("permintaan", "Permintaan", permintaanMenunggu) +
                 tombolTab("riwayat", "Riwayat", 0) + '</div>';
 
             if (tabAktif === "kirim") {
@@ -379,6 +840,18 @@
                 } else {
                     perluTerima.forEach(function (t) { html += kartuTerima(t); });
                 }
+            } else if (tabAktif === "permintaan") {
+                if (pesanSukses) {
+                    html += '<div class="banner-ok">' + pesanSukses + '</div>';
+                    pesanSukses = "";
+                }
+                html += '<div class="banner-info">Permintaan transfer yang diajukan ' + esc(outlet) + '. ' +
+                        'Transfer baru berjalan setelah di-ACC Forecaster. <a href="#permintaan" onclick="bukaPermintaan(); return false;" style="color:#12305C; font-weight:700;">+ Ajukan permintaan</a></div>';
+                if (permintaan.length === 0) {
+                    html += '<div class="empty-state">Belum ada permintaan yang diajukan.</div>';
+                } else {
+                    permintaan.forEach(function (t) { html += kartuPermintaan(t); });
+                }
             } else {
                 if (riwayat.length === 0) {
                     html += '<div class="empty-state">Belum ada riwayat transfer.</div>';
@@ -395,10 +868,42 @@
                    label + (jumlah > 0 ? ' <span class="cnt">' + jumlah + '</span>' : '') + '</button>';
         }
 
+        // Asal perintah: dibuat Forecaster langsung, atau permintaan kasir yang sudah di-ACC
+        function asalPerintah(t) {
+            if (t.diajukanOleh) {
+                return 'Permintaan ' + esc(t.diajukanOleh.nama) + ' (' + esc(t.diajukanOleh.outlet) + '), di-ACC ' +
+                       (t.disetujuiOleh ? esc(t.disetujuiOleh.nama) + ' ' : '') + waktu(t.disetujuiPada) +
+                       (t.catatan ? ' · Alasan: ' + esc(t.catatan) : '');
+            }
+            return 'Perintah Forecaster ' + waktu(t.dibuatPada) + (t.catatan ? ' · Catatan: ' + esc(t.catatan) : '');
+        }
+
+        function kartuPermintaan(t) {
+            const aktif = t.status === "menunggu_acc";
+            let html = '<div class="card ' + (aktif ? "aktif" : "pasif") + '"><div class="card-title" style="font-size:13px;">' +
+                       esc(t.dari) + ' &rarr; ' + esc(t.ke) + ' ' + badgeStatus(t) + '</div>' +
+                       '<div class="card-meta">Diajukan ' + esc(t.diajukanOleh.nama) + ' ' + waktu(t.dibuatPada) + ' · Alasan: ' + esc(t.catatan) + '</div>';
+            (t.items || []).forEach(function (it) {
+                html += '<div class="li"><span>' + esc(it.nama) + '</span><b>' + it.jumlah + '</b></div>';
+            });
+            if (t.status === "ditolak") {
+                html += '<div class="sub" style="color:#B03A2E; margin-top:8px;">Ditolak' + (t.ditolakOleh ? ' oleh ' + esc(t.ditolakOleh.nama) : '') +
+                        (t.alasanTolak ? ': ' + esc(t.alasanTolak) : '') + '</div>';
+            } else if (t.disetujuiOleh) {
+                html += '<div class="sub" style="color:#1E7D32; margin-top:8px;">Di-ACC ' + esc(t.disetujuiOleh.nama) + ' ' + waktu(t.disetujuiPada) +
+                        '. Status transfer: ' + badgeStatus(t) + '</div>';
+            }
+            if (aktif) {
+                html += '<div class="card-foot"><div class="foot-note">Menunggu ACC Forecaster. Belum ada stok yang berpindah.</div>' +
+                        '<button class="btn btn-sm btn-danger" onclick="batalPermintaan(\'' + t.id + '\')">Batalkan</button></div>';
+            }
+            return html + '</div>';
+        }
+
         function kartuKirim(t) {
             const totalPcs = (t.items || []).reduce(function (a, it) { return a + it.jumlah; }, 0);
             let html = '<div class="card aktif"><div class="card-title">Kirim ke ' + esc(t.ke) + ' <span class="badge s-perlu">PERLU DIKIRIM</span></div>' +
-                       '<div class="card-meta">Perintah Forecaster ' + waktu(t.dibuatPada) + (t.catatan ? ' · Catatan: ' + esc(t.catatan) : '') + '</div>';
+                       '<div class="card-meta">' + asalPerintah(t) + '</div>';
             (t.items || []).forEach(function (it) {
                 html += '<div class="li"><span>' + esc(it.nama) + '</span><b>' + it.jumlah + '</b></div>';
             });
