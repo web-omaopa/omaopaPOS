@@ -187,6 +187,29 @@
         table.tbl-item td.berubah { animation: kedip 1.2s ease-out; }
         .fc-warn { background: #FFF8E8; border: 1px solid #F0DBA0; border-radius: 8px; padding: 8px 11px; font-size: 11px; color: #7a5410; margin-top: 8px; }
         .tolak-box { margin-top: 10px; background: #FFF8F7; border: 1px solid #F3C4C0; border-radius: 8px; padding: 10px 12px; }
+        /* ===== Rencana Transfer (forecaster) ===== */
+        .modal-box.lebar { max-width: 980px; }
+        .rt-bar { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+        .rt-bar .pm-select { width: 180px; }
+        .rt-bar .btn { height: 36px; }
+        table.pm-tabel td.lebih { color: #1F5FA8; font-weight: 800; }
+        .rt-sel { line-height: 1.25; }
+        .rt-setelah { display: block; font-size: 10px; font-weight: 700; margin-top: 2px; }
+        .rt-setelah.naik { color: #1E7D32; }
+        .rt-setelah.turun { color: #6b7280; }
+        .rt-ringkas { font-size: 11.5px; color: #52606d; margin-top: 8px; }
+        .rt-rute { border: 1px solid #dde3ea; border-radius: 10px; padding: 10px 12px; margin-top: 8px; background: #ffffff; }
+        .rt-rute-head { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; }
+        .rt-rute-head .btn { margin-left: auto; }
+        .rt-item { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid #e8ecf1; font-size: 12px; }
+        .rt-item:first-of-type { border-top: none; }
+        .rt-item .nama { flex: 1; }
+        .rt-item .info { font-size: 10.5px; color: #8A95A5; }
+        .rt-hapus { background: none; border: none; color: #b03a2e; font-size: 16px; cursor: pointer; padding: 0 4px; }
+        .rt-tambah { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; padding: 10px 12px; background: #F7F8FA; border-radius: 10px; font-size: 11.5px; }
+        .rt-tambah select, .rt-tambah input { height: 32px; border: 1px solid #d1d5db; border-radius: 6px; padding: 0 8px; font-size: 12px; font-family: inherit; background: #ffffff; }
+        .rt-tambah input { width: 70px; text-align: center; }
+        .rt-warn { background: #FFF8E8; border: 1px solid #F0DBA0; border-radius: 8px; padding: 8px 11px; font-size: 11px; color: #7a5410; margin-top: 8px; }
         .banner-ok {
             background: #E7F6ED; border: 1px solid #A8D8B5; border-radius: 10px; padding: 10px 14px;
             margin-bottom: 14px; font-size: 12px; color: #1E5A2E;
@@ -204,6 +227,58 @@
                 <a class="btn btn-primary" id="btnBuat" href="stok.html" style="display:none;">+ Buat Transfer</a>
             </div>
             <div id="isiHalaman"><div class="loading-state">Memuat data transfer...</div></div>
+        </div>
+    </div>
+
+    <!-- Modal rencana transfer (forecaster/admin) -->
+    <div class="modal-backdrop" id="modalRencana">
+        <div class="modal-box lebar">
+            <div class="modal-title">Rencana Transfer</div>
+            <div class="modal-desc">
+                Lihat stok semua outlet di satu area, pakai saran otomatis atau atur rute sendiri, lalu kirim semua perintah sekaligus.
+                Produk yang sama dengan rute yang sama digabung jadi satu transfer. Berlebih = stok di atas 2&times; minimum.
+            </div>
+
+            <div class="rt-bar">
+                <div>
+                    <div class="pm-label">AREA</div>
+                    <select class="pm-select" id="rtArea" onchange="gantiRtArea()"></select>
+                </div>
+                <button class="btn btn-primary" onclick="isiSaranRt()">Isi saran otomatis</button>
+                <button class="btn" onclick="kosongkanRt()">Kosongkan rute</button>
+                <span class="pm-live" id="rtLive" style="display:none; margin-bottom:10px;">&#9679; real time</span>
+            </div>
+
+            <div class="pm-label" style="margin-top:16px;">STOK SEKARANG &rarr; SETELAH SEMUA RUTE DIKIRIM</div>
+            <div class="pm-wrap" id="rtMatriks"></div>
+            <div class="pm-legend">
+                <span style="color:#c0392b; font-weight:800;">Merah</span> = habis,
+                <span style="color:#b06d09; font-weight:800;">kuning</span> = menipis (&le; minimum),
+                <span style="color:#1F5FA8; font-weight:800;">biru</span> = berlebih (&gt; 2&times; minimum).
+                Angka kecil di bawah = perkiraan stok setelah transfer. Topping tidak ikut ditransfer.
+            </div>
+
+            <div class="pm-label" style="margin-top:18px;">RUTE TRANSFER</div>
+            <div id="rtRute"></div>
+            <div class="rt-tambah">
+                <b>Tambah manual:</b>
+                <select id="rtTDari" onchange="isiRtTKe()"></select> &rarr;
+                <select id="rtTKe"></select>
+                <select id="rtTProduk"></select>
+                <input type="number" id="rtTJumlah" min="1" placeholder="0">
+                <button class="btn btn-sm" onclick="tambahRuteManual()">+ Tambah</button>
+            </div>
+            <div class="rt-warn" id="rtWarn" style="display:none;"></div>
+
+            <div style="font-size:11px; font-weight:700; margin-top:14px;">Catatan untuk kasir (opsional, berlaku untuk semua perintah)</div>
+            <input class="catatan-in" type="text" id="rtCatatan" maxlength="200" placeholder="Contoh: pemerataan stok sebelum akhir pekan">
+
+            <div class="pm-error" id="rtError" style="display:none;"></div>
+
+            <div class="pm-aksi">
+                <button class="btn" onclick="tutupRencana()">Batal</button>
+                <button class="btn btn-primary" id="btnKirimRencana" style="flex:1.3;" onclick="kirimRencana()">Kirim semua perintah</button>
+            </div>
         </div>
     </div>
 
@@ -317,7 +392,11 @@
 
             if (canBuat) {
                 document.getElementById("judulHalaman").textContent = "Transfer Antar Outlet";
-                document.getElementById("btnBuat").style.display = "inline-flex";
+                const btnB = document.getElementById("btnBuat");
+                btnB.textContent = "+ Rencana Transfer";
+                btnB.href = "#rencana";
+                btnB.onclick = function (e) { e.preventDefault(); bukaRencana(); };
+                btnB.style.display = "inline-flex";
             } else {
                 document.getElementById("judulHalaman").textContent = "Transfer · " + currentUser.outlet;
                 const btn = document.getElementById("btnBuat");
@@ -445,7 +524,12 @@
             });
             daftarArea.sort();
 
-            let html = '<div class="fc-bar"><span class="fc-label">Area</span>' +
+            let html = "";
+            if (pesanSukses) {
+                html += '<div class="banner-ok">' + pesanSukses + '</div>';
+                pesanSukses = "";
+            }
+            html += '<div class="fc-bar"><span class="fc-label">Area</span>' +
                 '<select class="fc-select" onchange="gantiAreaFc(this.value)"><option value="">Semua area</option>' +
                 daftarArea.map(function (a) { return '<option value="' + esc(a) + '"' + (a === areaFc ? ' selected' : '') + '>' + esc(a) + '</option>'; }).join("") +
                 '</select></div>';
@@ -467,7 +551,7 @@
                 }
             } else if (tabFc === "proses") {
                 if (daftar.length === 0) {
-                    html += '<div class="empty-state">Tidak ada transfer yang sedang berjalan. Buat perintah baru dari tombol + Buat Transfer.</div>';
+                    html += '<div class="empty-state">Tidak ada transfer yang sedang berjalan. Buat perintah baru dari tombol + Rencana Transfer.</div>';
                 } else {
                     const tunggu = daftar.filter(function (t) { return t.status === "menunggu_kirim"; });
                     const jalan = daftar.filter(function (t) { return t.status === "dikirim"; });
@@ -674,6 +758,364 @@
             if (t.alasanTolak) html += '<div class="sub" style="color:#B03A2E; margin-top:6px;">Alasan tolak: ' + esc(t.alasanTolak) + '</div>';
             if (t.catatanSelisih) html += '<div class="sub" style="margin-top:6px;">Catatan penerima: ' + esc(t.catatanSelisih) + '</div>';
             return html + '</div>';
+        }
+
+        // ===================================================================
+        //  RENCANA TRANSFER (FORECASTER / ADMIN)
+        //  Matriks stok semua outlet dalam satu area (real time), saran otomatis
+        //  dari outlet berlebih ke outlet yang kurang, rute digabung per pasangan
+        //  asal -> tujuan, lalu semua perintah dibuat sekaligus (menunggu_kirim).
+        //  Patokan: kurang = stok <= minStok, berlebih = stok > 2x minStok,
+        //  outlet yang kurang diisi sampai 2x minStok.
+        // ===================================================================
+        let rtProduk = null;         // [{id, nama}] tanpa topping & produk nonaktif
+        let rtStok = {};             // { outlet: { productId: {jumlah, minStok} } } real time
+        let rtLangganan = [];        // fungsi berhenti memantau
+        let rtRute = {};             // { "asal|tujuan": { dari, ke, items: { productId: jumlah } } }
+
+        function outletRt() {
+            const area = document.getElementById("rtArea").value;
+            return Object.keys(areaOutletFc).filter(function (o) { return areaOutletFc[o] === area; }).sort();
+        }
+
+        function stokRt(o, pid) {
+            return (rtStok[o] && rtStok[o][pid]) || null;
+        }
+
+        function namaProdukRt(pid) {
+            const p = (rtProduk || []).find(function (x) { return x.id === pid; });
+            return p ? p.nama : pid;
+        }
+
+        function bukaRencana() {
+            const areaSel = document.getElementById("rtArea");
+            const daftarArea = [];
+            Object.keys(areaOutletFc).forEach(function (o) {
+                if (daftarArea.indexOf(areaOutletFc[o]) === -1) daftarArea.push(areaOutletFc[o]);
+            });
+            daftarArea.sort();
+            if (daftarArea.length === 0) { alert("Daftar outlet belum termuat. Muat ulang halaman."); return; }
+            areaSel.innerHTML = daftarArea.map(function (a) { return '<option value="' + esc(a) + '">' + esc(a) + '</option>'; }).join("");
+            areaSel.value = areaFc && daftarArea.indexOf(areaFc) !== -1 ? areaFc : daftarArea[0];
+
+            document.getElementById("rtCatatan").value = "";
+            document.getElementById("rtError").style.display = "none";
+            document.getElementById("btnKirimRencana").disabled = false;
+            document.getElementById("modalRencana").classList.add("tampil");
+
+            const muatProduk = rtProduk ? Promise.resolve() : db.collection("products").get().then(function (snap) {
+                rtProduk = [];
+                snap.forEach(function (d) {
+                    const x = d.data();
+                    if ((x.kategori || "") === "Topping" || (x.status && x.status !== "aktif")) return;
+                    rtProduk.push({ id: d.id, nama: x.nama || d.id });
+                });
+            });
+            muatProduk.then(gantiRtArea).catch(function (e) {
+                document.getElementById("rtMatriks").innerHTML = '<div class="empty-state" style="padding:18px 0;">Gagal memuat produk: ' + esc(e.message) + '</div>';
+            });
+        }
+
+        function tutupRencana() {
+            hentikanPantauRt();
+            document.getElementById("modalRencana").classList.remove("tampil");
+        }
+
+        function hentikanPantauRt() {
+            rtLangganan.forEach(function (stop) { stop(); });
+            rtLangganan = [];
+            document.getElementById("rtLive").style.display = "none";
+        }
+
+        // Ganti area: rute dikosongkan, stok outlet di area itu dipantau real time
+        function gantiRtArea() {
+            hentikanPantauRt();
+            rtRute = {};
+            rtStok = {};
+            const outlets = outletRt();
+            document.getElementById("rtMatriks").innerHTML = '<div class="loading-state" style="padding:18px 0;">Memuat stok ' + outlets.length + ' outlet...</div>';
+            renderRute();
+            isiTambahManual();
+
+            let belum = outlets.length;
+            outlets.forEach(function (o) {
+                let pertama = true;
+                rtLangganan.push(db.collection("outlets").doc(o).collection("stock").onSnapshot(function (snap) {
+                    const isi = {};
+                    snap.forEach(function (d) {
+                        const x = d.data();
+                        isi[d.id] = { jumlah: x.jumlah || 0, minStok: x.minStok !== undefined ? x.minStok : 5 };
+                    });
+                    rtStok[o] = isi;
+                    if (pertama) { pertama = false; belum--; }
+                    if (belum === 0) {
+                        document.getElementById("rtLive").style.display = "inline";
+                        renderMatriksRt();
+                        cekRt();
+                    }
+                }, function (e) {
+                    document.getElementById("rtMatriks").innerHTML = '<div class="empty-state" style="padding:18px 0;">Gagal memuat stok: ' + esc(e.message) + '</div>';
+                }));
+            });
+        }
+
+        // Perkiraan stok setelah semua rute dikirim
+        function proyeksiRt(o, pid) {
+            const s = stokRt(o, pid);
+            let n = s ? s.jumlah : 0;
+            Object.keys(rtRute).forEach(function (k) {
+                const r = rtRute[k];
+                const q = r.items[pid] || 0;
+                if (r.dari === o) n -= q;
+                if (r.ke === o) n += q;
+            });
+            return n;
+        }
+
+        function renderMatriksRt() {
+            const outlets = outletRt();
+            const wadah = document.getElementById("rtMatriks");
+            if (!rtProduk || rtProduk.length === 0) { wadah.innerHTML = '<div class="empty-state" style="padding:18px 0;">Belum ada produk.</div>'; return; }
+
+            let html = '<table class="pm-tabel"><thead><tr><th>Produk</th>';
+            outlets.forEach(function (o) { html += '<th>' + esc(o) + '</th>'; });
+            html += '</tr></thead><tbody>';
+
+            let jmlKurang = 0, jmlLebih = 0;
+            rtProduk.forEach(function (p) {
+                html += '<tr><td>' + esc(p.nama) + '</td>';
+                outlets.forEach(function (o) {
+                    const s = stokRt(o, p.id);
+                    if (!s) { html += '<td class="angka" style="color:#c4ccd6;">-</td>'; return; }
+                    let kelas = "";
+                    if (s.jumlah <= 0) kelas = " habis";
+                    else if (s.jumlah <= s.minStok) kelas = " menipis";
+                    else if (s.minStok > 0 && s.jumlah > 2 * s.minStok) kelas = " lebih";
+                    if (s.jumlah <= s.minStok) jmlKurang++;
+                    if (s.minStok > 0 && s.jumlah > 2 * s.minStok) jmlLebih++;
+                    const setelah = proyeksiRt(o, p.id);
+                    html += '<td class="angka rt-sel' + kelas + '" title="Minimum ' + s.minStok + '">' + s.jumlah +
+                            (setelah !== s.jumlah ? '<span class="rt-setelah ' + (setelah > s.jumlah ? "naik" : "turun") + '">&rarr; ' + setelah + '</span>' : '') + '</td>';
+                });
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+            wadah.innerHTML = html;
+
+            const ringkas = document.getElementById("rtRingkas") || (function () {
+                const el = document.createElement("div");
+                el.className = "rt-ringkas";
+                el.id = "rtRingkas";
+                wadah.parentNode.insertBefore(el, wadah.nextSibling);
+                return el;
+            })();
+            ringkas.innerHTML = '<b style="color:#b06d09;">' + jmlKurang + '</b> stok kurang/habis · <b style="color:#1F5FA8;">' + jmlLebih + '</b> stok berlebih di ' + outlets.length + ' outlet';
+        }
+
+        // Saran: tiap produk, outlet yang <= minimum diisi sampai 2x minimum
+        // dari outlet yang paling berlebih (stok di atas 2x minimum).
+        function isiSaranRt() {
+            const outlets = outletRt();
+            const baru = {};
+            let jmlBaris = 0;
+            (rtProduk || []).forEach(function (p) {
+                const kurang = [], lebih = [];
+                outlets.forEach(function (o) {
+                    const s = stokRt(o, p.id);
+                    if (!s || s.minStok <= 0) return;
+                    const target = 2 * s.minStok;
+                    if (s.jumlah <= s.minStok) kurang.push({ o: o, n: target - s.jumlah });
+                    else if (s.jumlah > target) lebih.push({ o: o, n: s.jumlah - target });
+                });
+                kurang.sort(function (a, b) { return b.n - a.n; });
+                lebih.sort(function (a, b) { return b.n - a.n; });
+                kurang.forEach(function (k) {
+                    lebih.forEach(function (l) {
+                        if (k.n <= 0 || l.n <= 0) return;
+                        const q = Math.min(k.n, l.n);
+                        const key = l.o + "|" + k.o;
+                        if (!baru[key]) baru[key] = { dari: l.o, ke: k.o, items: {} };
+                        baru[key].items[p.id] = (baru[key].items[p.id] || 0) + q;
+                        k.n -= q;
+                        l.n -= q;
+                        jmlBaris++;
+                    });
+                });
+            });
+            rtRute = baru;
+            renderMatriksRt();
+            renderRute();
+            cekRt();
+            const err = document.getElementById("rtError");
+            if (jmlBaris === 0) {
+                err.textContent = "Tidak ada saran: tidak ada produk yang kurang di satu outlet sekaligus berlebih di outlet lain pada area ini.";
+                err.style.display = "block";
+            } else {
+                err.style.display = "none";
+            }
+        }
+
+        function kosongkanRt() {
+            rtRute = {};
+            renderMatriksRt();
+            renderRute();
+            cekRt();
+        }
+
+        function renderRute() {
+            const wadah = document.getElementById("rtRute");
+            const keys = Object.keys(rtRute);
+            const tombol = document.getElementById("btnKirimRencana");
+            if (keys.length === 0) {
+                wadah.innerHTML = '<div class="empty-state" style="padding:14px 0;">Belum ada rute. Klik <b>Isi saran otomatis</b> atau tambah manual di bawah.</div>';
+                tombol.textContent = "Kirim semua perintah";
+                return;
+            }
+            let html = "";
+            keys.forEach(function (k) {
+                const r = rtRute[k];
+                html += '<div class="rt-rute"><div class="rt-rute-head">' + esc(r.dari) + ' &rarr; ' + esc(r.ke) +
+                        '<button class="btn btn-sm btn-danger" onclick="hapusRute(\'' + escJsAttr(k) + '\')">Hapus rute</button></div>';
+                Object.keys(r.items).forEach(function (pid) {
+                    const sA = stokRt(r.dari, pid), sT = stokRt(r.ke, pid);
+                    html += '<div class="rt-item"><span class="nama">' + esc(namaProdukRt(pid)) +
+                            '<div class="info">stok ' + esc(r.dari) + ' ' + (sA ? sA.jumlah : 0) + ' · stok ' + esc(r.ke) + ' ' + (sT ? sT.jumlah : 0) + '</div></span>' +
+                            '<input class="qty-in" type="number" min="0" value="' + r.items[pid] + '" oninput="ubahRtQty(\'' + escJsAttr(k) + '\', \'' + escJsAttr(pid) + '\', this)">' +
+                            '<button class="rt-hapus" title="Hapus produk dari rute" onclick="hapusRtItem(\'' + escJsAttr(k) + '\', \'' + escJsAttr(pid) + '\')">&times;</button></div>';
+                });
+                html += '</div>';
+            });
+            wadah.innerHTML = html;
+            tombol.textContent = "Kirim semua perintah (" + keys.length + " transfer)";
+        }
+
+        function ubahRtQty(k, pid, el) {
+            let v = parseInt(el.value, 10);
+            if (isNaN(v) || v < 0) v = 0;
+            if (rtRute[k]) rtRute[k].items[pid] = v;
+            renderMatriksRt();
+            cekRt();
+        }
+
+        function hapusRtItem(k, pid) {
+            if (!rtRute[k]) return;
+            delete rtRute[k].items[pid];
+            if (Object.keys(rtRute[k].items).length === 0) delete rtRute[k];
+            renderMatriksRt();
+            renderRute();
+            cekRt();
+        }
+
+        function hapusRute(k) {
+            delete rtRute[k];
+            renderMatriksRt();
+            renderRute();
+            cekRt();
+        }
+
+        function isiTambahManual() {
+            const outlets = outletRt();
+            const opsi = outlets.map(function (o) { return '<option value="' + esc(o) + '">' + esc(o) + '</option>'; }).join("");
+            document.getElementById("rtTDari").innerHTML = opsi;
+            document.getElementById("rtTProduk").innerHTML = (rtProduk || []).map(function (p) {
+                return '<option value="' + esc(p.id) + '">' + esc(p.nama) + '</option>';
+            }).join("");
+            document.getElementById("rtTJumlah").value = "";
+            isiRtTKe();
+        }
+
+        function isiRtTKe() {
+            const dari = document.getElementById("rtTDari").value;
+            document.getElementById("rtTKe").innerHTML = outletRt().filter(function (o) { return o !== dari; })
+                .map(function (o) { return '<option value="' + esc(o) + '">' + esc(o) + '</option>'; }).join("");
+        }
+
+        function tambahRuteManual() {
+            const dari = document.getElementById("rtTDari").value;
+            const ke = document.getElementById("rtTKe").value;
+            const pid = document.getElementById("rtTProduk").value;
+            const v = parseInt(document.getElementById("rtTJumlah").value, 10);
+            const err = document.getElementById("rtError");
+            if (!dari || !ke || dari === ke || !pid) { err.textContent = "Pilih outlet asal, tujuan, dan produk."; err.style.display = "block"; return; }
+            if (isNaN(v) || v <= 0) { err.textContent = "Isi jumlah lebih dari 0."; err.style.display = "block"; return; }
+            err.style.display = "none";
+            const k = dari + "|" + ke;
+            if (!rtRute[k]) rtRute[k] = { dari: dari, ke: ke, items: {} };
+            rtRute[k].items[pid] = (rtRute[k].items[pid] || 0) + v;
+            document.getElementById("rtTJumlah").value = "";
+            renderMatriksRt();
+            renderRute();
+            cekRt();
+        }
+
+        // Total yang keluar dari satu outlet untuk satu produk tidak boleh melebihi stoknya
+        function cekRt() {
+            const keluar = {};
+            Object.keys(rtRute).forEach(function (k) {
+                const r = rtRute[k];
+                Object.keys(r.items).forEach(function (pid) {
+                    const key = r.dari + "|" + pid;
+                    keluar[key] = (keluar[key] || 0) + (r.items[pid] || 0);
+                });
+            });
+            const masalah = [];
+            Object.keys(keluar).forEach(function (key) {
+                const bagian = key.split("|");
+                const s = stokRt(bagian[0], bagian[1]);
+                const ada = s ? s.jumlah : 0;
+                if (keluar[key] > ada) masalah.push(namaProdukRt(bagian[1]) + " dari " + bagian[0] + " (keluar " + keluar[key] + ", stok " + ada + ")");
+            });
+            const warn = document.getElementById("rtWarn");
+            warn.style.display = masalah.length ? "block" : "none";
+            warn.textContent = masalah.length ? "Melebihi stok asal: " + masalah.join("; ") + ". Kurangi jumlahnya sebelum mengirim." : "";
+            return masalah.length === 0;
+        }
+
+        function kirimRencana() {
+            const err = document.getElementById("rtError");
+            const salah = function (pesan) { err.textContent = pesan; err.style.display = "block"; };
+            err.style.display = "none";
+
+            const perintah = [];
+            Object.keys(rtRute).forEach(function (k) {
+                const r = rtRute[k];
+                const items = Object.keys(r.items).filter(function (pid) { return r.items[pid] > 0; }).map(function (pid) {
+                    return { productId: pid, nama: namaProdukRt(pid), jumlah: r.items[pid] };
+                });
+                if (items.length > 0) perintah.push({ dari: r.dari, ke: r.ke, items: items });
+            });
+            if (perintah.length === 0) return salah("Belum ada rute dengan jumlah lebih dari 0.");
+            if (!cekRt()) return salah("Ada jumlah yang melebihi stok outlet asal.");
+            if (!confirm("Kirim " + perintah.length + " perintah transfer?\nKasir outlet asal masing-masing akan langsung dapat tugas Kirim.")) return;
+
+            const btn = document.getElementById("btnKirimRencana");
+            btn.disabled = true;
+            const catatan = document.getElementById("rtCatatan").value.trim();
+            const pembuat = { uid: auth.currentUser.uid, nama: currentUser.nama || "" };
+            const batch = db.batch();
+            perintah.forEach(function (p) {
+                batch.set(db.collection("transfer_stok").doc(), {
+                    dari: p.dari,
+                    ke: p.ke,
+                    items: p.items,
+                    status: "menunggu_kirim",
+                    selisih: false,
+                    selisihDicek: false,
+                    catatan: catatan,
+                    dibuatOleh: pembuat,
+                    dibuatPada: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            });
+            batch.commit().then(function () {
+                tutupRencana();
+                pesanSukses = '<b>' + perintah.length + ' perintah transfer</b> terkirim. Kasir outlet asal sekarang dapat tugas Kirim.';
+                tabFc = "proses";
+                muatTransfer();
+                muatBadgeTransfer(currentUser);
+            }).catch(function (e) {
+                btn.disabled = false;
+                salah("Gagal mengirim perintah: " + e.message);
+            });
         }
 
         function badgeStatus(t) {
