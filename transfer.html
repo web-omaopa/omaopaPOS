@@ -201,8 +201,8 @@
             } else {
                 document.getElementById("judulHalaman").textContent = "Transfer · " + currentUser.outlet;
                 const btn = document.getElementById("btnBuat");
-                btn.textContent = "+ Rekomendasi Transfer";
-                btn.href = "stok.html#rekomendasi";
+                btn.textContent = "+ Permintaan Transfer";
+                btn.href = "stok.html#permintaan";
                 btn.style.display = "inline-flex";
             }
 
@@ -221,7 +221,7 @@
                 pekerjaan = Promise.all([
                     col.where("dari", "==", currentUser.outlet).get(),
                     col.where("ke", "==", currentUser.outlet).get(),
-                    // rekomendasi yang diajukan outlet ini (bisa antar outlet lain se-area)
+                    // permintaan yang diajukan outlet ini (bisa antar outlet lain se-area)
                     col.where("diajukanOleh.outlet", "==", currentUser.outlet).get()
                 ]).then(function (hasil) {
                     const gabung = {};
@@ -277,7 +277,7 @@
             let html = "";
 
             if (jmlAcc > 0) {
-                html += '<div class="banner-acc"><b>' + jmlAcc + ' rekomendasi transfer dari kasir</b> menunggu ACC. ' +
+                html += '<div class="banner-acc"><b>' + jmlAcc + ' permintaan transfer dari kasir</b> menunggu ACC. ' +
                         'Transfer baru berjalan setelah di-ACC.</div>';
             }
             if (jmlSelisih > 0) {
@@ -291,7 +291,7 @@
                 const perluAcc = t.status === "menunggu_acc";
                 html += '<tr' + (adaSelisih ? ' style="background:#FFF8F7;"' : perluAcc ? ' style="background:#FBF8FE;"' : '') + '>';
                 html += '<td><b>' + esc(t.dari) + ' &rarr; ' + esc(t.ke) + '</b><div class="sub">' + waktu(t.dibuatPada) + '</div>' +
-                        (t.diajukanOleh ? '<div class="sub">Rekomendasi kasir ' + esc(t.diajukanOleh.nama) + ' (' + esc(t.diajukanOleh.outlet) + ')</div>' : '') +
+                        (t.diajukanOleh ? '<div class="sub">Permintaan kasir ' + esc(t.diajukanOleh.nama) + ' (' + esc(t.diajukanOleh.outlet) + ')</div>' : '') +
                         '</td>';
 
                 html += '<td>';
@@ -309,8 +309,8 @@
 
                 html += '<td>';
                 if (perluAcc) {
-                    html += '<button class="btn btn-sm btn-ok" style="margin-bottom:6px;" onclick="accRekom(\'' + t.id + '\')">ACC</button><br>' +
-                            '<button class="btn btn-sm btn-danger" onclick="tolakRekom(\'' + t.id + '\')">Tolak</button>';
+                    html += '<button class="btn btn-sm btn-ok" style="margin-bottom:6px;" onclick="accPermintaan(\'' + t.id + '\')">ACC</button><br>' +
+                            '<button class="btn btn-sm btn-danger" onclick="tolakPermintaan(\'' + t.id + '\')">Tolak</button>';
                 } else if (t.status === "menunggu_kirim") {
                     html += '<button class="btn btn-sm btn-danger" onclick="batalkanTransfer(\'' + t.id + '\')">Batalkan</button>';
                 } else if (adaSelisih) {
@@ -364,8 +364,8 @@
             });
         }
 
-        // ===== Rekomendasi dari kasir: ACC / tolak (Forecaster), batal (kasir pengaju) =====
-        function ubahStatusRekom(id, data, pesanSudah) {
+        // ===== Permintaan dari kasir: ACC / tolak (Forecaster), batal (kasir pengaju) =====
+        function ubahStatusPermintaan(id, data, pesanSudah) {
             const ref = db.collection("transfer_stok").doc(id);
             return db.runTransaction(async function (tx) {
                 const d = await tx.get(ref);
@@ -380,34 +380,34 @@
             });
         }
 
-        function accRekom(id) {
+        function accPermintaan(id) {
             const t = daftarTransfer.find(function (x) { return x.id === id; });
-            if (!t || !confirm("ACC rekomendasi " + t.dari + " → " + t.ke + "?\nKasir " + t.dari + " akan langsung dapat tugas Kirim.")) return;
-            ubahStatusRekom(id, {
+            if (!t || !confirm("ACC permintaan " + t.dari + " → " + t.ke + "?\nKasir " + t.dari + " akan langsung dapat tugas Kirim.")) return;
+            ubahStatusPermintaan(id, {
                 status: "menunggu_kirim",
                 disetujuiOleh: { uid: auth.currentUser.uid, nama: currentUser.nama || "" },
                 disetujuiPada: firebase.firestore.FieldValue.serverTimestamp()
-            }, "Rekomendasi ini sudah diproses.");
+            }, "Permintaan ini sudah diproses.");
         }
 
-        function tolakRekom(id) {
-            const alasan = prompt("Alasan menolak rekomendasi ini (akan terlihat oleh kasir):");
+        function tolakPermintaan(id) {
+            const alasan = prompt("Alasan menolak permintaan ini (akan terlihat oleh kasir):");
             if (alasan === null) return;
             if (!alasan.trim()) { alert("Alasan penolakan wajib diisi."); return; }
-            ubahStatusRekom(id, {
+            ubahStatusPermintaan(id, {
                 status: "ditolak",
                 alasanTolak: alasan.trim().slice(0, 200),
                 ditolakOleh: { uid: auth.currentUser.uid, nama: currentUser.nama || "" },
                 ditolakPada: firebase.firestore.FieldValue.serverTimestamp()
-            }, "Rekomendasi ini sudah diproses.");
+            }, "Permintaan ini sudah diproses.");
         }
 
-        function batalRekom(id) {
-            if (!confirm("Batalkan rekomendasi ini? (Hanya bisa selama belum di-ACC)")) return;
-            ubahStatusRekom(id, {
+        function batalPermintaan(id) {
+            if (!confirm("Batalkan permintaan ini? (Hanya bisa selama belum di-ACC)")) return;
+            ubahStatusPermintaan(id, {
                 status: "dibatalkan",
                 dibatalkanPada: firebase.firestore.FieldValue.serverTimestamp()
-            }, "Rekomendasi sudah diputuskan Forecaster, tidak bisa dibatalkan.");
+            }, "Permintaan sudah diputuskan Forecaster, tidak bisa dibatalkan.");
         }
 
         function tandaiDicek(id) {
@@ -432,13 +432,13 @@
             const riwayat = daftarTransfer.filter(function (t) {
                 return (t.dari === outlet || t.ke === outlet) && (t.status === "selesai" || t.status === "dibatalkan");
             }).slice(0, 30);
-            const rekom = daftarTransfer.filter(function (t) { return t.diajukanOleh && t.diajukanOleh.outlet === outlet; }).slice(0, 30);
-            const rekomMenunggu = rekom.filter(function (t) { return t.status === "menunggu_acc"; }).length;
+            const permintaan = daftarTransfer.filter(function (t) { return t.diajukanOleh && t.diajukanOleh.outlet === outlet; }).slice(0, 30);
+            const permintaanMenunggu = permintaan.filter(function (t) { return t.status === "menunggu_acc"; }).length;
 
             let html = '<div class="tabs">' +
                 tombolTab("kirim", "Perlu Dikirim", perluKirim.length) +
                 tombolTab("terima", "Perlu Diterima", perluTerima.length) +
-                tombolTab("rekomendasi", "Rekomendasi", rekomMenunggu) +
+                tombolTab("permintaan", "Permintaan", permintaanMenunggu) +
                 tombolTab("riwayat", "Riwayat", 0) + '</div>';
 
             if (tabAktif === "kirim") {
@@ -458,13 +458,13 @@
                 } else {
                     perluTerima.forEach(function (t) { html += kartuTerima(t); });
                 }
-            } else if (tabAktif === "rekomendasi") {
-                html += '<div class="banner-info">Rekomendasi transfer yang diajukan ' + esc(outlet) + '. ' +
-                        'Transfer baru berjalan setelah di-ACC Forecaster. <a href="stok.html#rekomendasi" style="color:#12305C; font-weight:700;">+ Ajukan rekomendasi</a></div>';
-                if (rekom.length === 0) {
-                    html += '<div class="empty-state">Belum ada rekomendasi yang diajukan.</div>';
+            } else if (tabAktif === "permintaan") {
+                html += '<div class="banner-info">Permintaan transfer yang diajukan ' + esc(outlet) + '. ' +
+                        'Transfer baru berjalan setelah di-ACC Forecaster. <a href="stok.html#permintaan" style="color:#12305C; font-weight:700;">+ Ajukan permintaan</a></div>';
+                if (permintaan.length === 0) {
+                    html += '<div class="empty-state">Belum ada permintaan yang diajukan.</div>';
                 } else {
-                    rekom.forEach(function (t) { html += kartuRekom(t); });
+                    permintaan.forEach(function (t) { html += kartuPermintaan(t); });
                 }
             } else {
                 if (riwayat.length === 0) {
@@ -482,17 +482,17 @@
                    label + (jumlah > 0 ? ' <span class="cnt">' + jumlah + '</span>' : '') + '</button>';
         }
 
-        // Asal perintah: dibuat Forecaster langsung, atau rekomendasi kasir yang sudah di-ACC
+        // Asal perintah: dibuat Forecaster langsung, atau permintaan kasir yang sudah di-ACC
         function asalPerintah(t) {
             if (t.diajukanOleh) {
-                return 'Rekomendasi ' + esc(t.diajukanOleh.nama) + ' (' + esc(t.diajukanOleh.outlet) + '), di-ACC ' +
+                return 'Permintaan ' + esc(t.diajukanOleh.nama) + ' (' + esc(t.diajukanOleh.outlet) + '), di-ACC ' +
                        (t.disetujuiOleh ? esc(t.disetujuiOleh.nama) + ' ' : '') + waktu(t.disetujuiPada) +
                        (t.catatan ? ' · Alasan: ' + esc(t.catatan) : '');
             }
             return 'Perintah Forecaster ' + waktu(t.dibuatPada) + (t.catatan ? ' · Catatan: ' + esc(t.catatan) : '');
         }
 
-        function kartuRekom(t) {
+        function kartuPermintaan(t) {
             const aktif = t.status === "menunggu_acc";
             let html = '<div class="card ' + (aktif ? "aktif" : "pasif") + '"><div class="card-title" style="font-size:13px;">' +
                        esc(t.dari) + ' &rarr; ' + esc(t.ke) + ' ' + badgeStatus(t) + '</div>' +
@@ -509,7 +509,7 @@
             }
             if (aktif) {
                 html += '<div class="card-foot"><div class="foot-note">Menunggu ACC Forecaster. Belum ada stok yang berpindah.</div>' +
-                        '<button class="btn btn-sm btn-danger" onclick="batalRekom(\'' + t.id + '\')">Batalkan</button></div>';
+                        '<button class="btn btn-sm btn-danger" onclick="batalPermintaan(\'' + t.id + '\')">Batalkan</button></div>';
             }
             return html + '</div>';
         }

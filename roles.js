@@ -132,7 +132,7 @@ function renderSidebar(currentUser, activeKey) {
 /* Hitung transfer yang menunggu aksi user ini lalu tampilkan di badge menu:
    - Kasir: perlu dikirim (outlet asal) + perlu diterima (outlet tujuan)
    - Forecaster/admin: transfer dengan selisih yang belum dicek
-     + rekomendasi transfer dari kasir yang menunggu ACC */
+     + permintaan transfer dari kasir yang menunggu ACC */
 function muatBadgeTransfer(currentUser) {
     const el = document.getElementById("badgeTransfer");
     if (!el) return;
