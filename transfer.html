@@ -157,6 +157,11 @@
         .pm-qty.terisi { border: 2px solid #12305C; color: #12305C; background: #F1F6FF; }
         .pm-qty:disabled { background: #f3f4f6; }
         .pm-legend { font-size: 10.5px; color: #8A95A5; margin-top: 6px; }
+        .pm-tabel-head { display: flex; align-items: center; gap: 10px; margin-top: 16px; min-height: 28px; }
+        .pm-live { font-size: 10px; font-weight: 700; color: #1E7D32; }
+        table.pm-tabel td.berubah { animation: kedip 1.2s ease-out; }
+        @keyframes kedip { from { box-shadow: inset 0 0 0 2px #E8A33D; } to { box-shadow: inset 0 0 0 2px transparent; } }
+        .pm-catatan-qty { font-size: 9.5px; color: #b06d09; margin-top: 2px; }
         .pm-alasan { width: 100%; height: 64px; border: 1px solid #d1d5db; border-radius: 6px; padding: 8px 10px; font-size: 12px; font-family: inherit; resize: vertical; margin-top: 5px; }
         .pm-error { color: #c0392b; font-size: 11px; margin-top: 10px; }
         .pm-aksi { display: flex; gap: 8px; margin-top: 16px; }
@@ -198,11 +203,15 @@
                 <span class="pm-panah">&rarr;</span>
                 <div>
                     <div class="pm-label">KE (OUTLET TUJUAN)</div>
-                    <select class="pm-select ke" id="pmKe" onchange="renderPmTabel()"></select>
+                    <select class="pm-select ke" id="pmKe" onchange="gantiPmKe()"></select>
                 </div>
             </div>
 
-            <div class="pm-label" style="margin-top:16px;" id="pmJudulTabel">STOK OUTLET SE-AREA</div>
+            <div class="pm-tabel-head">
+                <div class="pm-label" style="margin:0;" id="pmJudulTabel">STOK OUTLET SE-AREA</div>
+                <span class="pm-live" id="pmLive" style="display:none;">&#9679; real time</span>
+                <button class="btn btn-sm" id="pmToggle" style="display:none; margin-left:auto;" onclick="togglePmSemua()"></button>
+            </div>
             <div class="pm-wrap" id="pmIsi"></div>
             <div class="pm-legend">
                 <span style="color:#1F5FA8; font-weight:800;">Biru</span> = outlet asal,
@@ -464,13 +473,15 @@
         // ===================================================================
         let pmOutlet = [];           // outlet se-area dengan outlet kasir
         let pmProduk = [];           // [{id, nama}] tanpa topping
-        let pmStok = {};             // { outlet: { productId: {jumlah, minStok} } }
+        let pmStok = {};             // { outlet: { productId: {jumlah, minStok} } } - diperbarui real time
         let pmQty = {};              // { productId: jumlah diminta }
-        let pmSiap = null;           // Promise data form (dimuat sekali per buka halaman)
+        let pmDasar = null;          // Promise daftar outlet & produk (dimuat sekali per buka halaman)
+        let pmLangganan = [];        // fungsi untuk berhenti memantau stok (onSnapshot)
+        let pmSemua = false;         // tampilkan semua outlet walau asal & tujuan sudah dipilih
 
-        function muatDataPermintaan() {
-            if (pmSiap) return pmSiap;
-            pmSiap = Promise.all([db.collection("outlets").get(), db.collection("products").get()]).then(function (hasil) {
+        function muatDasarPermintaan() {
+            if (pmDasar) return pmDasar;
+            pmDasar = Promise.all([db.collection("outlets").get(), db.collection("products").get()]).then(function (hasil) {
                 const area = {};
                 hasil[0].forEach(function (d) { area[d.id] = d.data().area || "Area 1"; });
                 const areaSaya = area[currentUser.outlet] || "Area 1";
@@ -481,36 +492,66 @@
                     if ((d.data().kategori || "") === "Topping") return;
                     pmProduk.push({ id: d.id, nama: d.data().nama || d.id });
                 });
+            });
+            pmDasar.catch(function () { pmDasar = null; });   // boleh dicoba lagi kalau gagal
+            return pmDasar;
+        }
 
-                return Promise.all(pmOutlet.map(function (o) {
-                    return db.collection("outlets").doc(o).collection("stock").get().then(function (snap) {
+        // Pantau stok tiap outlet se-area selama form terbuka. Selesai saat semua outlet sudah termuat sekali.
+        function pantauStokPermintaan() {
+            hentikanPantauStok();
+            return new Promise(function (resolve, reject) {
+                let belum = pmOutlet.length;
+                if (belum === 0) { resolve(); return; }
+                pmOutlet.forEach(function (o) {
+                    let pertama = true;
+                    const stop = db.collection("outlets").doc(o).collection("stock").onSnapshot(function (snap) {
                         const isi = {};
                         snap.forEach(function (d) {
                             const x = d.data();
                             isi[d.id] = { jumlah: x.jumlah || 0, minStok: x.minStok !== undefined ? x.minStok : 5 };
                         });
                         pmStok[o] = isi;
+                        if (pertama) {
+                            pertama = false;
+                            if (--belum === 0) resolve();
+                        } else {
+                            perbaruiAngkaPm(o);
+                        }
+                    }, function (e) {
+                        reject(e);
                     });
-                }));
+                    pmLangganan.push(stop);
+                });
             });
-            pmSiap.catch(function () { pmSiap = null; });   // boleh dicoba lagi kalau gagal
-            return pmSiap;
+        }
+
+        function hentikanPantauStok() {
+            pmLangganan.forEach(function (stop) { stop(); });
+            pmLangganan = [];
+            document.getElementById("pmLive").style.display = "none";
         }
 
         function bukaPermintaan() {
             pmQty = {};
+            pmSemua = false;
             document.getElementById("pmAlasan").value = "";
             document.getElementById("pmError").style.display = "none";
+            document.getElementById("pmToggle").style.display = "none";
             document.getElementById("btnKirimPermintaan").disabled = false;
             document.getElementById("pmIsi").innerHTML = '<div class="loading-state" style="padding:18px 0;">Memuat stok outlet se-area...</div>';
             document.getElementById("modalPermintaan").classList.add("tampil");
 
-            muatDataPermintaan().then(function () {
+            muatDasarPermintaan().then(pantauStokPermintaan).then(function () {
+                if (!document.getElementById("modalPermintaan").classList.contains("tampil")) { hentikanPantauStok(); return; }
                 const opsi = pmOutlet.map(function (o) { return '<option value="' + esc(o) + '">' + esc(o) + '</option>'; }).join("");
                 document.getElementById("pmDari").innerHTML = opsi;
                 document.getElementById("pmDari").value = currentUser.outlet;
+                document.getElementById("pmKe").value = "";
+                document.getElementById("pmLive").style.display = "inline";
                 gantiPmDari();
             }).catch(function (e) {
+                hentikanPantauStok();
                 document.getElementById("pmIsi").innerHTML = '<div class="empty-state" style="padding:18px 0;">' +
                     (e.code === "permission-denied"
                         ? "Stok outlet lain belum bisa ditampilkan: akses akun ini dibatasi oleh aturan Firestore."
@@ -519,6 +560,7 @@
         }
 
         function tutupPermintaan() {
+            hentikanPantauStok();
             document.getElementById("modalPermintaan").classList.remove("tampil");
         }
 
@@ -531,6 +573,17 @@
                 pilihan.map(function (o) { return '<option value="' + esc(o) + '">' + esc(o) + '</option>'; }).join("");
             if (pilihan.indexOf(keLama) !== -1) keSel.value = keLama;
             pmQty = {};   // batas jumlah ikut stok asal yang baru
+            pmSemua = false;
+            renderPmTabel();
+        }
+
+        function gantiPmKe() {
+            pmSemua = false;   // tujuan baru dipilih: ringkas ke asal & tujuan
+            renderPmTabel();
+        }
+
+        function togglePmSemua() {
+            pmSemua = !pmSemua;
             renderPmTabel();
         }
 
@@ -538,19 +591,37 @@
             return (pmStok[o] && pmStok[o][pid]) || null;
         }
 
-        // Tabel: baris = produk, kolom = outlet se-area (asal biru, tujuan hijau), kolom terakhir = jumlah diminta
+        function kelasStok(s) {
+            if (!s) return "";
+            return s.jumlah <= 0 ? "habis" : s.jumlah <= s.minStok ? "menipis" : "";
+        }
+
+        // Tabel: baris = produk, kolom = outlet (asal biru, tujuan hijau), kolom terakhir = jumlah diminta.
+        // Sebelum tujuan dipilih semua outlet se-area tampil; setelah asal & tujuan dipilih tabel diringkas
+        // ke dua outlet itu saja, dengan tombol untuk menampilkan semua lagi.
         function renderPmTabel() {
             const dari = document.getElementById("pmDari").value;
             const ke = document.getElementById("pmKe").value;
             const wadah = document.getElementById("pmIsi");
+            const lain = pmOutlet.filter(function (o) { return o !== dari && o !== ke; });
+            const ringkas = !!ke && !pmSemua;
+
+            const toggle = document.getElementById("pmToggle");
+            if (ke && lain.length > 0) {
+                toggle.style.display = "inline-flex";
+                toggle.textContent = ringkas ? "Tampilkan semua outlet (" + lain.length + " lainnya)" : "Ringkas: asal & tujuan saja";
+            } else {
+                toggle.style.display = "none";
+            }
+            document.getElementById("pmJudulTabel").textContent = ringkas ? "STOK ASAL & TUJUAN" : "STOK OUTLET SE-AREA";
 
             if (pmProduk.length === 0) {
                 wadah.innerHTML = '<div class="empty-state" style="padding:18px 0;">Belum ada produk.</div>';
                 return;
             }
 
-            // Asal dan tujuan ditaruh paling kiri supaya mudah dibandingkan
-            const urut = [dari].concat(ke ? [ke] : []).concat(pmOutlet.filter(function (o) { return o !== dari && o !== ke; }));
+            // Asal dan tujuan selalu paling kiri supaya mudah dibandingkan
+            const urut = [dari].concat(ke ? [ke] : []).concat(ringkas ? [] : lain);
             const kelasKolom = function (o) { return o === dari ? " col-dari" : o === ke ? " col-ke" : ""; };
 
             let html = '<table class="pm-tabel"><thead><tr><th>Produk</th>';
@@ -564,28 +635,65 @@
                 html += '<tr><td>' + esc(p.nama) + '</td>';
                 urut.forEach(function (o) {
                     const s = stokPm(o, p.id);
-                    if (!s) { html += '<td class="angka' + kelasKolom(o) + '" style="color:#c4ccd6;">-</td>'; return; }
-                    const kelas = s.jumlah <= 0 ? " habis" : s.jumlah <= s.minStok ? " menipis" : "";
-                    html += '<td class="angka' + kelasKolom(o) + kelas + '">' + s.jumlah + '</td>';
+                    html += '<td class="angka' + kelasKolom(o) + (s ? " " + kelasStok(s) : "") + '" data-o="' + esc(o) + '" data-pid="' + esc(p.id) + '"' +
+                            (s ? '' : ' style="color:#c4ccd6;"') + '>' + (s ? s.jumlah : "-") + '</td>';
                 });
 
                 const sAsal = stokPm(dari, p.id);
                 const maks = sAsal ? sAsal.jumlah : 0;
                 const nilai = pmQty[p.id] > 0 ? pmQty[p.id] : "";
                 html += '<td class="col-jml"><input class="pm-qty' + (nilai ? " terisi" : "") + '" type="number" min="0" max="' + maks + '" ' +
-                        'placeholder="0" value="' + nilai + '" data-pid="' + esc(p.id) + '" oninput="ubahPmQty(this, ' + maks + ')"' +
-                        (maks <= 0 ? ' disabled title="Stok ' + esc(dari) + ' kosong"' : '') + '></td></tr>';
+                        'placeholder="0" value="' + nilai + '" data-pid="' + esc(p.id) + '" oninput="ubahPmQty(this)"' +
+                        (maks <= 0 ? ' disabled title="Stok ' + esc(dari) + ' kosong"' : '') + '>' +
+                        '<div class="pm-catatan-qty" data-catatan="' + esc(p.id) + '" style="display:none;"></div></td></tr>';
             });
 
             wadah.innerHTML = html + '</tbody></table>';
         }
 
-        function ubahPmQty(el, maks) {
+        // Stok sebuah outlet berubah saat form terbuka: perbarui angka di tempat (tanpa menggambar ulang tabel,
+        // supaya isian kasir dan kursor tidak hilang). Kalau outlet asal berkurang, batas jumlah ikut turun.
+        function perbaruiAngkaPm(o) {
+            const wadah = document.getElementById("pmIsi");
+            wadah.querySelectorAll("td[data-o]").forEach(function (td) {
+                if (td.dataset.o !== o) return;
+                const s = stokPm(o, td.dataset.pid);
+                const teks = s ? String(s.jumlah) : "-";
+                if (td.textContent === teks) return;
+                td.textContent = teks;
+                td.classList.remove("habis", "menipis", "berubah");
+                if (s) { const k = kelasStok(s); if (k) td.classList.add(k); td.style.color = ""; } else { td.style.color = "#c4ccd6"; }
+                void td.offsetWidth;   // mulai ulang animasi
+                td.classList.add("berubah");
+            });
+
+            if (o !== document.getElementById("pmDari").value) return;
+            wadah.querySelectorAll("input.pm-qty").forEach(function (el) {
+                const pid = el.dataset.pid;
+                const s = stokPm(o, pid);
+                const maks = s ? s.jumlah : 0;
+                el.max = maks;
+                el.disabled = maks <= 0;
+                const catatan = wadah.querySelector('[data-catatan="' + pid + '"]');
+                if (pmQty[pid] > maks) {
+                    if (maks > 0) pmQty[pid] = maks; else delete pmQty[pid];
+                    el.value = maks > 0 ? maks : "";
+                    el.classList.toggle("terisi", maks > 0);
+                    if (catatan) { catatan.textContent = "Disesuaikan: stok asal tinggal " + maks; catatan.style.display = "block"; }
+                }
+            });
+        }
+
+        function ubahPmQty(el) {
+            const s = stokPm(document.getElementById("pmDari").value, el.dataset.pid);
+            const maks = s ? s.jumlah : 0;
             let v = parseInt(el.value, 10);
             if (isNaN(v) || v < 0) v = 0;
             if (v > maks) { v = maks; el.value = maks; }
             if (v > 0) pmQty[el.dataset.pid] = v; else delete pmQty[el.dataset.pid];
             el.classList.toggle("terisi", v > 0);
+            const catatan = document.querySelector('#pmIsi [data-catatan="' + el.dataset.pid + '"]');
+            if (catatan) catatan.style.display = "none";
         }
 
         function kirimPermintaan() {
