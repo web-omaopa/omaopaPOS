@@ -1163,15 +1163,33 @@
             renderProdukTampil();
         }
 
+        /* Topping yang punya hargaPerKue dijual sendiri sebagai satu kartu
+           per kue, mis. "Keju · Malmil" dan "Keju · Ogura", masing-masing
+           dengan harga kue itu di mode aktif. */
+        function pecahToppingPerKue(daftar) {
+            const hasil = [];
+            daftar.forEach(function (p) {
+                if (p.kategori !== "Topping" || !p.hargaPerKue) { hasil.push(p); return; }
+                Object.keys(p.hargaPerKue).forEach(function (kueId) {
+                    const kue = allProducts.find(function (x) { return x.id === kueId; });
+                    if (!kue) return;
+                    const harga = hargaToppingUntuk(p, kue, modeAktif);
+                    if (harga === null) return;
+                    hasil.push(Object.assign({}, p, { nama: p.nama + " · " + kue.nama, _kueId: kueId, _hargaTopping: harga }));
+                });
+            });
+            return hasil;
+        }
+
         function renderProdukTampil() {
             const keyword = (document.getElementById("searchBox").value || "").toLowerCase();
 
-            const filtered = allProducts.filter(function (p) {
+            const filtered = pecahToppingPerKue(allProducts).filter(function (p) {
                 const cocokKategori = kategoriAktif === "Semua"
                     ? p.kategori !== "Topping"
                     : p.kategori === kategoriAktif;
                 const cocokKeyword = p.nama.toLowerCase().includes(keyword);
-                const cocokMode = tersediaDiMode(p, modeAktif);
+                const cocokMode = p._hargaTopping !== undefined || tersediaDiMode(p, modeAktif);
                 return cocokKategori && cocokKeyword && cocokMode;
             });
 
@@ -1202,7 +1220,7 @@
                     : "🥐";
 
                 const teksStok = isTopping ? "" : (habis ? "Stok habis" : "Stok: " + stok + " " + (p.satuan || "pcs"));
-                const hargaTampil = hargaUntukMode(p, modeAktif);
+                const hargaTampil = p._hargaTopping !== undefined ? p._hargaTopping : hargaUntukMode(p, modeAktif);
 
                 card.innerHTML =
                     (isTopping ? "" : '<div class="img-area">' + gambarHtml + '</div>') +
@@ -1219,8 +1237,30 @@
             });
         }
 
+        /* =====================================================
+           TOPPING PER KUE
+           Topping baru menyimpan hargaPerKue { idKue: { mode: harga } }
+           (diatur di Pengaturan > Produk). Topping hanya muncul untuk
+           kue yang tercantum dan punya harga di mode aktif.
+           Topping lama tanpa hargaPerKue tetap memakai cara lama:
+           muncul di kue yang butuhTopping, dengan harga per mode.
+        ====================================================== */
+        function hargaToppingUntuk(t, product, mode) {
+            if (t.hargaPerKue) {
+                const cfg = t.hargaPerKue[product.id];
+                if (!cfg) return null;
+                const v = cfg[mode];
+                return (v === null || v === undefined || v === "") ? null : Number(v);
+            }
+            return product.butuhTopping ? hargaUntukMode(t, mode) : null;
+        }
+
+        function toppingUntukProduk(product) {
+            return daftarTopping.filter(function (t) { return hargaToppingUntuk(t, product, modeAktif) !== null; });
+        }
+
         function klikProduk(product) {
-            if (product.butuhTopping) {
+            if (product.kategori !== "Topping" && toppingUntukProduk(product).length > 0) {
                 bukaModalTopping(product);
             } else {
                 tambahKeKeranjang(product, []);
@@ -1233,7 +1273,7 @@
 
         function bukaModalTopping(product) {
             produkUntukTopping = product;
-            toppingDiModal = daftarTopping.slice();
+            toppingDiModal = toppingUntukProduk(product);
             document.getElementById("modalToppingNama").textContent = "Topping untuk " + product.nama;
 
             const container = document.getElementById("toppingOptionsList");
@@ -1245,7 +1285,7 @@
                     return '<label class="topping-option">' +
                         '<input type="checkbox" value="' + i + '">' +
                         '<span class="t-nama">' + t.nama + '</span>' +
-                        '<span class="t-harga">+Rp ' + hargaUntukMode(t, modeAktif).toLocaleString("id-ID") + '</span>' +
+                        '<span class="t-harga">+Rp ' + hargaToppingUntuk(t, product, modeAktif).toLocaleString("id-ID") + '</span>' +
                     '</label>';
                 }).join("");
             }
@@ -1273,7 +1313,8 @@
 
         function tambahKeKeranjang(product, toppings) {
             const isTopping = product.kategori === "Topping";
-            const cartKey = buatCartKey(product.id, toppings);
+            // Topping per kue punya harga beda, jadi baris keranjangnya dipisah per kue
+            const cartKey = buatCartKey(product._kueId ? product.id + "@" + product._kueId : product.id, toppings);
 
             if (!isTopping) {
                 const stokTersedia = stockMap[product.id] || 0;
@@ -1287,8 +1328,8 @@
                 }
             }
 
-            const hargaProdukMode = hargaUntukMode(product, modeAktif);
-            const hargaToppingTotal = toppings.reduce(function (sum, t) { return sum + hargaUntukMode(t, modeAktif); }, 0);
+            const hargaProdukMode = product._hargaTopping !== undefined ? product._hargaTopping : hargaUntukMode(product, modeAktif);
+            const hargaToppingTotal = toppings.reduce(function (sum, t) { return sum + (hargaToppingUntuk(t, product, modeAktif) || 0); }, 0);
             const hargaSatuan = hargaProdukMode + hargaToppingTotal;
 
             if (cart[cartKey]) {
