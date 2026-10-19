@@ -202,9 +202,11 @@
             <label>Nama Lengkap</label>
             <input type="text" id="uInputNama" placeholder="Kasir 1 Jakal">
             <label>Role</label>
-            <select id="uInputRole"></select>
-            <label>Outlet</label>
-            <select id="uInputOutlet"></select>
+            <select id="uInputRole" onchange="User_aturOutlet('uInput')"></select>
+            <div id="uInputOutletBlok">
+                <label>Outlet</label>
+                <select id="uInputOutlet"></select>
+            </div>
             <div class="err-text" id="uFormErrorTambah"></div>
             <div class="modal-actions">
                 <button class="btn-cancel" onclick="User_tutupModalTambah()">Batal</button>
@@ -220,9 +222,11 @@
             <label>Nama Lengkap</label>
             <input type="text" id="uEditNama">
             <label>Role</label>
-            <select id="uEditRole"></select>
-            <label>Outlet</label>
-            <select id="uEditOutlet"></select>
+            <select id="uEditRole" onchange="User_aturOutlet('uEdit')"></select>
+            <div id="uEditOutletBlok">
+                <label>Outlet</label>
+                <select id="uEditOutlet"></select>
+            </div>
             <div class="err-text" id="uFormErrorEdit"></div>
             <div class="modal-actions">
                 <button class="btn-cancel" onclick="User_tutupModalEdit()">Batal</button>
@@ -1258,7 +1262,7 @@
                 let rows = [];
                 snapshot.forEach(function (doc) {
                     const u = doc.data();
-                    rows.push({ uid: doc.id, nama: u.nama || "-", role: u.role || "-", outlet: u.outlet || "-" });
+                    rows.push({ uid: doc.id, nama: u.nama || "-", role: u.role || "-", outlet: (u.role === "kasir" && u.outlet) ? u.outlet : "-" });
                 });
                 rows.sort(function (a, b) { return a.nama.localeCompare(b.nama); });
 
@@ -1274,11 +1278,18 @@
             });
         }
 
+        // Outlet hanya untuk role kasir; role lain tidak terikat outlet
+        function User_aturOutlet(prefix) {
+            const kasir = document.getElementById(prefix + "Role").value === "kasir";
+            document.getElementById(prefix + "OutletBlok").style.display = kasir ? "block" : "none";
+        }
+
         function User_bukaModalTambah() {
             document.getElementById("uInputUsername").value = "";
             document.getElementById("uInputPassword").value = "";
             document.getElementById("uInputNama").value = "";
             document.getElementById("uInputRole").value = "kasir";
+            User_aturOutlet("uInput");
             document.getElementById("uFormErrorTambah").style.display = "none";
             document.getElementById("modalUserTambah").classList.add("open");
         }
@@ -1294,7 +1305,7 @@
             const errBox = document.getElementById("uFormErrorTambah");
             const btn = document.getElementById("uBtnSimpanTambah");
 
-            if (!username || !password || !nama || !outlet) { errBox.textContent = "Semua kolom wajib diisi."; errBox.style.display = "block"; return; }
+            if (!username || !password || !nama || (role === "kasir" && !outlet)) { errBox.textContent = "Semua kolom wajib diisi."; errBox.style.display = "block"; return; }
             if (password.length < 6) { errBox.textContent = "Password minimal 6 karakter."; errBox.style.display = "block"; return; }
 
             const email = username.trim().toLowerCase() + "@omaopa.internal";
@@ -1305,7 +1316,9 @@
 
             secondaryAuth.createUserWithEmailAndPassword(email, password)
                 .then(function (cred) {
-                    return db.collection("users").doc(cred.user.uid).set({ nama: nama, role: role, outlet: outlet });
+                    const profil = { nama: nama, role: role };
+                    if (role === "kasir") profil.outlet = outlet;
+                    return db.collection("users").doc(cred.user.uid).set(profil);
                 })
                 .then(function () { return secondaryAuth.signOut(); })
                 .then(function () { return secondaryApp.delete(); })
@@ -1324,6 +1337,7 @@
                 document.getElementById("uEditNama").value = u.nama || "";
                 document.getElementById("uEditRole").value = u.role || "kasir";
                 document.getElementById("uEditOutlet").value = u.outlet || "";
+                User_aturOutlet("uEdit");
                 document.getElementById("uFormErrorEdit").style.display = "none";
                 document.getElementById("modalUserEdit").classList.add("open");
             });
@@ -1336,10 +1350,13 @@
             const role = document.getElementById("uEditRole").value;
             const outlet = document.getElementById("uEditOutlet").value;
             const errBox = document.getElementById("uFormErrorEdit");
-            if (!nama || !outlet) { errBox.textContent = "Nama dan outlet wajib diisi."; errBox.style.display = "block"; return; }
+            if (!nama || (role === "kasir" && !outlet)) { errBox.textContent = "Nama dan outlet wajib diisi."; errBox.style.display = "block"; return; }
 
-            db.collection("users").doc(User_editingUid).update({ nama: nama, role: role, outlet: outlet })
-                .then(function () { User_tutupModalEdit(); });
+            const data = { nama: nama, role: role };
+            data.outlet = role === "kasir" ? outlet : firebase.firestore.FieldValue.delete();
+            db.collection("users").doc(User_editingUid).update(data)
+                .then(function () { User_tutupModalEdit(); })
+                .catch(function (error) { errBox.textContent = "Gagal menyimpan: " + error.message; errBox.style.display = "block"; });
         }
 
         function User_hapus(uid, nama) {

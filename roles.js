@@ -118,7 +118,7 @@ function renderSidebar(currentUser, activeKey) {
 
     html += '<div class="user-block">';
     html += '<div class="user-name">' + escapeHtmlAman(currentUser.nama) + '</div>';
-    html += '<div class="user-role">' + escapeHtmlAman(currentUser.role) + ' · ' + escapeHtmlAman(currentUser.outlet) + '</div>';
+    html += '<div class="user-role">' + escapeHtmlAman(currentUser.role) + (currentUser.outlet ? ' · ' + escapeHtmlAman(currentUser.outlet) : '') + '</div>';
     html += '<button class="logout-link" onclick="logout()">Keluar</button>';
     html += '</div>';
 
