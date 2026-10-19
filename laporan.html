@@ -167,6 +167,11 @@
             .tabel-grid { grid-template-columns: minmax(0, 1fr); }
             .filter-aksi { margin-left: 0; }
         }
+        .tampil-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-bottom: 10px; font-size: 12px; color: #52606d; }
+        .tampil-bar label { display: flex; align-items: center; gap: 6px; }
+        .tampil-bar select { width: auto; }
+        .tampil-halaman { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+        .tampil-halaman .btn[disabled] { opacity: 0.45; cursor: default; }
     </style>
 </head>
 <body>
@@ -188,19 +193,9 @@
                 <div class="header-row"><h2 id="judulLaporan"></h2></div>
 
                 <div class="filter-bar">
-                    <div>
-                        <div class="ctrl-label">Periode</div>
-                        <select class="outlet-select" id="fPeriode">
-                            <option value="hari_ini">Hari ini</option>
-                            <option value="kemarin">Kemarin</option>
-                            <option value="7_hari">7 hari terakhir</option>
-                            <option value="bulan_ini">Bulan ini</option>
-                            <option value="bulan_lalu">Bulan lalu</option>
-                            <option value="pilih">Pilih tanggal</option>
-                        </select>
-                    </div>
-                    <div id="wadahTanggal" style="display:none;">
-                        <div class="ctrl-label">Dari – sampai</div>
+                    <select id="fPeriode" hidden><option value="pilih">Tanggal</option></select>
+                    <div id="wadahTanggal">
+                        <div class="ctrl-label">Tanggal (dari – sampai)</div>
                         <input type="date" class="tgl-input" id="fDari">
                         <input type="date" class="tgl-input" id="fSampai">
                     </div>
@@ -209,7 +204,7 @@
                     <div><div class="ctrl-label">Mode penjualan</div><select class="outlet-select" id="fMode"></select></div>
                     <div><div class="ctrl-label">Metode bayar</div><select class="outlet-select" id="fBayar"></select></div>
                     <div><div class="ctrl-label">Kategori</div><select class="outlet-select" id="fKategori"></select></div>
-                    <div><div class="ctrl-label">Kasir</div><select class="outlet-select" id="fKasir"></select></div>
+                    <select id="fKasir" hidden></select>
                     <div class="filter-aksi">
                         <button class="btn" onclick="downloadExcel()">Download Excel</button>
                         <button class="btn btn-primary" onclick="downloadPdf()">Download PDF</button>
@@ -257,7 +252,9 @@
             hari_ini: "Hari ini", kemarin: "Kemarin", "7_hari": "7 hari terakhir",
             bulan_ini: "Bulan ini", bulan_lalu: "Bulan lalu", pilih: "Pilih tanggal"
         };
-        const MAKS_BARIS_LAYAR = 300;
+        // Pilihan "Tampilkan" di tabel Penjualan per produk ("semua" = tanpa batas)
+        const PILIHAN_TAMPIL = ["25", "50", "100", "300", "semua"];
+        let halamanProduk = 1;
 
         // Pembagian area (field "area" di koleksi outlets) - logika sama dengan stok.html
         const DAFTAR_AREA = ["Area 1", "Area 2", "Area 3"];
@@ -417,7 +414,8 @@
            TAMPILAN 2: SATU LAPORAN
         ====================================================== */
         function filterBawaan() {
-            return { periode: "hari_ini", dari: "", sampai: "", area: "", outlet: "", mode: "", bayar: "", kategori: "", kasir: "" };
+            const hariIni = tglKeIso(new Date());
+            return { periode: "pilih", dari: hariIni, sampai: hariIni, area: "", outlet: "", mode: "", bayar: "", kategori: "", kasir: "", tampil: "50" };
         }
 
         function kunciSimpanFilter(key) { return "omaopa_laporan_filter_" + key; }
@@ -428,7 +426,14 @@
                 const simpan = JSON.parse(sessionStorage.getItem(kunciSimpanFilter(key)) || "null");
                 if (simpan) Object.keys(f).forEach(function (k) { if (typeof simpan[k] === "string") f[k] = simpan[k]; });
             } catch (e) { /* abaikan, pakai bawaan */ }
-            if (!LABEL_PERIODE[f.periode]) f.periode = "hari_ini";
+            // Periode selalu tanggal kalender; filter kasir tidak dipakai lagi
+            const bawaan = filterBawaan();
+            f.periode = "pilih";
+            if (!isoKeTgl(f.dari)) f.dari = bawaan.dari;
+            if (!isoKeTgl(f.sampai)) f.sampai = bawaan.sampai;
+            f.kasir = "";
+            if (PILIHAN_TAMPIL.indexOf(f.tampil) === -1) f.tampil = bawaan.tampil;
+            halamanProduk = 1;
             return f;
         }
 
@@ -451,8 +456,6 @@
             document.getElementById("fPeriode").value = filter.periode;
             document.getElementById("fDari").value = filter.dari;
             document.getElementById("fSampai").value = filter.sampai;
-            document.getElementById("wadahTanggal").style.display = filter.periode === "pilih" ? "block" : "none";
-
             isiPilihanFilter();
             dengarkanTransaksi();
             window.scrollTo(0, 0);
@@ -486,6 +489,7 @@
                 document.getElementById(id).addEventListener("change", function () {
                     filter.dari = document.getElementById("fDari").value;
                     filter.sampai = document.getElementById("fSampai").value;
+                    halamanProduk = 1;
                     simpanFilter();
                     dengarkanTransaksi();
                 });
@@ -495,6 +499,7 @@
                 document.getElementById(p[0]).addEventListener("change", function () {
                     filter[p[1]] = this.value;
                     if (p[1] === "area" && filter.outlet && filter.area && areaDariOutlet(filter.outlet) !== filter.area) filter.outlet = "";
+                    halamanProduk = 1;
                     simpanFilter();
                     isiPilihanFilter();
                     renderLaporan();
@@ -755,13 +760,12 @@
 
         function ringkasanFilter() {
             const r = rentangPeriode(filter);
-            const bagian = ["Periode: " + LABEL_PERIODE[filter.periode] + (r ? " (" + teksPeriode(r) + ")" : "")];
+            const bagian = ["Tanggal: " + (r ? teksPeriode(r) : "-")];
             bagian.push("Area: " + (filter.area || "Semua"));
             bagian.push("Outlet: " + (filter.outlet || "Semua"));
             bagian.push("Mode: " + (filter.mode || "Semua"));
             bagian.push("Bayar: " + (filter.bayar || "Semua"));
             bagian.push("Kategori: " + (filter.kategori || "Semua"));
-            bagian.push("Kasir: " + (filter.kasir || "Semua"));
             return bagian;
         }
 
@@ -883,13 +887,40 @@
             wadah.innerHTML = html;
         }
 
+        function gantiTampil(nilai) {
+            filter.tampil = nilai;
+            halamanProduk = 1;
+            simpanFilter();
+            renderLaporan();
+        }
+
+        function gantiHalaman(n) {
+            halamanProduk = n;
+            renderLaporan();
+        }
+
         function renderPerProduk(d, wadah) {
-            const tampil = d.baris.slice(0, MAKS_BARIS_LAYAR);
+            const perHalaman = filter.tampil === "semua" ? Math.max(d.baris.length, 1) : Number(filter.tampil);
+            const jumlahHalaman = Math.max(1, Math.ceil(d.baris.length / perHalaman));
+            if (halamanProduk > jumlahHalaman) halamanProduk = jumlahHalaman;
+            const awal = (halamanProduk - 1) * perHalaman;
+            const tampil = d.baris.slice(awal, awal + perHalaman);
             const tot = totalBaris(d.baris);
-            let html = "";
-            if (d.baris.length > MAKS_BARIS_LAYAR) {
-                html += '<div class="catatan">Menampilkan ' + MAKS_BARIS_LAYAR + ' dari ' + angka(d.baris.length) + ' baris — download Excel untuk semua</div>';
-            }
+
+            const pilihan = PILIHAN_TAMPIL.map(function (p) {
+                return '<option value="' + p + '"' + (p === filter.tampil ? " selected" : "") + '>' + (p === "semua" ? "Semua" : p) + '</option>';
+            }).join("");
+            let html = '<div class="tampil-bar">' +
+                '<label>Tampilkan <select class="outlet-select" onchange="gantiTampil(this.value)">' + pilihan + '</select> baris</label>' +
+                '<span class="tampil-info">' + (d.baris.length ? angka(awal + 1) + '–' + angka(awal + tampil.length) + ' dari ' + angka(d.baris.length) + ' baris' : '0 baris') + '</span>' +
+                (jumlahHalaman > 1
+                    ? '<span class="tampil-halaman">' +
+                        '<button class="btn" ' + (halamanProduk <= 1 ? 'disabled' : 'onclick="gantiHalaman(' + (halamanProduk - 1) + ')"') + '>‹ Sebelumnya</button>' +
+                        '<span>Halaman ' + halamanProduk + ' dari ' + jumlahHalaman + '</span>' +
+                        '<button class="btn" ' + (halamanProduk >= jumlahHalaman ? 'disabled' : 'onclick="gantiHalaman(' + (halamanProduk + 1) + ')"') + '>Berikutnya ›</button>' +
+                      '</span>'
+                    : '') +
+                '</div>';
             html += '<div class="scroll-x"><table><thead><tr>';
             KOLOM_PRODUK.forEach(function (k, i) {
                 html += '<th' + (KOLOM_ANGKA.indexOf(i) !== -1 ? ' class="r"' : '') + '>' + escapeHtmlAman(k) + '</th>';
