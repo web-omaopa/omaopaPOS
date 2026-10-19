@@ -8,7 +8,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
-    <script src="roles.js?v=20261019b"></script>
+    <script src="roles.js?v=20261019c"></script>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1386,7 +1386,10 @@
                 cart[cartKey] = {
                     productId: product.id, nama: product.nama, hargaSatuan: hargaSatuan,
                     hargaDasar: hargaProdukMode, toppings: toppings, qty: 1,
-                    lacakStok: !isTopping
+                    lacakStok: !isTopping,
+                    // Untuk laporan: kategori & harga tiap topping saat dijual
+                    kategori: product.kategori || "",
+                    toppingHarga: toppings.map(function (t) { return hargaToppingUntuk(t, product, modeAktif) || 0; })
                 };
             }
             renderCart();
@@ -1878,7 +1881,11 @@
                             productId: item.productId, nama: item.nama,
                             toppings: item.toppings.map(function (t) { return t.nama; }),
                             harga: item.hargaSatuan, qty: item.qty,
-                            isPromoGratis: !!item.isPromoGratis
+                            isPromoGratis: !!item.isPromoGratis,
+                            // Tambahan untuk laporan (transaksi lama tidak punya field ini)
+                            kategori: item.kategori || ((allProducts.find(function (p) { return p.id === item.productId; }) || {}).kategori) || "",
+                            hargaDasar: item.hargaDasar !== undefined ? item.hargaDasar : item.hargaSatuan,
+                            toppingHarga: item.toppingHarga || []
                         };
                     });
 
