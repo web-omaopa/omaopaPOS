@@ -124,11 +124,13 @@
             <h3 id="modalProdukTitle">Tambah Produk</h3>
             <label>Nama Produk</label>
             <input type="text" id="pInputNama" placeholder="Malmil Cheese">
-            <label>Harga Offline (Rp)</label>
-            <input type="number" id="pInputHarga" placeholder="15000">
-            <div class="field-hint">Ini harga dasar untuk penjualan Offline, dan jadi harga default untuk mode lain kalau tidak diisi harga khusus di bawah.</div>
+            <div id="pBlokHargaOffline">
+                <label>Harga Offline (Rp)</label>
+                <input type="number" id="pInputHarga" placeholder="15000">
+                <div class="field-hint">Ini harga dasar untuk penjualan Offline, dan jadi harga default untuk mode lain kalau tidak diisi harga khusus di bawah.</div>
+            </div>
             <label>Kategori</label>
-            <select id="pInputKategori"><option value="">Pilih kategori...</option></select>
+            <select id="pInputKategori" onchange="Produk_aturTampilanKategori()"><option value="">Pilih kategori...</option></select>
             <label>Satuan (opsional)</label>
             <input type="text" id="pInputSatuan" placeholder="pcs, gram, kg, dll">
             <div class="field-hint">Kosongkan untuk pakai default "pcs". Untuk topping biasanya "gram".</div>
@@ -150,14 +152,16 @@
                 </div>
                 <div id="pPreviewStatus" style="font-size:10.5px; color:#52606d;"></div>
             </div>
-            <label>Butuh Pilih Topping?</label>
-            <select id="pInputButuhTopping">
-                <option value="false">Tidak</option>
-                <option value="true">Ya (muncul pilihan topping saat diklik di Kasir)</option>
-            </select>
-            <label style="margin-top:10px;">Harga per Mode Penjualan</label>
-            <div class="field-hint">Isi harga = produk ini dijual di mode tsb dengan harga itu. Kosongkan = produk TIDAK dijual di mode tsb (tidak otomatis ikut Harga Offline).</div>
-            <div id="modeHargaContainer" style="margin-top:6px;"></div>
+            <div id="pBlokHargaMode">
+                <label style="margin-top:10px;">Harga per Mode Penjualan</label>
+                <div class="field-hint">Isi harga = produk ini dijual di mode tsb dengan harga itu. Kosongkan = produk TIDAK dijual di mode tsb (tidak otomatis ikut Harga Offline).</div>
+                <div id="modeHargaContainer" style="margin-top:6px;"></div>
+            </div>
+            <div id="pBlokHargaTopping" style="display:none;">
+                <label style="margin-top:10px;">Kue yang Bisa Pakai Topping Ini</label>
+                <div class="field-hint">Centang kuenya, lalu isi harga topping untuk kue itu di tiap mode. Kosongkan = topping tidak tersedia untuk kue itu di mode tsb.</div>
+                <div id="toppingKueContainer" style="margin-top:6px;"></div>
+            </div>
             <div class="err-text" id="pFormError"></div>
             <div class="modal-actions">
                 <button class="btn-cancel" onclick="Produk_tutupModal()">Batal</button>
@@ -725,6 +729,85 @@
         }
 
         let Produk_editingId = null;
+        let Produk_daftarSemua = [];   // diisi listener tabel produk, dipakai form topping
+
+        /* =====================================================
+           TOPPING PER KUE
+           Produk berkategori "Topping" menyimpan hargaPerKue:
+             { <idKue>: { "Offline": 3000, "GoFood": 4000, ... } }
+           Kue yang ada di hargaPerKue = boleh pakai topping ini.
+           Harga null = topping tidak tersedia untuk kue itu di
+           mode tsb. Topping lama (belum punya hargaPerKue) tetap
+           memakai cara lama: muncul di kue yang butuhTopping.
+        ====================================================== */
+        function Produk_isTopping(p) { return p && p.kategori === "Topping"; }
+
+        function Produk_infoTopping(p, semua) {
+            if (Produk_isTopping(p)) {
+                return p.hargaPerKue ? ("untuk " + Object.keys(p.hargaPerKue).length + " kue") : "-";
+            }
+            const n = semua.filter(function (t) { return Produk_isTopping(t) && t.hargaPerKue && t.hargaPerKue[p.id]; }).length;
+            return n > 0 ? (n + " topping") : "-";
+        }
+
+        function Produk_aturTampilanKategori() {
+            const topping = document.getElementById("pInputKategori").value === "Topping";
+            document.getElementById("pBlokHargaOffline").style.display = topping ? "none" : "block";
+            document.getElementById("pBlokHargaMode").style.display = topping ? "none" : "block";
+            document.getElementById("pBlokHargaTopping").style.display = topping ? "block" : "none";
+        }
+
+        function Produk_modeTopping() { return ["Offline"].concat(daftarModePenjualan); }
+
+        function Produk_toggleKue(cb) {
+            cb.closest(".tk-kue").querySelector(".tk-isi").style.display = cb.checked ? "grid" : "none";
+        }
+
+        function renderToppingKueInputs(hargaPerKue) {
+            const container = document.getElementById("toppingKueContainer");
+            hargaPerKue = hargaPerKue || {};
+            const daftarKue = Produk_daftarSemua
+                .filter(function (p) { return !Produk_isTopping(p) && p.id !== Produk_editingId; })
+                .sort(function (a, b) { return String(a.nama).localeCompare(String(b.nama)); });
+
+            if (daftarKue.length === 0) {
+                container.innerHTML = '<div style="font-size:11px; color:#6b7280;">Belum ada produk kue.</div>';
+                return;
+            }
+
+            container.innerHTML = daftarKue.map(function (k) {
+                const cfg = hargaPerKue[k.id];
+                const dipilih = !!cfg;
+                const inputs = Produk_modeTopping().map(function (m) {
+                    const v = cfg && cfg[m] !== null && cfg[m] !== undefined ? cfg[m] : "";
+                    return '<div style="display:flex; align-items:center; gap:6px;">' +
+                        '<span style="font-size:10.5px; color:#52606d; width:64px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis;">' + escapeHtmlAman(m) + '</span>' +
+                        '<input type="number" class="tk-harga" data-mode="' + escapeHtmlAman(m) + '" value="' + escapeHtmlAman(v) + '" placeholder="-" style="height:30px; font-size:12px;">' +
+                    '</div>';
+                }).join("");
+                return '<div class="tk-kue" data-id="' + escapeHtmlAman(k.id) + '" style="border:1px solid #e4e8ee; border-radius:8px; padding:8px 10px; margin-bottom:6px;">' +
+                    '<label style="display:flex; align-items:center; gap:8px; margin:0; cursor:pointer;">' +
+                        '<input type="checkbox" class="tk-pilih" style="width:14px; height:14px;"' + (dipilih ? " checked" : "") + ' onchange="Produk_toggleKue(this)">' +
+                        escapeHtmlAman(k.nama) +
+                    '</label>' +
+                    '<div class="tk-isi" style="display:' + (dipilih ? "grid" : "none") + '; grid-template-columns:1fr 1fr; gap:6px 10px; margin-top:8px;">' + inputs + '</div>' +
+                '</div>';
+            }).join("");
+        }
+
+        function ambilHargaPerKueDariForm() {
+            const hasil = {};
+            document.querySelectorAll("#toppingKueContainer .tk-kue").forEach(function (el) {
+                if (!el.querySelector(".tk-pilih").checked) return;
+                const cfg = {};
+                el.querySelectorAll(".tk-harga").forEach(function (inp) {
+                    const v = inp.value !== "" ? Number(inp.value) : null;
+                    cfg[inp.getAttribute("data-mode")] = (v !== null && v > 0) ? v : null;
+                });
+                hasil[el.getAttribute("data-id")] = cfg;
+            });
+            return hasil;
+        }
 
         /* =====================================================
            Render baris "Harga" per mode penjualan di dalam modal
@@ -788,12 +871,13 @@
 
                 let rows = [];
                 snapshot.forEach(function (doc) { rows.push(Object.assign({ id: doc.id }, doc.data())); });
+                Produk_daftarSemua = rows;
 
                 tbody.innerHTML = rows.map(function (p) {
                     return '<tr><td>' + escapeHtmlAman(p.nama) + '<div style="font-size:10px; color:#a89a8c;">satuan: ' + escapeHtmlAman(p.satuan || "pcs") + '</div></td><td>' + escapeHtmlAman(p.kategori || "-") + '</td>' +
                         '<td style="text-align:right;">Rp ' + Number(p.harga).toLocaleString("id-ID") + '</td>' +
                         '<td style="text-align:right;"><span class="badge badge-' + p.status + '">' + (p.status === "aktif" ? "Aktif" : "Nonaktif") + '</span></td>' +
-                        '<td style="font-size:11px; color:#6b7280;">' + (p.butuhTopping ? "Ya" : "Tidak") + '</td>' +
+                        '<td style="font-size:11px; color:#6b7280;">' + Produk_infoTopping(p, rows) + '</td>' +
                         '<td style="text-align:right; white-space:nowrap;">' +
                             '<button class="action-btn" onclick="Produk_bukaModalEdit(\'' + p.id + '\')">Edit</button>' +
                             '<button class="action-btn danger" onclick="Produk_hapus(\'' + p.id + '\', \'' + escJsAttr(p.nama) + '\')">Hapus</button></td></tr>';
@@ -939,9 +1023,10 @@
             document.getElementById("pInputFileGambar").value = "";
             document.getElementById("pUploadStatus").textContent = "";
             Produk_previewGambar();
-            document.getElementById("pInputButuhTopping").value = "false";
             document.getElementById("pFormError").style.display = "none";
             renderModeHargaInputs({});
+            renderToppingKueInputs({});
+            Produk_aturTampilanKategori();
             document.getElementById("modalProduk").classList.add("open");
         }
 
@@ -960,9 +1045,10 @@
                 document.getElementById("pInputFileGambar").value = "";
                 document.getElementById("pUploadStatus").textContent = "";
                 Produk_previewGambar();
-                document.getElementById("pInputButuhTopping").value = p.butuhTopping ? "true" : "false";
                 document.getElementById("pFormError").style.display = "none";
                 renderModeHargaInputs(p.modeHarga || {});
+                renderToppingKueInputs(p.hargaPerKue || {});
+                Produk_aturTampilanKategori();
                 document.getElementById("modalProduk").classList.add("open");
             });
         }
@@ -977,15 +1063,30 @@
             const status = document.getElementById("pInputStatus").value;
             const resetHarian = document.getElementById("pInputResetHarian").value === "true";
             const gambarUrl = Produk_normalGambar(document.getElementById("pInputGambar").value);
-            const butuhTopping = document.getElementById("pInputButuhTopping").value === "true";
             const errBox = document.getElementById("pFormError");
+            const isTopping = kategori === "Topping";
 
             if (Produk_sedangUpload) { errBox.textContent = "Gambar masih diupload. Tunggu sampai selesai, lalu simpan."; errBox.style.display = "block"; return; }
-            if (!nama || !harga || harga <= 0) { errBox.textContent = "Nama dan harga wajib diisi."; errBox.style.display = "block"; return; }
+            if (!nama) { errBox.textContent = "Nama wajib diisi."; errBox.style.display = "block"; return; }
 
-            const modeHarga = ambilModeHargaDariForm();
+            const data = { nama: nama, kategori: kategori, status: status, resetHarian: resetHarian, gambarUrl: gambarUrl, satuan: satuan };
 
-            const data = { nama: nama, harga: harga, kategori: kategori, status: status, resetHarian: resetHarian, gambarUrl: gambarUrl, butuhTopping: butuhTopping, satuan: satuan, modeHarga: modeHarga };
+            if (isTopping) {
+                const hargaPerKue = ambilHargaPerKueDariForm();
+                const semuaHarga = [];
+                Object.keys(hargaPerKue).forEach(function (id) {
+                    Object.keys(hargaPerKue[id]).forEach(function (m) { if (hargaPerKue[id][m]) semuaHarga.push(hargaPerKue[id][m]); });
+                });
+                if (semuaHarga.length === 0) { errBox.textContent = "Centang minimal satu kue dan isi harganya."; errBox.style.display = "block"; return; }
+                data.hargaPerKue = hargaPerKue;
+                // harga & modeHarga tetap diisi supaya halaman lain yang membaca field lama tidak rusak
+                data.harga = Math.min.apply(null, semuaHarga);
+                data.modeHarga = {};
+            } else {
+                if (!harga || harga <= 0) { errBox.textContent = "Nama dan harga wajib diisi."; errBox.style.display = "block"; return; }
+                data.harga = harga;
+                data.modeHarga = ambilModeHargaDariForm();
+            }
             const p = Produk_editingId ? db.collection("products").doc(Produk_editingId).update(data) : db.collection("products").add(data);
             p.then(function () {
                 Produk_tutupModal();
