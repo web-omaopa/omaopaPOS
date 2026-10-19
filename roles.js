@@ -118,9 +118,8 @@ function getHalamanUntukRole(role) {
    activeKey: "beranda" | "kasir" | "stok" | "pengaturan" | dst */
 function renderSidebar(currentUser, activeKey) {
     const halamanDiizinkan = getHalamanUntukRole(currentUser.role);
-    // Pengaturan dipisah dan selalu ditaruh paling bawah menu
-    const menuPengaturan = halamanDiizinkan.filter(function (h) { return h.key === "pengaturan"; })[0];
-    const sudahDibangun = halamanDiizinkan.filter(function (h) { return h.dibangun && h.key !== "pengaturan"; });
+    // Urutan HALAMAN_INFO menaruh Pengaturan di akhir menu yang sudah ada
+    const sudahDibangun = halamanDiizinkan.filter(function (h) { return h.dibangun; });
     const belumDibangun = halamanDiizinkan.filter(function (h) { return !h.dibangun; });
 
     let html = '<img src="logo.png" alt="Oma Opa" class="sidebar-logo">';
@@ -148,11 +147,6 @@ function renderSidebar(currentUser, activeKey) {
         belumDibangun.forEach(function (h) {
             html += '<span class="nav-item disabled">' + h.icon + '  ' + h.title + '</span>';
         });
-    }
-
-    if (menuPengaturan) {
-        html += '<div class="nav-divider"></div>';
-        html += '<a href="' + menuPengaturan.href + '" class="nav-item' + (activeKey === "pengaturan" ? " active" : "") + '">' + menuPengaturan.icon + '  ' + menuPengaturan.title + '</a>';
     }
 
     html += '<div class="user-block">';
