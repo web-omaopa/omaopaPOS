@@ -144,11 +144,11 @@
             <div id="pUploadStatus" style="font-size:10px; color:#52606d; margin-top:4px;"></div>
             <input type="hidden" id="pInputGambar">
             <div style="display:flex; align-items:center; gap:10px; margin-top:8px;">
-                <img id="pPreviewGambar" alt="" style="display:none; width:96px; height:96px; object-fit:cover; border-radius:8px; border:1px solid #dde3ea;" onerror="this.style.display='none'; document.getElementById('pHapusGambar').style.display='none'; document.getElementById('pPreviewStatus').textContent='Foto tidak bisa ditampilkan. Coba upload ulang.'; document.getElementById('pPreviewStatus').style.color='#c0392b';" onload="this.style.display='block'; document.getElementById('pHapusGambar').style.display='inline'; document.getElementById('pPreviewStatus').textContent='';">
-                <div>
-                    <div id="pPreviewStatus" style="font-size:10.5px; color:#52606d;"></div>
-                    <button type="button" id="pHapusGambar" class="action-btn danger" style="display:none;" onclick="Produk_hapusGambar()">Hapus foto</button>
+                <div style="position:relative; flex-shrink:0;">
+                    <img id="pPreviewGambar" alt="" style="display:none; width:96px; height:96px; object-fit:cover; border-radius:8px; border:1px solid #dde3ea;" onerror="this.style.display='none'; document.getElementById('pHapusGambar').style.display='none'; document.getElementById('pPreviewStatus').textContent='Foto tidak bisa ditampilkan. Coba upload ulang.'; document.getElementById('pPreviewStatus').style.color='#c0392b';" onload="this.style.display='block'; document.getElementById('pHapusGambar').style.display='flex'; document.getElementById('pPreviewStatus').textContent='';">
+                    <button type="button" id="pHapusGambar" title="Hapus foto" aria-label="Hapus foto" onclick="Produk_hapusGambar()" style="display:none; position:absolute; top:-7px; right:-7px; width:22px; height:22px; border-radius:50%; border:2px solid #ffffff; background:#c0392b; color:#ffffff; font-size:13px; font-weight:700; line-height:1; align-items:center; justify-content:center; padding:0; cursor:pointer;">&times;</button>
                 </div>
+                <div id="pPreviewStatus" style="font-size:10.5px; color:#52606d;"></div>
             </div>
             <label>Butuh Pilih Topping?</label>
             <select id="pInputButuhTopping">
