@@ -140,14 +140,15 @@
                 <option value="false">Akumulasi (tahan lama)</option>
             </select>
             <label>Gambar (opsional)</label>
-            <div class="field-hint">Upload langsung dari komputer/HP:</div>
-            <input type="file" id="pInputFileGambar" accept="image/*" style="margin-top:6px;" onchange="Produk_uploadGambar(this)">
+            <input type="file" id="pInputFileGambar" accept="image/*" onchange="Produk_uploadGambar(this)">
             <div id="pUploadStatus" style="font-size:10px; color:#52606d; margin-top:4px;"></div>
-            <div class="field-hint" style="margin-top:8px;">Atau tulis nama file di folder <b>images/</b> (contoh: <b>malmil-cheese.png</b>) atau alamat lengkap <b>https://...</b>:</div>
-            <input type="text" id="pInputGambar" placeholder="contoh: malmil-cheese.png" oninput="Produk_previewGambar()">
+            <input type="hidden" id="pInputGambar">
             <div style="display:flex; align-items:center; gap:10px; margin-top:8px;">
-                <img id="pPreviewGambar" alt="" style="display:none; width:64px; height:64px; object-fit:cover; border-radius:8px; border:1px solid #dde3ea;" onerror="this.style.display='none'; document.getElementById('pPreviewStatus').textContent='Gambar tidak ditemukan. Cek nama file dan pastikan sudah di-upload ke folder images/.'; document.getElementById('pPreviewStatus').style.color='#c0392b';" onload="this.style.display='block'; document.getElementById('pPreviewStatus').textContent='Gambar ditemukan \u2713'; document.getElementById('pPreviewStatus').style.color='#1e7d32';">
-                <div id="pPreviewStatus" style="font-size:10.5px; color:#52606d;"></div>
+                <img id="pPreviewGambar" alt="" style="display:none; width:96px; height:96px; object-fit:cover; border-radius:8px; border:1px solid #dde3ea;" onerror="this.style.display='none'; document.getElementById('pHapusGambar').style.display='none'; document.getElementById('pPreviewStatus').textContent='Foto tidak bisa ditampilkan. Coba upload ulang.'; document.getElementById('pPreviewStatus').style.color='#c0392b';" onload="this.style.display='block'; document.getElementById('pHapusGambar').style.display='inline'; document.getElementById('pPreviewStatus').textContent='';">
+                <div>
+                    <div id="pPreviewStatus" style="font-size:10.5px; color:#52606d;"></div>
+                    <button type="button" id="pHapusGambar" class="action-btn danger" style="display:none;" onclick="Produk_hapusGambar()">Hapus foto</button>
+                </div>
             </div>
             <label>Butuh Pilih Topping?</label>
             <select id="pInputButuhTopping">
@@ -855,10 +856,17 @@
             var img = document.getElementById("pPreviewGambar");
             var st = document.getElementById("pPreviewStatus");
             var v = Produk_normalGambar(document.getElementById("pInputGambar").value);
-            if (!v) { img.style.display = "none"; st.textContent = ""; return; }
-            st.textContent = "Mengecek gambar...";
+            if (!v) { img.style.display = "none"; img.removeAttribute("src"); document.getElementById("pHapusGambar").style.display = "none"; st.textContent = ""; return; }
+            st.textContent = "Memuat foto...";
             st.style.color = "#52606d";
             img.src = v;
+        }
+
+        function Produk_hapusGambar() {
+            document.getElementById("pInputGambar").value = "";
+            document.getElementById("pInputFileGambar").value = "";
+            document.getElementById("pUploadStatus").textContent = "";
+            Produk_previewGambar();
         }
 
         function Produk_bukaModalTambah() {
