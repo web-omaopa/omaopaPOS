@@ -504,14 +504,14 @@
             const savedUser = sessionStorage.getItem("omaopa_user");
             if (savedUser) {
                 currentUser = JSON.parse(savedUser);
-                siapkanRole(currentUser.role, mulaiHalaman);
+                mulaiHalaman();
             } else {
                 db.collection("users").doc(user.uid).get().then(function (doc) {
                     if (doc.exists) {
                         currentUser = doc.data();
                         currentUser.uid = user.uid;
                         sessionStorage.setItem("omaopa_user", JSON.stringify(currentUser));
-                        siapkanRole(currentUser.role, mulaiHalaman);
+                        mulaiHalaman();
                     } else {
                         window.location.href = "index.html";
                     }
@@ -525,60 +525,13 @@
             stockUnsubscribe = produkUnsubscribe = toppingUnsubscribe = modeUnsubscribe = promoUnsubscribe = null;
             auth.signOut().then(function () {
                 sessionStorage.removeItem("omaopa_user");
-                sessionStorage.removeItem("omaopa_outlet_kasir");
                 window.location.href = "index.html";
             });
-        }
-
-        const KUNCI_OUTLET_KASIR = "omaopa_outlet_kasir";
-
-        function tampilkanPilihOutlet() {
-            const main = document.getElementById("mainContent");
-            main.innerHTML = '<div class="loading-state">Memuat outlet...</div>';
-            db.collection("outlets").get().then(function (snapshot) {
-                const daftar = [];
-                snapshot.forEach(function (doc) { daftar.push(doc.id); });
-                daftar.sort();
-                if (daftar.length === 0) { main.innerHTML = '<div class="empty-state">Belum ada outlet.</div>'; return; }
-                main.innerHTML =
-                    '<div style="max-width:420px; margin:30px auto; text-align:center;">' +
-                        '<div style="font-size:16px; font-weight:700; margin-bottom:6px;">Pilih outlet</div>' +
-                        '<div style="font-size:12px; color:#6b7280; margin-bottom:16px;">Transaksi dan stok akan dicatat atas outlet yang dipilih.</div>' +
-                        daftar.map(function (o) {
-                            return '<button type="button" onclick="pilihOutletKasir(\'' + escJsAttr(o) + '\')" style="display:block; width:100%; margin-bottom:8px; padding:12px; border:1px solid #dde3ea; border-radius:8px; background:#ffffff; font-size:13px; font-weight:700; color:#12305C; cursor:pointer;">' + escapeHtmlAman(o) + '</button>';
-                        }).join("") +
-                    '</div>';
-            }).catch(function (error) {
-                main.innerHTML = '<div class="empty-state">Gagal memuat outlet: ' + escapeHtmlAman(error.message) + '</div>';
-            });
-        }
-
-        function pilihOutletKasir(outlet) {
-            sessionStorage.setItem(KUNCI_OUTLET_KASIR, outlet);
-            mulaiHalaman();
-        }
-
-        function gantiOutletKasir() {
-            if (Object.keys(cart).length > 0 && !confirm("Ganti outlet akan mengosongkan keranjang. Lanjutkan?")) return;
-            sessionStorage.removeItem(KUNCI_OUTLET_KASIR);
-            window.location.reload();
         }
 
         function mulaiHalaman() {
             document.getElementById("sidebarContainer").innerHTML = renderSidebar(currentUser, "kasir");
             if (!jagaAksesHalaman(currentUser.role, "kasir")) return;
-
-            // Role selain kasir (management, admin, dst) tidak terikat outlet:
-            // pilih outlet dulu, transaksi dicatat atas outlet yang dipilih.
-            if (currentUser.role !== "kasir") {
-                const dipilih = sessionStorage.getItem(KUNCI_OUTLET_KASIR);
-                if (!dipilih) { tampilkanPilihOutlet(); return; }
-                currentUser.outlet = dipilih;
-            } else if (!currentUser.outlet) {
-                document.getElementById("mainContent").innerHTML =
-                    '<div class="empty-state" style="padding:40px 0;">Akun kasir ini belum punya outlet. Minta admin mengatur outletnya di Pengaturan &gt; User.</div>';
-                return;
-            }
             renderMainContent();
             loadModePenjualan();
             loadTopping();
@@ -1108,9 +1061,6 @@
                 '<div class="top-row">' +
                     '<input type="text" class="search-box" id="searchBox" placeholder="Cari produk...">' +
                     '<button type="button" class="btn-promo" id="btnPromo" onclick="bukaInfoPromo()"></button>' +
-                    (currentUser.role !== "kasir"
-                        ? '<button type="button" class="btn-promo" onclick="gantiOutletKasir()" title="Ganti outlet">📍 ' + escapeHtmlAman(currentUser.outlet) + ' · ganti</button>'
-                        : '') +
                 '</div>' +
                 '<div class="kategori-tabs" id="kategoriTabs"></div>' +
                 '<div class="pos-grid">' +
