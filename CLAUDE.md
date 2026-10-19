@@ -1,6 +1,6 @@
 # Oma Opa POS
 
-Sistem kasir (POS) multi-outlet untuk Oma Opa. Situs: https://pos.omaopa.store (GitHub Pages, lihat `CNAME`).
+Sistem kasir (POS) multi-outlet untuk Oma Opa. Situs: https://pos.omaopa.store (Hostinger, deploy otomatis dari branch `main`).
 
 ## Teknologi
 - Frontend: HTML statis + JavaScript di tiap halaman (tanpa build step, tanpa framework).
@@ -14,6 +14,7 @@ Sistem kasir (POS) multi-outlet untuk Oma Opa. Situs: https://pos.omaopa.store (
 - `pos.html` : kasir (file terbesar, ~1900 baris)
 - `stok.html`, `alokasi.html` (Manajemen Menu), `transfer.html` : stok antar outlet
 - `pengaturan.html`, `produk.html`, `user.html` : pengelolaan produk, outlet, user
+- `api/upload-foto.php`, `api/foto.php` : upload & tampil foto produk di Hostinger (PHP). Foto disimpan di `foto_produk/` di luar `public_html` supaya tidak hilang saat deploy ulang.
 - `roles.js` : sumber tunggal hak akses per role (`ROLE_PERMISSIONS`, `HALAMAN_INFO`)
 - Halaman terencana tapi belum ada: `riwayat.html`, `laporan.html`
 
