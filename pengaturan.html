@@ -140,8 +140,11 @@
                 <option value="false">Akumulasi (tahan lama)</option>
             </select>
             <label>Gambar (opsional)</label>
+            <div class="field-hint">Upload langsung dari komputer/HP:</div>
+            <input type="file" id="pInputFileGambar" accept="image/*" style="margin-top:6px;" onchange="Produk_uploadGambar(this)">
+            <div id="pUploadStatus" style="font-size:10px; color:#52606d; margin-top:4px;"></div>
+            <div class="field-hint" style="margin-top:8px;">Atau tulis nama file di folder <b>images/</b> (contoh: <b>malmil-cheese.png</b>) atau alamat lengkap <b>https://...</b>:</div>
             <input type="text" id="pInputGambar" placeholder="contoh: malmil-cheese.png" oninput="Produk_previewGambar()">
-            <div class="field-hint">Tulis nama file gambar yang sudah ada di folder <b>images/</b> repo GitHub (contoh: <b>malmil-cheese.png</b>). Alamat lengkap <b>https://...</b> juga boleh.</div>
             <div style="display:flex; align-items:center; gap:10px; margin-top:8px;">
                 <img id="pPreviewGambar" alt="" style="display:none; width:64px; height:64px; object-fit:cover; border-radius:8px; border:1px solid #dde3ea;" onerror="this.style.display='none'; document.getElementById('pPreviewStatus').textContent='Gambar tidak ditemukan. Cek nama file dan pastikan sudah di-upload ke folder images/.'; document.getElementById('pPreviewStatus').style.color='#c0392b';" onload="this.style.display='block'; document.getElementById('pPreviewStatus').textContent='Gambar ditemukan \u2713'; document.getElementById('pPreviewStatus').style.color='#1e7d32';">
                 <div id="pPreviewStatus" style="font-size:10.5px; color:#52606d;"></div>
@@ -745,10 +748,99 @@
         }
 
         /* =====================================================
-           UPLOAD FOTO KE FIREBASE STORAGE
+           UPLOAD FOTO KE HOSTINGER (api/upload-foto.php)
            Dipanggil otomatis saat user pilih file di input.
-           Hasil URL-nya langsung mengisi kolom "URL Gambar".
+           Hasil URL-nya langsung mengisi kolom "Gambar".
         ====================================================== */
+        var Produk_sedangUpload = false;
+
+        // Perkecil gambar di browser sebelum diupload (maks 900px, JPEG) supaya cepat & hemat kuota
+        function Produk_kecilkanGambar(file) {
+            return new Promise(function (resolve, reject) {
+                var url = URL.createObjectURL(file);
+                var img = new Image();
+                img.onload = function () {
+                    URL.revokeObjectURL(url);
+                    var MAKS = 900;
+                    var skala = Math.min(1, MAKS / Math.max(img.width, img.height));
+                    var w = Math.round(img.width * skala), h = Math.round(img.height * skala);
+                    var cv = document.createElement("canvas");
+                    cv.width = w; cv.height = h;
+                    var ctx = cv.getContext("2d");
+                    ctx.fillStyle = "#ffffff";
+                    ctx.fillRect(0, 0, w, h);
+                    ctx.drawImage(img, 0, 0, w, h);
+                    cv.toBlob(function (blob) {
+                        blob ? resolve(blob) : reject(new Error("gagal-proses"));
+                    }, "image/jpeg", 0.82);
+                };
+                img.onerror = function () { URL.revokeObjectURL(url); reject(new Error("bukan-gambar")); };
+                img.src = url;
+            });
+        }
+
+        function Produk_pesanErrorUpload(error) {
+            var msg = (error && error.message) || "";
+            if (msg === "bukan-gambar") return "File itu bukan gambar yang bisa dibaca. Pilih file JPG, PNG, atau WEBP.";
+            if (msg === "gagal-proses") return "Gambar gagal diproses. Coba gambar lain.";
+            if (msg === "Failed to fetch") return "Koneksi terputus saat upload. Coba lagi.";
+            return "Gagal upload: " + (msg || "tidak diketahui");
+        }
+
+        function Produk_uploadGambar(fileInput) {
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            const statusBox = document.getElementById("pUploadStatus");
+            const warna = function (c) { statusBox.style.color = c; };
+
+            if (!/^image\//.test(file.type)) {
+                statusBox.textContent = "File harus berupa gambar (JPG, PNG, WEBP).";
+                warna("#c0392b");
+                fileInput.value = "";
+                return;
+            }
+            if (file.size > 15 * 1024 * 1024) {
+                statusBox.textContent = "File terlalu besar (maks 15 MB). Pilih gambar yang lebih kecil.";
+                warna("#c0392b");
+                fileInput.value = "";
+                return;
+            }
+
+            Produk_sedangUpload = true;
+            statusBox.textContent = "Memproses gambar...";
+            warna("#52606d");
+
+            Promise.all([Produk_kecilkanGambar(file), auth.currentUser.getIdToken()])
+                .then(function (hasil) {
+                    statusBox.textContent = "Mengupload...";
+                    const form = new FormData();
+                    form.append("token", hasil[1]);
+                    form.append("foto", hasil[0], file.name.replace(/\.[^.]*$/, "") + ".jpg");
+                    return fetch("api/upload-foto.php", { method: "POST", body: form });
+                })
+                .then(function (res) {
+                    return res.json().catch(function () {
+                        throw new Error("Server Hostinger tidak merespons dengan benar (kode " + res.status + ").");
+                    }).then(function (data) {
+                        if (!res.ok || !data.url) throw new Error(data.error || ("kode " + res.status));
+                        return data.url;
+                    });
+                })
+                .then(function (url) {
+                    document.getElementById("pInputGambar").value = url;
+                    Produk_previewGambar();
+                    statusBox.textContent = "Berhasil diupload ✓";
+                    warna("#1e7d32");
+                })
+                .catch(function (error) {
+                    statusBox.textContent = Produk_pesanErrorUpload(error);
+                    warna("#c0392b");
+                    fileInput.value = "";
+                })
+                .then(function () { Produk_sedangUpload = false; });
+        }
+
         // Nama file saja (mis. "malmil-cheese.png") otomatis jadi "images/malmil-cheese.png"
         function Produk_normalGambar(v) {
             v = (v || "").trim();
@@ -771,6 +863,7 @@
 
         function Produk_bukaModalTambah() {
             Produk_editingId = null;
+            Produk_sedangUpload = false;
             document.getElementById("modalProdukTitle").textContent = "Tambah Produk";
             document.getElementById("pInputNama").value = "";
             document.getElementById("pInputHarga").value = "";
@@ -779,6 +872,8 @@
             document.getElementById("pInputStatus").value = "aktif";
             document.getElementById("pInputResetHarian").value = "true";
             document.getElementById("pInputGambar").value = "";
+            document.getElementById("pInputFileGambar").value = "";
+            document.getElementById("pUploadStatus").textContent = "";
             Produk_previewGambar();
             document.getElementById("pInputButuhTopping").value = "false";
             document.getElementById("pFormError").style.display = "none";
@@ -798,6 +893,8 @@
                 document.getElementById("pInputStatus").value = p.status;
                 document.getElementById("pInputResetHarian").value = p.resetHarian === false ? "false" : "true";
                 document.getElementById("pInputGambar").value = p.gambarUrl || "";
+                document.getElementById("pInputFileGambar").value = "";
+                document.getElementById("pUploadStatus").textContent = "";
                 Produk_previewGambar();
                 document.getElementById("pInputButuhTopping").value = p.butuhTopping ? "true" : "false";
                 document.getElementById("pFormError").style.display = "none";
@@ -819,6 +916,7 @@
             const butuhTopping = document.getElementById("pInputButuhTopping").value === "true";
             const errBox = document.getElementById("pFormError");
 
+            if (Produk_sedangUpload) { errBox.textContent = "Gambar masih diupload. Tunggu sampai selesai, lalu simpan."; errBox.style.display = "block"; return; }
             if (!nama || !harga || harga <= 0) { errBox.textContent = "Nama dan harga wajib diisi."; errBox.style.display = "block"; return; }
 
             const modeHarga = ambilModeHargaDariForm();
