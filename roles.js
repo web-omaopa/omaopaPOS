@@ -101,12 +101,15 @@ function cekAksesHalaman(role, halamanKey) {
 }
 
 /* Ambil daftar halaman (yang sudah dibangun) yang boleh diakses role ini.
-   Dipakai untuk render menu navigasi & Beranda. */
+   Dipakai untuk render menu navigasi & Beranda.
+   Urutan selalu mengikuti HALAMAN_INFO (Kasir, Stok, Manajemen Menu,
+   Transfer, ...), bukan urutan di daftar izin, supaya menu sama di
+   semua role. */
 function getHalamanUntukRole(role) {
     const izin = ROLE_PERMISSIONS[role] || [];
-    return izin.map(function (key) {
-        return Object.assign({ key: key }, HALAMAN_INFO[key]);
-    });
+    return Object.keys(HALAMAN_INFO)
+        .filter(function (key) { return izin.indexOf(key) !== -1; })
+        .map(function (key) { return Object.assign({ key: key }, HALAMAN_INFO[key]); });
 }
 
 /* Render HTML sidebar navigasi, otomatis menyesuaikan role user.
@@ -115,6 +118,7 @@ function getHalamanUntukRole(role) {
    activeKey: "beranda" | "kasir" | "stok" | "pengaturan" | dst */
 function renderSidebar(currentUser, activeKey) {
     const halamanDiizinkan = getHalamanUntukRole(currentUser.role);
+    // Urutan HALAMAN_INFO menaruh Pengaturan di akhir menu yang sudah ada
     const sudahDibangun = halamanDiizinkan.filter(function (h) { return h.dibangun; });
     const belumDibangun = halamanDiizinkan.filter(function (h) { return !h.dibangun; });
 
@@ -147,7 +151,7 @@ function renderSidebar(currentUser, activeKey) {
 
     html += '<div class="user-block">';
     html += '<div class="user-name">' + escapeHtmlAman(currentUser.nama) + '</div>';
-    html += '<div class="user-role">' + escapeHtmlAman(currentUser.role) + (currentUser.outlet ? ' · ' + escapeHtmlAman(currentUser.outlet) : '') + '</div>';
+    html += '<div class="user-role">' + escapeHtmlAman(currentUser.role) + (String(currentUser.outlet || "").trim() ? ' · ' + escapeHtmlAman(currentUser.outlet) : '') + '</div>';
     html += '<button class="logout-link" onclick="logout()">Keluar</button>';
     html += '</div>';
 
