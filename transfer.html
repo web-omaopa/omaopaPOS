@@ -274,6 +274,10 @@
         let tabAktif = "kirim";      // khusus kasir: kirim | terima | riwayat
         let sedangProses = {};       // cegah klik ganda per transfer
         let pesanSukses = "";        // banner sekali tampil setelah permintaan terkirim
+        let langgananTransfer = [];  // fungsi berhenti memantau transfer_stok (onSnapshot)
+        let hasilTransfer = [];      // per kueri: { docId: snapshot dokumen } (kasir: 3 kueri, forecaster: 1)
+        let transferSiap = false;    // semua kueri transfer sudah termuat minimal sekali
+        let langgananOutletFc = null; // fungsi berhenti memantau daftar outlet (area) di tampilan forecaster
 
         function esc(t) {
             return String(t == null ? "" : t).replace(/[&<>"']/g, function (c) {
@@ -303,6 +307,7 @@
         });
 
         function logout() {
+            hentikanSemuaPantauan();   // supaya listener tidak memunculkan error izin setelah keluar
             auth.signOut().then(function () {
                 sessionStorage.removeItem("omaopa_user");
                 window.location.href = "index.html";
@@ -327,46 +332,157 @@
                 btn.style.display = "inline-flex";
             }
 
+            // inisialisasi ulang: lepas dulu semua listener lama supaya tidak menumpuk
+            hentikanSemuaPantauan();
+
             if (canBuat) {
-                // area tiap outlet untuk filter & label di tampilan forecaster
-                db.collection("outlets").get().then(function (snap) {
-                    snap.forEach(function (d) { areaOutletFc[d.id] = d.data().area || "Area 1"; });
-                }).catch(function () { /* filter area jadi tidak tersedia */ }).then(muatTransfer);
+                // area tiap outlet untuk filter & label di tampilan forecaster (real time)
+                pantauAreaOutletFc(muatTransfer);
             } else {
                 muatTransfer();
                 if (window.location.hash === "#permintaan") bukaPermintaan();
             }
         }
 
-        // ===== Ambil data =====
-        function muatTransfer() {
-            let pekerjaan;
+        function hentikanSemuaPantauan() {
+            hentikanPantauTransfer();
+            if (langgananOutletFc) { langgananOutletFc(); langgananOutletFc = null; }
+            pantauStokFc([]);
+            hentikanPantauStok();
+            hentikanPantauDasar();
+        }
 
-            if (canBuat) {
-                pekerjaan = db.collection("transfer_stok").orderBy("dibuatPada", "desc").limit(100).get()
-                    .then(function (snap) { return snap.docs; });
-            } else {
-                const col = db.collection("transfer_stok");
-                pekerjaan = Promise.all([
-                    col.where("dari", "==", currentUser.outlet).get(),
-                    col.where("ke", "==", currentUser.outlet).get(),
-                    // permintaan yang diajukan outlet ini (bisa antar outlet lain se-area)
-                    col.where("diajukanOleh.outlet", "==", currentUser.outlet).get()
-                ]).then(function (hasil) {
-                    const gabung = {};
-                    hasil.forEach(function (snap) { snap.forEach(function (d) { gabung[d.id] = d; }); });
-                    return Object.keys(gabung).map(function (k) { return gabung[k]; });
-                });
+        // Pantau daftar outlet; panggil lanjut() sekali setelah termuat pertama (atau gagal)
+        function pantauAreaOutletFc(lanjut) {
+            if (langgananOutletFc) { langgananOutletFc(); langgananOutletFc = null; }
+            let pertama = true;
+            langgananOutletFc = db.collection("outlets").onSnapshot(function (snap) {
+                const area = {};
+                snap.forEach(function (d) { area[d.id] = d.data().area || "Area 1"; });
+                areaOutletFc = area;
+                if (pertama) { pertama = false; lanjut(); return; }
+                if (transferSiap) renderTetap();
+            }, function () {
+                /* filter area jadi tidak tersedia */
+                langgananOutletFc = null;
+                if (pertama) { pertama = false; lanjut(); }
+            });
+        }
+
+        // ===== Ambil data (real time) =====
+        function hentikanPantauTransfer() {
+            langgananTransfer.forEach(function (stop) { stop(); });
+            langgananTransfer = [];
+            hasilTransfer = [];
+            transferSiap = false;
+        }
+
+        // Mulai memantau transfer_stok. Kalau sudah dipantau, cukup gambar ulang (dipanggil juga setelah aksi).
+        function muatTransfer() {
+            if (langgananTransfer.length > 0) {
+                if (transferSiap) renderTetap();
+                return;
             }
 
-            pekerjaan.then(function (docs) {
-                daftarTransfer = docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
-                daftarTransfer.sort(function (a, b) { return detik(b.dibuatPada) - detik(a.dibuatPada); });
-                render();
-            }).catch(function (e) {
-                document.getElementById("isiHalaman").innerHTML =
-                    '<div class="empty-state">Gagal memuat: ' + esc(e.message) + '</div>';
+            const col = db.collection("transfer_stok");
+            const kueri = canBuat
+                ? [col.orderBy("dibuatPada", "desc").limit(100)]
+                : [
+                    col.where("dari", "==", currentUser.outlet),
+                    col.where("ke", "==", currentUser.outlet),
+                    // permintaan yang diajukan outlet ini (bisa antar outlet lain se-area)
+                    col.where("diajukanOleh.outlet", "==", currentUser.outlet)
+                ];
+
+            hasilTransfer = kueri.map(function () { return null; });
+            kueri.forEach(function (q, i) {
+                const stop = q.onSnapshot(function (snap) {
+                    const peta = {};
+                    snap.forEach(function (d) { peta[d.id] = d; });
+                    hasilTransfer[i] = peta;
+                    // tunggu semua kueri termuat sekali, baru gambar (sama seperti dulu dengan Promise.all)
+                    if (hasilTransfer.some(function (x) { return x === null; })) return;
+                    gabungTransfer();
+                }, function (e) {
+                    hentikanPantauTransfer();   // muatTransfer() berikutnya akan memantau ulang
+                    document.getElementById("isiHalaman").innerHTML =
+                        '<div class="empty-state">Gagal memuat: ' + esc(e.message) + '</div>';
+                });
+                langgananTransfer.push(stop);
             });
+        }
+
+        // Gabungkan hasil semua kueri (dedupe per id dokumen), urutkan terbaru di atas, lalu gambar ulang
+        function gabungTransfer() {
+            const gabung = {};
+            hasilTransfer.forEach(function (peta) {
+                Object.keys(peta).forEach(function (k) { gabung[k] = peta[k]; });
+            });
+            daftarTransfer = Object.keys(gabung).map(function (k) { return Object.assign({ id: k }, gabung[k].data()); });
+            daftarTransfer.sort(function (a, b) { return detik(b.dibuatPada) - detik(a.dibuatPada); });
+            transferSiap = true;
+            renderTetap();
+        }
+
+        // Gambar ulang tanpa menghapus isian, fokus, pesan error, dan posisi gulir
+        function renderTetap() {
+            gambarUlangTetap(document.getElementById("isiHalaman"), render);
+        }
+
+        function kunciIsian(el) {
+            if (el.id) return "#" + el.id;
+            if (el.dataset && el.dataset.pid) return el.className.split(" ")[0] + "|" + (el.dataset.tid || "") + "|" + el.dataset.pid;
+            return null;
+        }
+
+        function gambarUlangTetap(wadah, gambar) {
+            const isian = {};
+            wadah.querySelectorAll("input, textarea").forEach(function (el) {
+                const k = kunciIsian(el);
+                if (k) isian[k] = el.value;
+            });
+            const pesanErr = {};
+            wadah.querySelectorAll(".err[id]").forEach(function (el) {
+                if (el.style.display !== "none") pesanErr[el.id] = el.textContent;
+            });
+            const aktif = document.activeElement;
+            const kunciFokus = aktif && aktif !== wadah && wadah.contains(aktif) ? kunciIsian(aktif) : null;
+            let pilihan = null;
+            if (kunciFokus) { try { pilihan = [aktif.selectionStart, aktif.selectionEnd]; } catch (e) { pilihan = null; } }
+            const gulir = [];
+            for (let el = wadah; el; el = el.parentElement) {
+                if (el.scrollTop || el.scrollLeft) gulir.push([el, el.scrollTop, el.scrollLeft]);
+            }
+            const gulirX = window.pageXOffset, gulirY = window.pageYOffset;
+
+            gambar();
+
+            let elFokus = null;
+            wadah.querySelectorAll("input, textarea").forEach(function (el) {
+                const k = kunciIsian(el);
+                if (!k) return;
+                if (isian[k] !== undefined && el.value !== isian[k]) el.value = isian[k];
+                if (k === kunciFokus) elFokus = el;
+            });
+            Object.keys(pesanErr).forEach(function (id) {
+                const el = document.getElementById(id);
+                if (el && wadah.contains(el)) { el.textContent = pesanErr[id]; el.style.display = "block"; }
+            });
+            // kotak catatan selisih (form terima) mengikuti isian yang dipulihkan
+            wadah.querySelectorAll('[id^="wadahCatatan_"]').forEach(function (el) { cekBeda(el.id.slice(13)); });
+            // tombol yang sedang diproses tetap nonaktif
+            Object.keys(sedangProses).forEach(function (id) {
+                ["btnKirim_", "btnTerima_"].forEach(function (p) {
+                    const b = document.getElementById(p + id);
+                    if (b) b.disabled = true;
+                });
+            });
+            if (elFokus) {
+                try { elFokus.focus({ preventScroll: true }); } catch (e) { elFokus.focus(); }
+                if (pilihan && pilihan[0] !== null) { try { elFokus.setSelectionRange(pilihan[0], pilihan[1]); } catch (e) { /* input number */ } }
+            }
+            gulir.forEach(function (g) { g[0].scrollTop = g[1]; g[0].scrollLeft = g[2]; });
+            window.scrollTo(gulirX, gulirY);
         }
 
         function detik(ts) {
@@ -727,26 +843,96 @@
         let pmProduk = [];           // [{id, nama}] tanpa topping
         let pmStok = {};             // { outlet: { productId: {jumlah, minStok} } } - diperbarui real time
         let pmQty = {};              // { productId: jumlah diminta }
-        let pmDasar = null;          // Promise daftar outlet & produk (dimuat sekali per buka halaman)
+        let pmDasar = null;          // Promise daftar outlet & produk termuat pertama (dipantau real time selama form terbuka)
         let pmLangganan = [];        // fungsi untuk berhenti memantau stok (onSnapshot)
+        let pmLanggananDasar = [];   // fungsi untuk berhenti memantau outlets & products (onSnapshot)
         let pmSemua = false;         // tampilkan semua outlet walau asal & tujuan sudah dipilih
+
+        function hentikanPantauDasar() {
+            pmLanggananDasar.forEach(function (stop) { stop(); });
+            pmLanggananDasar = [];
+            pmDasar = null;
+        }
 
         function muatDasarPermintaan() {
             if (pmDasar) return pmDasar;
-            pmDasar = Promise.all([db.collection("outlets").get(), db.collection("products").get()]).then(function (hasil) {
-                const area = {};
-                hasil[0].forEach(function (d) { area[d.id] = d.data().area || "Area 1"; });
-                const areaSaya = area[currentUser.outlet] || "Area 1";
-                pmOutlet = Object.keys(area).filter(function (o) { return area[o] === areaSaya; });
+            hentikanPantauDasar();
+            let area = null, snapProduk = null, selesai = false;
 
-                pmProduk = [];
-                hasil[1].forEach(function (d) {
-                    if ((d.data().kategori || "") === "Topping") return;
-                    pmProduk.push({ id: d.id, nama: d.data().nama || d.id });
-                });
+            pmDasar = new Promise(function (resolve, reject) {
+                const olah = function () {
+                    if (!area || !snapProduk) return;   // tunggu outlet & produk termuat sekali
+                    const outletLama = pmOutlet.join("|");
+                    const areaSaya = area[currentUser.outlet] || "Area 1";
+                    pmOutlet = Object.keys(area).filter(function (o) { return area[o] === areaSaya; });
+
+                    pmProduk = [];
+                    snapProduk.forEach(function (d) {
+                        if ((d.data().kategori || "") === "Topping") return;
+                        pmProduk.push({ id: d.id, nama: d.data().nama || d.id });
+                    });
+
+                    if (!selesai) { selesai = true; resolve(); return; }
+                    perbaruiFormPermintaan(outletLama !== pmOutlet.join("|"));
+                };
+                const gagal = function (e) {
+                    hentikanPantauDasar();   // boleh dicoba lagi saat form dibuka ulang
+                    if (!selesai) { selesai = true; reject(e); return; }
+                    hentikanPantauStok();
+                    tampilGagalPm(e);
+                };
+                pmLanggananDasar.push(db.collection("outlets").onSnapshot(function (snap) {
+                    const a = {};
+                    snap.forEach(function (d) { a[d.id] = d.data().area || "Area 1"; });
+                    area = a;
+                    olah();
+                }, gagal));
+                pmLanggananDasar.push(db.collection("products").onSnapshot(function (snap) {
+                    snapProduk = snap;
+                    olah();
+                }, gagal));
             });
-            pmDasar.catch(function () { pmDasar = null; });   // boleh dicoba lagi kalau gagal
             return pmDasar;
+        }
+
+        function tampilGagalPm(e) {
+            document.getElementById("pmIsi").innerHTML = '<div class="empty-state" style="padding:18px 0;">' +
+                (e.code === "permission-denied"
+                    ? "Stok outlet lain belum bisa ditampilkan: akses akun ini dibatasi oleh aturan Firestore."
+                    : "Gagal memuat stok: " + esc(e.message)) + '</div>';
+        }
+
+        // Outlet / produk berubah saat form terbuka: perbarui tabel tanpa menghapus isian kasir
+        function perbaruiFormPermintaan(outletBerubah) {
+            if (!document.getElementById("modalPermintaan").classList.contains("tampil")) return;
+            if (document.getElementById("pmLive").style.display === "none") return;   // form belum siap / sedang error
+            if (!outletBerubah) { renderPmTetap(); return; }
+
+            pantauStokPermintaan().then(function () {
+                if (!document.getElementById("modalPermintaan").classList.contains("tampil")) { hentikanPantauStok(); return; }
+                const opsi = pmOutlet.map(function (o) { return '<option value="' + esc(o) + '">' + esc(o) + '</option>'; }).join("");
+                const dariSel = document.getElementById("pmDari");
+                const dariLama = dariSel.value;
+                dariSel.innerHTML = opsi;
+                dariSel.value = pmOutlet.indexOf(dariLama) !== -1 ? dariLama : currentUser.outlet;
+                document.getElementById("pmLive").style.display = "inline";
+                if (dariSel.value !== dariLama) { gantiPmDari(); return; }   // asal hilang: mulai ulang isian
+
+                const keSel = document.getElementById("pmKe");
+                const keLama = keSel.value;
+                const pilihan = pmOutlet.filter(function (o) { return o !== dariSel.value; });
+                keSel.innerHTML = '<option value="">- pilih tujuan -</option>' +
+                    pilihan.map(function (o) { return '<option value="' + esc(o) + '">' + esc(o) + '</option>'; }).join("");
+                keSel.value = pilihan.indexOf(keLama) !== -1 ? keLama : "";
+                renderPmTetap();
+            }).catch(function (e) {
+                hentikanPantauStok();
+                tampilGagalPm(e);
+            });
+        }
+
+        function renderPmTetap() {
+            gambarUlangTetap(document.getElementById("pmIsi"), renderPmTabel);
         }
 
         // Pantau stok tiap outlet se-area selama form terbuka. Selesai saat semua outlet sudah termuat sekali.
@@ -804,15 +990,13 @@
                 gantiPmDari();
             }).catch(function (e) {
                 hentikanPantauStok();
-                document.getElementById("pmIsi").innerHTML = '<div class="empty-state" style="padding:18px 0;">' +
-                    (e.code === "permission-denied"
-                        ? "Stok outlet lain belum bisa ditampilkan: akses akun ini dibatasi oleh aturan Firestore."
-                        : "Gagal memuat stok: " + esc(e.message)) + '</div>';
+                tampilGagalPm(e);
             });
         }
 
         function tutupPermintaan() {
             hentikanPantauStok();
+            hentikanPantauDasar();
             document.getElementById("modalPermintaan").classList.remove("tampil");
         }
 
@@ -1044,7 +1228,7 @@
         function tolakPermintaan(id) {
             if (!tolakTerbuka[id]) {
                 tolakTerbuka[id] = true;
-                renderForecaster();
+                renderTetap();   // isian kartu lain tidak hilang
                 const el = document.getElementById("tolak_" + id);
                 if (el) el.focus();
                 return;
@@ -1062,7 +1246,7 @@
 
         function batalTolak(id) {
             delete tolakTerbuka[id];
-            renderForecaster();
+            renderTetap();
         }
 
         function batalPermintaan(id) {
@@ -1084,6 +1268,7 @@
         // ===================================================================
         function pilihTab(t) {
             tabAktif = t;
+            pesanSukses = "";
             renderKasir();
         }
 
@@ -1122,10 +1307,8 @@
                     perluTerima.forEach(function (t) { html += kartuTerima(t); });
                 }
             } else if (tabAktif === "permintaan") {
-                if (pesanSukses) {
-                    html += '<div class="banner-ok">' + pesanSukses + '</div>';
-                    pesanSukses = "";
-                }
+                // banner tetap tampil walau daftar diperbarui real time; hilang saat ganti tab
+                if (pesanSukses) html += '<div class="banner-ok">' + pesanSukses + '</div>';
                 html += '<div class="banner-info">Permintaan transfer yang diajukan ' + esc(outlet) + '. ' +
                         'Transfer baru berjalan setelah di-ACC Forecaster. <a href="#permintaan" onclick="bukaPermintaan(); return false;" style="color:#12305C; font-weight:700;">+ Ajukan permintaan</a></div>';
                 if (permintaan.length === 0) {

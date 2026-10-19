@@ -151,6 +151,10 @@
         }
 
         function logout() {
+            // Lepas semua listener dulu supaya tidak muncul error izin setelah sign out
+            if (produkUnsubscribe) { produkUnsubscribe(); produkUnsubscribe = null; }
+            if (riwayatUnsubscribe) { riwayatUnsubscribe(); riwayatUnsubscribe = null; }
+            if (approvalUnsubscribe) { approvalUnsubscribe(); approvalUnsubscribe = null; }
             auth.signOut().then(function () {
                 sessionStorage.removeItem("omaopa_user");
                 window.location.href = "index.html";
@@ -197,8 +201,47 @@
             Kasir_loadRiwayat();
         }
 
+        /* =====================================================
+           Listener realtime (onSnapshot). Selalu unsubscribe dulu
+           sebelum pasang ulang supaya listener tidak menumpuk.
+        ====================================================== */
+        let produkUnsubscribe = null;
+        let riwayatUnsubscribe = null;
+        let approvalUnsubscribe = null;
+
+        /* =====================================================
+           Simpan angka yang sedang diketik user di dalam container
+           (+ input mana yang sedang fokus), supaya saat listener
+           me-render ulang, ketikan user tidak hilang.
+           hanyaYangDiubah = true: cuma simpan input yang nilainya
+           beda dari nilai awal (dipakai di kartu approval admin).
+        ====================================================== */
+        function simpanNilaiInput(container, hanyaYangDiubah) {
+            const nilai = {};
+            if (!container) return { nilai: nilai, fokusId: null };
+            Array.prototype.forEach.call(container.querySelectorAll("input[id]"), function (el) {
+                if (hanyaYangDiubah ? el.value !== el.defaultValue : el.value !== "") nilai[el.id] = el.value;
+            });
+            const aktif = document.activeElement;
+            const fokusId = aktif && aktif.id && container.contains(aktif) ? aktif.id : null;
+            return { nilai: nilai, fokusId: fokusId };
+        }
+
+        function kembalikanNilaiInput(state) {
+            Object.keys(state.nilai).forEach(function (id) {
+                const el = document.getElementById(id);
+                if (el) el.value = state.nilai[id];
+            });
+            if (state.fokusId) {
+                const elFokus = document.getElementById(state.fokusId);
+                if (elFokus) elFokus.focus({ preventScroll: true });
+            }
+        }
+
         function Kasir_loadProduk() {
-            db.collection("products").where("status", "==", "aktif").get().then(function (snapshot) {
+            if (produkUnsubscribe) { produkUnsubscribe(); produkUnsubscribe = null; }
+
+            produkUnsubscribe = db.collection("products").where("status", "==", "aktif").onSnapshot(function (snapshot) {
                 daftarProduk = [];
                 snapshot.forEach(function (doc) {
                     // Topping tidak dilacak stoknya (sama seperti di Kasir), jadi tidak ikut dilaporkan
@@ -210,13 +253,22 @@
                 });
 
                 const container = document.getElementById("produkListLapor");
+                if (!container) return;
+                const stateInput = simpanNilaiInput(container, false);
+
                 container.innerHTML = daftarProduk.map(function (p) {
                     return '<div class="product-row"><div class="info"><div class="nama">' + escapeHtmlAman(p.nama) +
                         '</div><div class="meta">' + escapeHtmlAman(p.kategori || "-") + '</div></div>' +
                         '<input type="number" min="0" class="qty-input" id="qtyLapor_' + p.id + '" placeholder="0"></div>';
                 }).join("");
 
-                document.getElementById("submitBtnLapor").disabled = false;
+                kembalikanNilaiInput(stateInput);
+
+                const submitBtn = document.getElementById("submitBtnLapor");
+                // Jangan aktifkan tombol kalau laporan sedang dikirim
+                if (submitBtn && submitBtn.textContent !== "Mengirim...") submitBtn.disabled = false;
+            }, function (error) {
+                tampilkanErrorQuery(document.getElementById("produkListLapor"), error);
             });
         }
 
@@ -298,7 +350,7 @@
                 tampilkanPesan("Laporan terkirim, stok POS langsung diperbarui. Menunggu ACC admin.", "success");
                 daftarProduk.forEach(function (p) { const el = document.getElementById("qtyLapor_" + p.id); if (el) el.value = ""; });
                 if (catatanEl) catatanEl.value = "";
-                Kasir_loadRiwayat();
+                // Riwayat tidak perlu dimuat ulang: listener Kasir_loadRiwayat otomatis menampilkan laporan baru
             }).catch(function (error) {
                 tampilkanPesan("Gagal: " + error.message, "error");
             }).finally(function () {
@@ -306,17 +358,26 @@
             });
         }
 
-        function Kasir_loadRiwayat() {
-            db.collection("laporan_stok").where("kasirUid", "==", currentUser.uid).orderBy("waktuLapor", "desc").limit(10).get()
-                .then(function (snapshot) {
-                    const container = document.getElementById("riwayatListLapor");
+        // Kartu riwayat yang sedang dibuka (per id dokumen), supaya tetap terbuka saat listener render ulang
+        const riwayatTerbuka = {};
 
-                    riwayatKasirCache = snapshot.docs.map(function (doc) { return doc.data(); });
+        function Kasir_loadRiwayat() {
+            if (riwayatUnsubscribe) { riwayatUnsubscribe(); riwayatUnsubscribe = null; }
+
+            riwayatUnsubscribe = db.collection("laporan_stok").where("kasirUid", "==", currentUser.uid).orderBy("waktuLapor", "desc").limit(10)
+                .onSnapshot(function (snapshot) {
+                    const container = document.getElementById("riwayatListLapor");
+                    if (!container) return;
+
+                    // "estimate": laporan yang baru dikirim langsung punya waktu perkiraan (bukan null) sebelum server konfirmasi
+                    riwayatKasirCache = snapshot.docs.map(function (doc) { return doc.data({ serverTimestamps: "estimate" }); });
 
                     if (snapshot.empty) { container.innerHTML = '<div class="empty-state">Belum ada laporan.</div>'; return; }
 
-                    container.innerHTML = snapshot.docs.map(function (doc, i) {
-                        const d = doc.data();
+                    container.innerHTML = snapshot.docs.map(function (doc) {
+                        const d = doc.data({ serverTimestamps: "estimate" });
+                        const i = doc.id;
+                        const terbuka = !!riwayatTerbuka[i];
                         const waktu = d.waktuLapor ? d.waktuLapor.toDate().toLocaleString("id-ID") : "-";
                         const statusLabel = d.status === "pending" ? "Menunggu ACC" : (d.status === "disetujui" ? "Disetujui" : "Ditolak");
 
@@ -325,19 +386,18 @@
                                 '<span>' + escapeHtmlAman(item.nama) + '</span><span style="font-weight:700;">' + item.jumlahDiterima + '</span></div>';
                         }).join("");
 
-                        return '<div class="riwayat-item" style="cursor:pointer;" onclick="toggleRiwayatDetail(' + i + ')">' +
+                        return '<div class="riwayat-item" style="cursor:pointer;" onclick="toggleRiwayatDetail(\'' + i + '\')">' +
                             '<div style="display:flex; justify-content:space-between; margin-bottom:4px;">' +
                                 '<span>' + waktu + '</span><span class="status-tag status-' + d.status + '">' + statusLabel + '</span></div>' +
                             '<div style="display:flex; justify-content:space-between; align-items:center; color:#6b7280;">' +
                                 '<span>' + d.items.length + ' menu dilaporkan</span>' +
-                                '<span id="riwayatChevron_' + i + '" style="color:#a89a8c; font-size:10px;">Lihat detail ▾</span>' +
+                                '<span id="riwayatChevron_' + i + '" style="color:#a89a8c; font-size:10px;">' + (terbuka ? "Tutup detail ▴" : "Lihat detail ▾") + '</span>' +
                             '</div>' +
                             (d.catatan ? '<div style="color:#8a796e; margin-top:4px; font-style:italic;">📝 ' + d.catatan + '</div>' : '') +
-                            '<div id="riwayatDetail_' + i + '" style="display:none; margin-top:8px; padding-top:8px; border-top:1px dashed #e8ecf1; font-size:11px;">' + detailItems + '</div>' +
+                            '<div id="riwayatDetail_' + i + '" style="display:' + (terbuka ? "block" : "none") + '; margin-top:8px; padding-top:8px; border-top:1px dashed #e8ecf1; font-size:11px;">' + detailItems + '</div>' +
                             '</div>';
                     }).join("");
-                })
-                .catch(function (error) {
+                }, function (error) {
                     tampilkanErrorQuery(document.getElementById("riwayatListLapor"), error);
                 });
         }
@@ -351,6 +411,7 @@
 
             const terbuka = detail.style.display === "block";
             detail.style.display = terbuka ? "none" : "block";
+            if (terbuka) delete riwayatTerbuka[i]; else riwayatTerbuka[i] = true;
             if (chevron) chevron.textContent = terbuka ? "Lihat detail ▾" : "Tutup detail ▴";
         }
 
@@ -369,9 +430,15 @@
         }
 
         function Approval_load() {
-            db.collection("laporan_stok").where("status", "==", "pending").orderBy("waktuLapor", "asc").get()
-                .then(function (snapshot) {
+            if (approvalUnsubscribe) { approvalUnsubscribe(); approvalUnsubscribe = null; }
+
+            approvalUnsubscribe = db.collection("laporan_stok").where("status", "==", "pending").orderBy("waktuLapor", "asc")
+                .onSnapshot(function (snapshot) {
                     const container = document.getElementById("approvalContainer");
+                    if (!container) return;
+                    // Angka yang sudah diedit admin (tapi belum ACC) tidak boleh tertimpa saat ada laporan baru masuk
+                    const stateInput = simpanNilaiInput(container, true);
+
                     if (snapshot.empty) { container.innerHTML = '<div class="empty-state">Tidak ada laporan yang menunggu ACC.</div>'; return; }
 
                     /* =====================================================
@@ -412,8 +479,9 @@
                                 '<button class="btn-acc" onclick="Approval_acc(\'' + doc.id + '\')">ACC & Update Stok</button>' +
                             '</div></div>';
                     }).join("");
-                })
-                .catch(function (error) {
+
+                    kembalikanNilaiInput(stateInput);
+                }, function (error) {
                     tampilkanErrorQuery(document.getElementById("approvalContainer"), error);
                 });
         }
@@ -482,7 +550,7 @@
                     });
                     return batch.commit();
                 });
-            }).then(function () { Approval_load(); })
+            }).then(function () { /* daftar approval otomatis diperbarui oleh listener Approval_load */ })
               .catch(function (error) { alert("Gagal memproses ACC: " + error.message); });
         }
 
@@ -519,7 +587,7 @@
                 });
 
                 return batch.commit();
-            }).then(function () { Approval_load(); })
+            }).then(function () { /* daftar approval otomatis diperbarui oleh listener Approval_load */ })
               .catch(function (error) { alert("Gagal menolak laporan: " + error.message); });
         }
 
