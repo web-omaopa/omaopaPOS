@@ -337,6 +337,35 @@
             bundling: "BUNDLING"
         };
 
+        /* =====================================================
+           LISTENER REALTIME (onSnapshot) PER BAGIAN
+           Hanya bagian yang sedang dibuka yang punya listener.
+           Saat kembali ke hub / pindah bagian / logout, semua
+           listener dilepas lewat hentikanListenerSection().
+        ====================================================== */
+        let sectionAktif = null;
+        let kategoriUnsubscribe = null;
+        let modeUnsubscribe = null;
+        let produkUnsubscribe = null;
+        let outletUnsubscribe = null;
+        let userOutletUnsubscribe = null;
+        let userUnsubscribe = null;
+        let promoUnsubscribe = null;
+        let promoProdukUnsubscribe = null;
+        let promoOutletUnsubscribe = null;
+
+        function hentikanListenerSection() {
+            if (kategoriUnsubscribe) { kategoriUnsubscribe(); kategoriUnsubscribe = null; }
+            if (modeUnsubscribe) { modeUnsubscribe(); modeUnsubscribe = null; }
+            if (produkUnsubscribe) { produkUnsubscribe(); produkUnsubscribe = null; }
+            if (outletUnsubscribe) { outletUnsubscribe(); outletUnsubscribe = null; }
+            if (userOutletUnsubscribe) { userOutletUnsubscribe(); userOutletUnsubscribe = null; }
+            if (userUnsubscribe) { userUnsubscribe(); userUnsubscribe = null; }
+            if (promoUnsubscribe) { promoUnsubscribe(); promoUnsubscribe = null; }
+            if (promoProdukUnsubscribe) { promoProdukUnsubscribe(); promoProdukUnsubscribe = null; }
+            if (promoOutletUnsubscribe) { promoOutletUnsubscribe(); promoOutletUnsubscribe = null; }
+        }
+
         auth.onAuthStateChanged(function (user) {
             if (!user) { window.location.href = "index.html"; return; }
 
@@ -359,6 +388,8 @@
         });
 
         function logout() {
+            hentikanListenerSection();
+            sectionAktif = null;
             auth.signOut().then(function () {
                 sessionStorage.removeItem("omaopa_user");
                 window.location.href = "index.html";
@@ -378,6 +409,8 @@
            Klik salah satu kotak untuk masuk ke bagian itu.
         ====================================================== */
         function renderHubPengaturan() {
+            hentikanListenerSection();
+            sectionAktif = null;
             document.getElementById("mainContent").innerHTML =
                 '<div class="page-title">Pengaturan</div>' +
                 '<p style="font-size:12px; color:#6b7280; margin-top:-10px; margin-bottom:20px;">Pilih bagian yang mau diatur.</p>' +
@@ -411,6 +444,10 @@
         ====================================================== */
         function bukaSection(nama) {
             const judul = { produk: "Produk", outlet: "Outlet", user: "User", promo: "Promo" }[nama];
+
+            // Lepas listener bagian sebelumnya sebelum pasang yang baru
+            hentikanListenerSection();
+            sectionAktif = nama;
 
             let kontenHtml = "";
 
@@ -456,13 +493,18 @@
            = nama kategori (sama pola dengan outlets). Dropdown
            kategori di form Produk otomatis ambil dari daftar ini.
         ====================================================== */
+        // Realtime: hanya me-render ulang daftar chip di popover. Dropdown
+        // kategori di modal produk yang sedang terbuka TIDAK direset.
         function Kategori_load() {
-            db.collection("kategori_produk").get().then(function (snapshot) {
+            if (kategoriUnsubscribe) { kategoriUnsubscribe(); kategoriUnsubscribe = null; }
+            if (sectionAktif !== "produk") return;
+
+            kategoriUnsubscribe = db.collection("kategori_produk").onSnapshot(function (snapshot) {
                 daftarKategoriProduk = [];
                 snapshot.forEach(function (doc) { daftarKategoriProduk.push(doc.id); });
                 daftarKategoriProduk.sort();
                 renderPopoverKategoriList();
-            }).catch(function (error) {
+            }, function (error) {
                 console.error("Gagal memuat kategori:", error.message);
             });
         }
@@ -536,14 +578,19 @@
            nama mode. "Offline" TIDAK disimpan di sini (selalu ada
            secara implisit, pakai field harga dasar produk).
         ====================================================== */
+        // Realtime: hanya me-render ulang isi popover. Isian harga per mode
+        // di modal produk yang sedang terbuka TIDAK direset.
         function ModePenjualan_load() {
-            db.collection("mode_penjualan").get().then(function (snapshot) {
+            if (modeUnsubscribe) { modeUnsubscribe(); modeUnsubscribe = null; }
+            if (sectionAktif !== "produk" && sectionAktif !== "promo") return;
+
+            modeUnsubscribe = db.collection("mode_penjualan").onSnapshot(function (snapshot) {
                 daftarModePenjualan = [];
                 snapshot.forEach(function (doc) { daftarModePenjualan.push(doc.id); });
                 daftarModePenjualan.sort();
                 renderPopoverModeAdaList();
                 renderPopoverPreset();
-            }).catch(function (error) {
+            }, function (error) {
                 console.error("Gagal memuat mode:", error.message);
             });
         }
@@ -728,9 +775,15 @@
             return hasil;
         }
 
+        // Realtime: hanya tabel produk yang di-render ulang. Modal Tambah/Edit
+        // (termasuk preview & status upload foto) tidak disentuh.
         function Produk_load() {
-            db.collection("products").get().then(function (snapshot) {
+            if (produkUnsubscribe) { produkUnsubscribe(); produkUnsubscribe = null; }
+            if (sectionAktif !== "produk") return;
+
+            produkUnsubscribe = db.collection("products").onSnapshot(function (snapshot) {
                 const tbody = document.getElementById("produkTableBody");
+                if (!tbody) return;
                 if (snapshot.empty) { tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Belum ada produk.</td></tr>'; return; }
 
                 let rows = [];
@@ -745,6 +798,9 @@
                             '<button class="action-btn" onclick="Produk_bukaModalEdit(\'' + p.id + '\')">Edit</button>' +
                             '<button class="action-btn danger" onclick="Produk_hapus(\'' + p.id + '\', \'' + escJsAttr(p.nama) + '\')">Hapus</button></td></tr>';
                 }).join("");
+            }, function (error) {
+                const tbody = document.getElementById("produkTableBody");
+                if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Gagal memuat: ' + escapeHtmlAman(error.message) + '</td></tr>';
             });
         }
 
@@ -933,7 +989,7 @@
             const p = Produk_editingId ? db.collection("products").doc(Produk_editingId).update(data) : db.collection("products").add(data);
             p.then(function () {
                 Produk_tutupModal();
-                Produk_load();
+                // Tabel produk otomatis ter-update lewat listener onSnapshot
             }).catch(function (error) {
                 errBox.textContent = "Gagal menyimpan: " + error.message;
                 errBox.style.display = "block";
@@ -942,12 +998,19 @@
 
         function Produk_hapus(id, nama) {
             if (!confirm('Hapus produk "' + nama + '"?')) return;
-            db.collection("products").doc(id).delete().then(function () { Produk_load(); });
+            db.collection("products").doc(id).delete().catch(function (error) {
+                alert("Gagal menghapus: " + error.message);
+            });
         }
 
+        // Realtime: hanya daftar outlet yang di-render ulang, modal tidak disentuh.
         function Outlet_load() {
-            db.collection("outlets").get().then(function (snapshot) {
+            if (outletUnsubscribe) { outletUnsubscribe(); outletUnsubscribe = null; }
+            if (sectionAktif !== "outlet") return;
+
+            outletUnsubscribe = db.collection("outlets").onSnapshot(function (snapshot) {
                 const container = document.getElementById("outletContainer");
+                if (!container) return;
                 if (snapshot.empty) { container.innerHTML = '<div class="empty-state">Belum ada outlet.</div>'; return; }
 
                 const perArea = { "Area 1": [], "Area 2": [], "Area 3": [] };
@@ -977,6 +1040,9 @@
                     html += '</tbody></table>';
                 });
                 container.innerHTML = html;
+            }, function (error) {
+                const container = document.getElementById("outletContainer");
+                if (container) container.innerHTML = '<div class="empty-state">Gagal memuat: ' + escapeHtmlAman(error.message) + '</div>';
             });
         }
 
@@ -1024,14 +1090,14 @@
             if (Outlet_editingNama) {
                 // Mode edit: hanya update data, nama outlet (ID) tidak berubah
                 db.collection("outlets").doc(Outlet_editingNama).update(data)
-                    .then(function () { Outlet_tutupModal(); Outlet_load(); });
+                    .then(function () { Outlet_tutupModal(); });
                 return;
             }
 
             const ref = db.collection("outlets").doc(nama);
             ref.get().then(function (doc) {
                 if (doc.exists) { errBox.textContent = "Outlet ini sudah ada."; errBox.style.display = "block"; return; }
-                return ref.set(data).then(function () { Outlet_tutupModal(); Outlet_load(); });
+                return ref.set(data).then(function () { Outlet_tutupModal(); });
             });
         }
 
@@ -1042,7 +1108,9 @@
                 snap.forEach(function (d) { batch.delete(d.ref); });
                 batch.delete(db.collection("outlets").doc(nama));
                 return batch.commit();
-            }).then(function () { Outlet_load(); });
+            }).catch(function (error) {
+                alert("Gagal menghapus: " + error.message);
+            });
         }
 
         let User_editingUid = null;
@@ -1053,20 +1121,36 @@
             document.getElementById("uEditRole").innerHTML = optionsHtml;
         }
 
+        // Realtime: isi ulang dropdown outlet di modal user, tapi pilihan
+        // yang sedang dipilih di modal yang terbuka tetap dipertahankan.
         function User_loadOutletDropdown() {
-            db.collection("outlets").get().then(function (snapshot) {
+            if (userOutletUnsubscribe) { userOutletUnsubscribe(); userOutletUnsubscribe = null; }
+            if (sectionAktif !== "user") return;
+
+            userOutletUnsubscribe = db.collection("outlets").onSnapshot(function (snapshot) {
                 let outlets = [];
                 snapshot.forEach(function (doc) { outlets.push(doc.id); });
                 outlets.sort();
                 const optionsHtml = outlets.map(function (o) { return '<option value="' + escapeHtmlAman(o) + '">' + escapeHtmlAman(o) + '</option>'; }).join("");
-                document.getElementById("uInputOutlet").innerHTML = optionsHtml;
-                document.getElementById("uEditOutlet").innerHTML = optionsHtml;
+                ["uInputOutlet", "uEditOutlet"].forEach(function (idSelect) {
+                    const select = document.getElementById(idSelect);
+                    const nilaiLama = select.value;
+                    select.innerHTML = optionsHtml;
+                    if (nilaiLama && outlets.indexOf(nilaiLama) !== -1) select.value = nilaiLama;
+                });
+            }, function (error) {
+                console.error("Gagal memuat outlet:", error.message);
             });
         }
 
+        // Realtime: hanya tabel user yang di-render ulang, modal tidak disentuh.
         function User_load() {
-            db.collection("users").get().then(function (snapshot) {
+            if (userUnsubscribe) { userUnsubscribe(); userUnsubscribe = null; }
+            if (sectionAktif !== "user") return;
+
+            userUnsubscribe = db.collection("users").onSnapshot(function (snapshot) {
                 const tbody = document.getElementById("userTableBody");
+                if (!tbody) return;
                 if (snapshot.empty) { tbody.innerHTML = '<tr><td colspan="4" class="empty-state">Belum ada user.</td></tr>'; return; }
 
                 let rows = [];
@@ -1082,6 +1166,9 @@
                             '<button class="action-btn" onclick="User_bukaModalEdit(\'' + u.uid + '\')">Edit</button>' +
                             '<button class="action-btn danger" onclick="User_hapus(\'' + u.uid + '\', \'' + escJsAttr(u.nama) + '\')">Hapus</button></td></tr>';
                 }).join("");
+            }, function (error) {
+                const tbody = document.getElementById("userTableBody");
+                if (tbody) tbody.innerHTML = '<tr><td colspan="4" class="empty-state">Gagal memuat: ' + escapeHtmlAman(error.message) + '</td></tr>';
             });
         }
 
@@ -1120,7 +1207,7 @@
                 })
                 .then(function () { return secondaryAuth.signOut(); })
                 .then(function () { return secondaryApp.delete(); })
-                .then(function () { User_tutupModalTambah(); User_load(); })
+                .then(function () { User_tutupModalTambah(); })
                 .catch(function (error) {
                     errBox.textContent = error.code === "auth/email-already-in-use" ? "Username sudah dipakai." : error.message;
                     errBox.style.display = "block";
@@ -1150,12 +1237,14 @@
             if (!nama || !outlet) { errBox.textContent = "Nama dan outlet wajib diisi."; errBox.style.display = "block"; return; }
 
             db.collection("users").doc(User_editingUid).update({ nama: nama, role: role, outlet: outlet })
-                .then(function () { User_tutupModalEdit(); User_load(); });
+                .then(function () { User_tutupModalEdit(); });
         }
 
         function User_hapus(uid, nama) {
             if (!confirm('Hapus data user "' + nama + '"? Akun login TIDAK ikut terhapus otomatis.')) return;
-            db.collection("users").doc(uid).delete().then(function () { User_load(); });
+            db.collection("users").doc(uid).delete().catch(function (error) {
+                alert("Gagal menghapus: " + error.message);
+            });
         }
 
         /* =====================================================
@@ -1166,27 +1255,41 @@
            outletList (kosong = semua outlet), modeList (kosong =
            semua mode termasuk Offline).
         ====================================================== */
+        // Realtime: daftar promo + data pendukung (produk, outlet, mode).
+        // Yang di-render ulang hanya daftar promo; modal Tambah/Edit Promo
+        // yang sedang terbuka (checkbox & isian) tidak disentuh.
         function Promo_load() {
-            db.collection("promo").get().then(function (snapshot) {
+            if (promoUnsubscribe) { promoUnsubscribe(); promoUnsubscribe = null; }
+            if (promoProdukUnsubscribe) { promoProdukUnsubscribe(); promoProdukUnsubscribe = null; }
+            if (promoOutletUnsubscribe) { promoOutletUnsubscribe(); promoOutletUnsubscribe = null; }
+            if (sectionAktif !== "promo") return;
+
+            promoUnsubscribe = db.collection("promo").onSnapshot(function (snapshot) {
                 daftarPromoList = [];
                 snapshot.forEach(function (doc) { daftarPromoList.push(Object.assign({ id: doc.id }, doc.data())); });
                 daftarPromoList.sort(function (a, b) { return (a.nama || "").localeCompare(b.nama || ""); });
                 renderPromoList();
-            }).catch(function (error) {
+            }, function (error) {
                 const container = document.getElementById("promoListContainer");
                 if (container) container.innerHTML = '<div class="empty-state">Gagal memuat: ' + error.message + '</div>';
             });
 
             // Dependensi untuk isian form (produk, outlet, mode penjualan)
-            db.collection("products").get().then(function (snapshot) {
+            promoProdukUnsubscribe = db.collection("products").onSnapshot(function (snapshot) {
                 daftarProdukPromo = [];
-                snapshot.forEach(function (doc) { daftarProdukPromo.push({ id: doc.id, nama: doc.data().nama }); });
+                snapshot.forEach(function (doc) { daftarProdukPromo.push({ id: doc.id, nama: doc.data().nama || "" }); });
                 daftarProdukPromo.sort(function (a, b) { return a.nama.localeCompare(b.nama); });
+                // Nama produk di deskripsi promo ikut ter-update
+                renderPromoList();
+            }, function (error) {
+                console.error("Gagal memuat produk:", error.message);
             });
-            db.collection("outlets").get().then(function (snapshot) {
+            promoOutletUnsubscribe = db.collection("outlets").onSnapshot(function (snapshot) {
                 daftarOutletPromo = [];
                 snapshot.forEach(function (doc) { daftarOutletPromo.push(doc.id); });
                 daftarOutletPromo.sort();
+            }, function (error) {
+                console.error("Gagal memuat outlet:", error.message);
             });
             ModePenjualan_load();
         }
@@ -1251,7 +1354,9 @@
 
         function Promo_hapus(id, nama) {
             if (!confirm('Hapus promo "' + nama + '"?')) return;
-            db.collection("promo").doc(id).delete().then(function () { Promo_load(); });
+            db.collection("promo").doc(id).delete().catch(function (error) {
+                alert("Gagal menghapus: " + error.message);
+            });
         }
 
         function Promo_buatCheckboxProduk(kelasCss, selectedIds) {
@@ -1410,7 +1515,7 @@
             const p = Promo_editingId ? db.collection("promo").doc(Promo_editingId).update(data) : db.collection("promo").add(data);
             p.then(function () {
                 Promo_tutupModal();
-                Promo_load();
+                // Daftar promo otomatis ter-update lewat listener onSnapshot
             }).catch(function (error) {
                 errBox.textContent = "Gagal menyimpan: " + error.message;
                 errBox.style.display = "block";

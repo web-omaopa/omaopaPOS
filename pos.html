@@ -520,7 +520,9 @@
         });
 
         function logout() {
-            if (stockUnsubscribe) { stockUnsubscribe(); stockUnsubscribe = null; }
+            [stockUnsubscribe, produkUnsubscribe, toppingUnsubscribe, modeUnsubscribe, promoUnsubscribe]
+                .forEach(function (stop) { if (stop) stop(); });
+            stockUnsubscribe = produkUnsubscribe = toppingUnsubscribe = modeUnsubscribe = promoUnsubscribe = null;
             auth.signOut().then(function () {
                 sessionStorage.removeItem("omaopa_user");
                 window.location.href = "index.html";
@@ -537,12 +539,34 @@
             loadPromo();
         }
 
+        /* Promo, mode penjualan, topping, dan produk didengarkan
+           realtime (onSnapshot): kalau admin mengubahnya di
+           Pengaturan, layar Kasir langsung ikut berubah tanpa
+           refresh. Item yang SUDAH di keranjang tetap memakai harga
+           saat dimasukkan; item yang ditambah setelahnya memakai
+           harga baru. */
+        let promoUnsubscribe = null;
+        let promoTertunda = null;
+
+        // Perubahan promo ditahan selama konfirmasi bayar terbuka / sedang
+        // diproses, supaya total yang tersimpan sama dengan yang ditampilkan.
+        function terapkanPromoTertunda() {
+            if (!promoTertunda) return;
+            if (sedangMemproses || document.getElementById("modalKonfirmasiBayar").classList.contains("open")) return;
+            daftarPromo = promoTertunda;
+            promoTertunda = null;
+            renderCart();
+        }
+
         function loadPromo() {
-            db.collection("promo").get().then(function (snapshot) {
-                daftarPromo = [];
-                snapshot.forEach(function (doc) { daftarPromo.push(Object.assign({ id: doc.id }, doc.data())); });
-                renderCart();
-            }).catch(function (error) {
+            if (promoUnsubscribe) { promoUnsubscribe(); promoUnsubscribe = null; }
+
+            promoUnsubscribe = db.collection("promo").onSnapshot(function (snapshot) {
+                const baru = [];
+                snapshot.forEach(function (doc) { baru.push(Object.assign({ id: doc.id }, doc.data())); });
+                promoTertunda = baru;
+                terapkanPromoTertunda();
+            }, function (error) {
                 daftarPromo = [];
                 console.error("Gagal memuat promo:", error.message);
             });
@@ -948,24 +972,33 @@
             document.getElementById("infoPromoList").innerHTML = html;
         }
 
+        let toppingUnsubscribe = null;
+
         function loadTopping() {
-            db.collection("products")
+            if (toppingUnsubscribe) { toppingUnsubscribe(); toppingUnsubscribe = null; }
+
+            toppingUnsubscribe = db.collection("products")
                 .where("status", "==", "aktif")
                 .where("kategori", "==", "Topping")
-                .get()
-                .then(function (snapshot) {
+                .onSnapshot(function (snapshot) {
                     daftarTopping = [];
                     snapshot.forEach(function (doc) { daftarTopping.push(Object.assign({ id: doc.id }, doc.data())); });
+                }, function (error) {
+                    console.error("Gagal memuat topping:", error.message);
                 });
         }
 
+        let modeUnsubscribe = null;
+
         function loadModePenjualan() {
-            db.collection("mode_penjualan").get().then(function (snapshot) {
+            if (modeUnsubscribe) { modeUnsubscribe(); modeUnsubscribe = null; }
+
+            modeUnsubscribe = db.collection("mode_penjualan").onSnapshot(function (snapshot) {
                 daftarModePenjualan = [];
                 snapshot.forEach(function (doc) { daftarModePenjualan.push(doc.id); });
                 daftarModePenjualan.sort();
                 renderModeTabs();
-            }).catch(function () {
+            }, function () {
                 daftarModePenjualan = [];
                 renderModeTabs();
             });
@@ -1061,11 +1094,14 @@
             document.getElementById("searchBox").addEventListener("input", renderProdukTampil);
         }
 
+        let produkUnsubscribe = null;
+
         function loadProducts() {
             const grid = document.getElementById("productGrid");
+            if (produkUnsubscribe) { produkUnsubscribe(); produkUnsubscribe = null; }
 
-            db.collection("products").where("status", "==", "aktif").get()
-                .then(function (snapshot) {
+            produkUnsubscribe = db.collection("products").where("status", "==", "aktif")
+                .onSnapshot(function (snapshot) {
                     allProducts = [];
                     snapshot.forEach(function (doc) { allProducts.push(Object.assign({ id: doc.id }, doc.data())); });
 
@@ -1073,9 +1109,14 @@
                         grid.innerHTML = '<div class="empty-state">Belum ada produk aktif.</div>';
                         return;
                     }
-                    dengarkanStok();
-                })
-                .catch(function (error) { grid.innerHTML = '<div class="empty-state">Gagal memuat: ' + error.message + '</div>'; });
+                    // Stok cukup didengarkan sekali; update produk berikutnya hanya render ulang
+                    if (!stockUnsubscribe) {
+                        dengarkanStok();
+                    } else {
+                        renderKategoriTabs();
+                        renderProdukTampil();
+                    }
+                }, function (error) { grid.innerHTML = '<div class="empty-state">Gagal memuat: ' + error.message + '</div>'; });
         }
 
         /* =====================================================
@@ -1186,16 +1227,21 @@
             }
         }
 
+        // Salinan daftar topping saat modal dibuka, supaya pilihan tidak
+        // bergeser kalau daftar topping berubah realtime saat modal terbuka
+        let toppingDiModal = [];
+
         function bukaModalTopping(product) {
             produkUntukTopping = product;
+            toppingDiModal = daftarTopping.slice();
             document.getElementById("modalToppingNama").textContent = "Topping untuk " + product.nama;
 
             const container = document.getElementById("toppingOptionsList");
 
-            if (daftarTopping.length === 0) {
+            if (toppingDiModal.length === 0) {
                 container.innerHTML = '<div class="empty-state">Belum ada produk berkategori "Topping". Tambahkan lewat Pengaturan &gt; Produk, pilih kategori "Topping".</div>';
             } else {
-                container.innerHTML = daftarTopping.map(function (t, i) {
+                container.innerHTML = toppingDiModal.map(function (t, i) {
                     return '<label class="topping-option">' +
                         '<input type="checkbox" value="' + i + '">' +
                         '<span class="t-nama">' + t.nama + '</span>' +
@@ -1214,7 +1260,7 @@
 
         function konfirmasiTopping() {
             const checkboxes = document.querySelectorAll("#toppingOptionsList input[type=checkbox]:checked");
-            const toppingTerpilih = Array.from(checkboxes).map(function (cb) { return daftarTopping[Number(cb.value)]; });
+            const toppingTerpilih = Array.from(checkboxes).map(function (cb) { return toppingDiModal[Number(cb.value)]; });
 
             tambahKeKeranjang(produkUntukTopping, toppingTerpilih);
             tutupModalTopping();
@@ -1671,6 +1717,7 @@
         function tutupKonfirmasiBayar() {
             if (sedangMemproses) return;
             document.getElementById("modalKonfirmasiBayar").classList.remove("open");
+            terapkanPromoTertunda();
         }
 
         function tampilErrorKonfirmasi(pesan) {
@@ -1762,9 +1809,9 @@
                 cart = {};
                 promoDinonaktifkanManual = {};
                 renderCart();
-                loadProducts();
                 sedangMemproses = false;
                 document.getElementById("modalKonfirmasiBayar").classList.remove("open");
+                terapkanPromoTertunda();
                 tutupPembayaran();
                 tampilLayarBerhasil();
             })
