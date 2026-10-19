@@ -8,7 +8,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
-    <script src="roles.js"></script>
+    <script src="roles.js?v=20261019"></script>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -291,14 +291,14 @@
             const savedUser = sessionStorage.getItem("omaopa_user");
             if (savedUser) {
                 currentUser = JSON.parse(savedUser);
-                mulaiHalaman();
+                siapkanRole(currentUser.role, mulaiHalaman);
             } else {
                 db.collection("users").doc(user.uid).get().then(function (doc) {
                     if (doc.exists) {
                         currentUser = doc.data();
                         currentUser.uid = user.uid;
                         sessionStorage.setItem("omaopa_user", JSON.stringify(currentUser));
-                        mulaiHalaman();
+                        siapkanRole(currentUser.role, mulaiHalaman);
                     } else {
                         window.location.href = "index.html";
                     }

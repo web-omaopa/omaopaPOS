@@ -34,6 +34,7 @@ Hak akses diubah di `roles.js`, bukan di tiap halaman.
 - Perubahan di `pos.html` (transaksi, diskon, total) harus dijelaskan dan ditinjau dengan teliti.
 - Gambar produk sangat besar (`logo.png` 14 MB); jangan menambah gambar tanpa dikompres.
 - Pertahankan gaya kode dan bahasa UI (Indonesia) yang sudah ada.
+- CDN Hostinger menyimpan file .js selama 7 hari. Setiap kali `roles.js` diubah, naikkan versi di `<script src="roles.js?v=...">` di SEMUA halaman, kalau tidak browser memakai roles.js lama dan halaman bisa blank.
 
 ## Cara menjalankan lokal
 Jalankan server statis di folder ini, misalnya `npx serve .` lalu buka `http://localhost:3000`.

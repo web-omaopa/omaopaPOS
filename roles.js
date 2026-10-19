@@ -43,6 +43,35 @@ function bolehBuatTransfer(role) {
     return ROLE_BUAT_TRANSFER.indexOf(role) !== -1;
 }
 
+/* =====================================================================
+   ROLE DARI DATABASE (koleksi "roles", dikelola di Pengaturan > Role)
+   Dokumen roles/{namaRole}: { izin: ["kasir","stok",...], buatTransfer: bool }
+   - Role di database menimpa/menambah ROLE_PERMISSIONS di atas.
+   - "management" selalu bisa semua halaman dan tidak bisa diubah.
+   - Kalau database gagal dibaca, tetap memakai daftar bawaan di atas.
+========================================================================= */
+const ROLE_TERKUNCI = "management";
+const SEMUA_HALAMAN = Object.keys(HALAMAN_INFO);
+
+function terapkanDataRole(nama, data) {
+    if (nama === ROLE_TERKUNCI || !data) return;
+    ROLE_PERMISSIONS[nama] = (data.izin || []).filter(function (k) { return HALAMAN_INFO[k]; });
+    const idx = ROLE_BUAT_TRANSFER.indexOf(nama);
+    if (data.buatTransfer && idx === -1) ROLE_BUAT_TRANSFER.push(nama);
+    if (!data.buatTransfer && idx !== -1) ROLE_BUAT_TRANSFER.splice(idx, 1);
+}
+
+/* Muat izin role user dari database, lalu jalankan lanjut().
+   Dipanggil setiap halaman setelah data user siap. */
+function siapkanRole(role, lanjut) {
+    ROLE_PERMISSIONS[ROLE_TERKUNCI] = SEMUA_HALAMAN.slice();
+    if (!role || role === ROLE_TERKUNCI) { lanjut(); return; }
+    firebase.firestore().collection("roles").doc(role).get()
+        .then(function (doc) { if (doc.exists) terapkanDataRole(role, doc.data()); })
+        .catch(function (error) { console.warn("Role dari database belum bisa dibaca, pakai bawaan:", error.message); })
+        .then(function () { lanjut(); });
+}
+
 /* Helper keamanan: escape data dari Firestore sebelum disisipkan ke HTML.
    escapeHtmlAman  -> untuk teks biasa / isi elemen / isi atribut.
    escJsAttr       -> untuk string di dalam handler inline, misalnya
@@ -118,7 +147,7 @@ function renderSidebar(currentUser, activeKey) {
 
     html += '<div class="user-block">';
     html += '<div class="user-name">' + escapeHtmlAman(currentUser.nama) + '</div>';
-    html += '<div class="user-role">' + escapeHtmlAman(currentUser.role) + ' · ' + escapeHtmlAman(currentUser.outlet) + '</div>';
+    html += '<div class="user-role">' + escapeHtmlAman(currentUser.role) + (currentUser.outlet ? ' · ' + escapeHtmlAman(currentUser.outlet) : '') + '</div>';
     html += '<button class="logout-link" onclick="logout()">Keluar</button>';
     html += '</div>';
 
