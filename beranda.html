@@ -190,14 +190,14 @@
 
             if (savedUser) {
                 currentUser = JSON.parse(savedUser);
-                siapkanRole(currentUser.role, tampilkanBeranda);
+                tampilkanBeranda();
             } else {
                 db.collection("users").doc(user.uid).get().then(function (doc) {
                     if (doc.exists) {
                         currentUser = doc.data();
                         currentUser.uid = user.uid;
                         sessionStorage.setItem("omaopa_user", JSON.stringify(currentUser));
-                        siapkanRole(currentUser.role, tampilkanBeranda);
+                        tampilkanBeranda();
                     } else {
                         window.location.href = "index.html";
                     }
