@@ -206,8 +206,9 @@
                     <div><div class="ctrl-label">Kategori</div><select class="outlet-select" id="fKategori"></select></div>
                     <select id="fKasir" hidden></select>
                     <div class="filter-aksi">
+                        <button class="btn btn-primary" onclick="tampilkanLaporan()">Tampilkan laporan</button>
                         <button class="btn" onclick="downloadExcel()">Download Excel</button>
-                        <button class="btn btn-primary" onclick="downloadPdf()">Download PDF</button>
+                        <button class="btn" onclick="downloadPdf()">Download PDF</button>
                     </div>
                 </div>
 
@@ -457,7 +458,7 @@
             document.getElementById("fDari").value = filter.dari;
             document.getElementById("fSampai").value = filter.sampai;
             isiPilihanFilter();
-            dengarkanTransaksi();
+            belumDitampilkan();
             window.scrollTo(0, 0);
         }
 
@@ -491,7 +492,7 @@
                     filter.sampai = document.getElementById("fSampai").value;
                     halamanProduk = 1;
                     simpanFilter();
-                    dengarkanTransaksi();
+                    belumDitampilkan();
                 });
             });
             // Filter selain periode: cukup render ulang dari data yang sudah ada
@@ -502,7 +503,7 @@
                     halamanProduk = 1;
                     simpanFilter();
                     isiPilihanFilter();
-                    renderLaporan();
+                    belumDitampilkan();
                 });
             });
         }
@@ -546,6 +547,23 @@
            Query hanya rentang waktu (satu field, tanpa index komposit).
            Filter lain dilakukan di browser.
         ====================================================== */
+        /* Tabel tidak langsung tampil: pengguna memilih filter dulu, lalu klik
+           "Tampilkan laporan". Setiap filter diubah, laporan kembali menunggu. */
+        function belumDitampilkan() {
+            hentikanTransaksi();
+            dataTrx = [];
+            trxSiap = false;
+            trxError = null;
+            document.getElementById("infoPeriode").textContent = "";
+            document.getElementById("isiLaporan").innerHTML =
+                '<div class="empty-state">Pilih tanggal dan filter, lalu klik <b>Tampilkan laporan</b>.</div>';
+        }
+
+        function tampilkanLaporan() {
+            halamanProduk = 1;
+            dengarkanTransaksi();
+        }
+
         function dengarkanTransaksi() {
             hentikanTransaksi();
             const token = tokenTrx;
@@ -750,7 +768,7 @@
             isiSatuFilter("fArea", "Semua area", semuaArea, filter.area);
             isiSatuFilter("fOutlet", filter.area ? "Semua outlet " + filter.area : "Semua outlet", semuaOutlet, filter.outlet);
             isiSatuFilter("fMode", "Semua mode", ["Offline"].concat(unik(daftarModeDb.concat(dataTrx.map(modeTrx))).filter(function (m) { return m !== "Offline"; }).sort(urutTeks)), filter.mode);
-            isiSatuFilter("fBayar", "Semua metode", unik(dataTrx.map(bayarTrx)).sort(urutTeks), filter.bayar);
+            isiSatuFilter("fBayar", "Semua metode", unik(["Tunai", "QRIS", "Debit/EDC"].concat(dataTrx.map(bayarTrx))).sort(urutTeks), filter.bayar);
 
             const katData = [];
             dataTrx.forEach(function (t) { (t.items || []).forEach(function (it) { katData.push(kategoriItem(it)); }); });
@@ -947,7 +965,7 @@
            DOWNLOAD EXCEL & PDF
         ====================================================== */
         function siapDownload() {
-            if (!laporanAktif || !trxSiap || trxError) { alert("Data laporan belum siap."); return null; }
+            if (!laporanAktif || !trxSiap || trxError) { alert("Klik Tampilkan laporan dulu, tunggu tabelnya muncul, baru download."); return null; }
             const r = rentangPeriode(filter);
             if (!r) { alert("Periode belum valid."); return null; }
             return r;
