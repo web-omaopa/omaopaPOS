@@ -532,6 +532,11 @@
         function mulaiHalaman() {
             document.getElementById("sidebarContainer").innerHTML = renderSidebar(currentUser, "kasir");
             if (!jagaAksesHalaman(currentUser.role, "kasir")) return;
+            if (!currentUser.outlet) {
+                document.getElementById("mainContent").innerHTML =
+                    '<div class="empty-state" style="padding:40px 0;">Akun ini tidak terhubung ke outlet. Halaman Kasir hanya bisa dipakai akun kasir yang punya outlet.</div>';
+                return;
+            }
             renderMainContent();
             loadModePenjualan();
             loadTopping();
