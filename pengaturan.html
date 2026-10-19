@@ -158,8 +158,8 @@
                 <div id="modeHargaContainer" style="margin-top:6px;"></div>
             </div>
             <div id="pBlokHargaTopping" style="display:none;">
-                <label style="margin-top:10px;">Kue yang Bisa Pakai Topping Ini</label>
-                <div class="field-hint">Centang kuenya, lalu isi harga topping untuk kue itu di tiap mode. Kosongkan = topping tidak tersedia untuk kue itu di mode tsb.</div>
+                <label style="margin-top:10px;">Kategori Kue yang Bisa Pakai Topping Ini</label>
+                <div class="field-hint">Centang kategori kuenya (mis. Malmil, Ogura), lalu isi harga topping di tiap mode. Berlaku untuk semua kue di kategori itu. Kosongkan = topping tidak tersedia di mode tsb.</div>
                 <div id="toppingKueContainer" style="margin-top:6px;"></div>
             </div>
             <div class="err-text" id="pFormError"></div>
@@ -732,21 +732,21 @@
         let Produk_daftarSemua = [];   // diisi listener tabel produk, dipakai form topping
 
         /* =====================================================
-           TOPPING PER KUE
-           Produk berkategori "Topping" menyimpan hargaPerKue:
-             { <idKue>: { "Offline": 3000, "GoFood": 4000, ... } }
-           Kue yang ada di hargaPerKue = boleh pakai topping ini.
-           Harga null = topping tidak tersedia untuk kue itu di
-           mode tsb. Topping lama (belum punya hargaPerKue) tetap
-           memakai cara lama: muncul di kue yang butuhTopping.
+           TOPPING PER KATEGORI KUE
+           Produk berkategori "Topping" menyimpan hargaPerKategori:
+             { "Malmil": { "Offline": 3000, "GoFood": 4000, ... } }
+           Semua kue di kategori yang tercantum boleh pakai topping
+           ini. Harga null = topping tidak tersedia di mode tsb.
+           Topping lama (belum punya hargaPerKategori) tetap memakai
+           cara lama: muncul di kue yang butuhTopping.
         ====================================================== */
         function Produk_isTopping(p) { return p && p.kategori === "Topping"; }
 
         function Produk_infoTopping(p, semua) {
             if (Produk_isTopping(p)) {
-                return p.hargaPerKue ? ("untuk " + Object.keys(p.hargaPerKue).length + " kue") : "-";
+                return p.hargaPerKategori ? ("untuk " + Object.keys(p.hargaPerKategori).join(", ")) : "-";
             }
-            const n = semua.filter(function (t) { return Produk_isTopping(t) && t.hargaPerKue && t.hargaPerKue[p.id]; }).length;
+            const n = semua.filter(function (t) { return Produk_isTopping(t) && t.hargaPerKategori && t.hargaPerKategori[p.kategori]; }).length;
             return n > 0 ? (n + " topping") : "-";
         }
 
@@ -763,20 +763,21 @@
             cb.closest(".tk-kue").querySelector(".tk-isi").style.display = cb.checked ? "grid" : "none";
         }
 
-        function renderToppingKueInputs(hargaPerKue) {
+        function renderToppingKueInputs(hargaPerKategori) {
             const container = document.getElementById("toppingKueContainer");
-            hargaPerKue = hargaPerKue || {};
-            const daftarKue = Produk_daftarSemua
-                .filter(function (p) { return !Produk_isTopping(p) && p.id !== Produk_editingId; })
-                .sort(function (a, b) { return String(a.nama).localeCompare(String(b.nama)); });
+            hargaPerKategori = hargaPerKategori || {};
+            const daftarKategori = daftarKategoriProduk
+                .filter(function (k) { return k !== "Topping"; })
+                .slice().sort();
 
-            if (daftarKue.length === 0) {
-                container.innerHTML = '<div style="font-size:11px; color:#6b7280;">Belum ada produk kue.</div>';
+            if (daftarKategori.length === 0) {
+                container.innerHTML = '<div style="font-size:11px; color:#6b7280;">Belum ada kategori kue.</div>';
                 return;
             }
 
-            container.innerHTML = daftarKue.map(function (k) {
-                const cfg = hargaPerKue[k.id];
+            container.innerHTML = daftarKategori.map(function (kat) {
+                const k = { id: kat, nama: kat };
+                const cfg = hargaPerKategori[kat];
                 const dipilih = !!cfg;
                 const inputs = Produk_modeTopping().map(function (m) {
                     const v = cfg && cfg[m] !== null && cfg[m] !== undefined ? cfg[m] : "";
@@ -1047,7 +1048,7 @@
                 Produk_previewGambar();
                 document.getElementById("pFormError").style.display = "none";
                 renderModeHargaInputs(p.modeHarga || {});
-                renderToppingKueInputs(p.hargaPerKue || {});
+                renderToppingKueInputs(p.hargaPerKategori || {});
                 Produk_aturTampilanKategori();
                 document.getElementById("modalProduk").classList.add("open");
             });
@@ -1072,13 +1073,13 @@
             const data = { nama: nama, kategori: kategori, status: status, resetHarian: resetHarian, gambarUrl: gambarUrl, satuan: satuan };
 
             if (isTopping) {
-                const hargaPerKue = ambilHargaPerKueDariForm();
+                const hargaPerKategori = ambilHargaPerKueDariForm();
                 const semuaHarga = [];
-                Object.keys(hargaPerKue).forEach(function (id) {
-                    Object.keys(hargaPerKue[id]).forEach(function (m) { if (hargaPerKue[id][m]) semuaHarga.push(hargaPerKue[id][m]); });
+                Object.keys(hargaPerKategori).forEach(function (id) {
+                    Object.keys(hargaPerKategori[id]).forEach(function (m) { if (hargaPerKategori[id][m]) semuaHarga.push(hargaPerKategori[id][m]); });
                 });
-                if (semuaHarga.length === 0) { errBox.textContent = "Centang minimal satu kue dan isi harganya."; errBox.style.display = "block"; return; }
-                data.hargaPerKue = hargaPerKue;
+                if (semuaHarga.length === 0) { errBox.textContent = "Centang minimal satu kategori kue dan isi harganya."; errBox.style.display = "block"; return; }
+                data.hargaPerKategori = hargaPerKategori;
                 // harga & modeHarga tetap diisi supaya halaman lain yang membaca field lama tidak rusak
                 data.harga = Math.min.apply(null, semuaHarga);
                 data.modeHarga = {};

@@ -1163,19 +1163,17 @@
             renderProdukTampil();
         }
 
-        /* Topping yang punya hargaPerKue dijual sendiri sebagai satu kartu
-           per kue, mis. "Keju · Malmil" dan "Keju · Ogura", masing-masing
-           dengan harga kue itu di mode aktif. */
+        /* Topping yang punya hargaPerKategori dijual sendiri sebagai satu
+           kartu per kategori kue, mis. "Keju · Malmil" dan "Keju · Ogura",
+           masing-masing dengan harga kategori itu di mode aktif. */
         function pecahToppingPerKue(daftar) {
             const hasil = [];
             daftar.forEach(function (p) {
-                if (p.kategori !== "Topping" || !p.hargaPerKue) { hasil.push(p); return; }
-                Object.keys(p.hargaPerKue).forEach(function (kueId) {
-                    const kue = allProducts.find(function (x) { return x.id === kueId; });
-                    if (!kue) return;
-                    const harga = hargaToppingUntuk(p, kue, modeAktif);
+                if (p.kategori !== "Topping" || !p.hargaPerKategori) { hasil.push(p); return; }
+                Object.keys(p.hargaPerKategori).sort().forEach(function (kat) {
+                    const harga = hargaToppingUntuk(p, { kategori: kat }, modeAktif);
                     if (harga === null) return;
-                    hasil.push(Object.assign({}, p, { nama: p.nama + " · " + kue.nama, _kueId: kueId, _hargaTopping: harga }));
+                    hasil.push(Object.assign({}, p, { nama: p.nama + " · " + kat, _kueKategori: kat, _hargaTopping: harga }));
                 });
             });
             return hasil;
@@ -1238,16 +1236,16 @@
         }
 
         /* =====================================================
-           TOPPING PER KUE
-           Topping baru menyimpan hargaPerKue { idKue: { mode: harga } }
+           TOPPING PER KATEGORI KUE
+           Topping baru menyimpan hargaPerKategori { kategoriKue: { mode: harga } }
            (diatur di Pengaturan > Produk). Topping hanya muncul untuk
            kue yang tercantum dan punya harga di mode aktif.
-           Topping lama tanpa hargaPerKue tetap memakai cara lama:
+           Topping lama tanpa hargaPerKategori tetap memakai cara lama:
            muncul di kue yang butuhTopping, dengan harga per mode.
         ====================================================== */
         function hargaToppingUntuk(t, product, mode) {
-            if (t.hargaPerKue) {
-                const cfg = t.hargaPerKue[product.id];
+            if (t.hargaPerKategori) {
+                const cfg = t.hargaPerKategori[product.kategori];
                 if (!cfg) return null;
                 const v = cfg[mode];
                 return (v === null || v === undefined || v === "") ? null : Number(v);
@@ -1313,8 +1311,8 @@
 
         function tambahKeKeranjang(product, toppings) {
             const isTopping = product.kategori === "Topping";
-            // Topping per kue punya harga beda, jadi baris keranjangnya dipisah per kue
-            const cartKey = buatCartKey(product._kueId ? product.id + "@" + product._kueId : product.id, toppings);
+            // Topping per kategori kue punya harga beda, jadi baris keranjangnya dipisah per kategori
+            const cartKey = buatCartKey(product._kueKategori ? product.id + "@" + product._kueKategori : product.id, toppings);
 
             if (!isTopping) {
                 const stokTersedia = stockMap[product.id] || 0;
