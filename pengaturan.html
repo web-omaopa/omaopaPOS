@@ -202,9 +202,11 @@
             <label>Nama Lengkap</label>
             <input type="text" id="uInputNama" placeholder="Kasir 1 Jakal">
             <label>Role</label>
-            <select id="uInputRole"></select>
-            <label>Outlet</label>
-            <select id="uInputOutlet"></select>
+            <select id="uInputRole" onchange="User_aturOutlet('uInput')"></select>
+            <div id="uInputOutletBlok">
+                <label>Outlet</label>
+                <select id="uInputOutlet"></select>
+            </div>
             <div class="err-text" id="uFormErrorTambah"></div>
             <div class="modal-actions">
                 <button class="btn-cancel" onclick="User_tutupModalTambah()">Batal</button>
@@ -220,9 +222,11 @@
             <label>Nama Lengkap</label>
             <input type="text" id="uEditNama">
             <label>Role</label>
-            <select id="uEditRole"></select>
-            <label>Outlet</label>
-            <select id="uEditOutlet"></select>
+            <select id="uEditRole" onchange="User_aturOutlet('uEdit')"></select>
+            <div id="uEditOutletBlok">
+                <label>Outlet</label>
+                <select id="uEditOutlet"></select>
+            </div>
             <div class="err-text" id="uFormErrorEdit"></div>
             <div class="modal-actions">
                 <button class="btn-cancel" onclick="User_tutupModalEdit()">Batal</button>
@@ -309,6 +313,26 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="modalRole">
+        <div class="modal-box" style="max-width:400px;">
+            <h3 id="modalRoleTitle">Tambah Role</h3>
+            <div class="modal-hint">Atur halaman apa saja yang boleh dibuka role ini.</div>
+            <label>Nama Role</label>
+            <input type="text" id="rInputNama" placeholder="supervisor">
+            <div class="field-hint" id="rHintNama">Huruf kecil, angka, dan tanda "-" saja. Nama ini jadi ID permanen.</div>
+            <label>Halaman yang Boleh Dibuka</label>
+            <div id="rHalamanCheckbox" style="max-height:200px; overflow-y:auto; border:1px solid #e8ecf1; border-radius:8px; padding:8px;"></div>
+            <label style="display:flex; align-items:center; gap:8px; font-weight:400; font-size:12px; margin-top:12px;">
+                <input type="checkbox" id="rInputBuatTransfer" style="width:14px; height:14px;"> Boleh membuat perintah transfer
+            </label>
+            <div class="err-text" id="rFormError"></div>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="Role_tutupModal()">Batal</button>
+                <button class="btn-save" id="rBtnSimpan" onclick="Role_simpan()">Simpan</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const firebaseConfig = {
             apiKey: "AIzaSyC5nxXV7YPTEq160fLoqBBKtvwaHBQljfc",
@@ -328,6 +352,17 @@
         let daftarKategoriProduk = [];
         let daftarModePenjualan = [];
         const ROLE_LIST = ["management", "admin", "owner", "kasir", "forecaster"];
+
+        // Salinan hak akses bawaan dari roles.js, diambil sebelum data dari
+        // database menimpa ROLE_PERMISSIONS. Dipakai untuk menampilkan nilai
+        // default & mengembalikan role bawaan saat dokumennya dihapus.
+        const ROLE_BAWAAN = {};
+        Object.keys(ROLE_PERMISSIONS).forEach(function (r) {
+            ROLE_BAWAAN[r] = { izin: ROLE_PERMISSIONS[r].slice(), buatTransfer: ROLE_BUAT_TRANSFER.indexOf(r) !== -1 };
+        });
+        // Cache dokumen koleksi "roles" (key = nama role, value = data dokumen)
+        let daftarRoleDb = {};
+        let Role_editingNama = null;
 
         let daftarProdukPromo = [];
         let daftarOutletPromo = [];
@@ -357,6 +392,7 @@
         let promoUnsubscribe = null;
         let promoProdukUnsubscribe = null;
         let promoOutletUnsubscribe = null;
+        let roleUnsubscribe = null;
 
         function hentikanListenerSection() {
             if (kategoriUnsubscribe) { kategoriUnsubscribe(); kategoriUnsubscribe = null; }
@@ -368,6 +404,7 @@
             if (promoUnsubscribe) { promoUnsubscribe(); promoUnsubscribe = null; }
             if (promoProdukUnsubscribe) { promoProdukUnsubscribe(); promoProdukUnsubscribe = null; }
             if (promoOutletUnsubscribe) { promoOutletUnsubscribe(); promoOutletUnsubscribe = null; }
+            if (roleUnsubscribe) { roleUnsubscribe(); roleUnsubscribe = null; }
         }
 
         auth.onAuthStateChanged(function (user) {
@@ -376,14 +413,14 @@
             const savedUser = sessionStorage.getItem("omaopa_user");
             if (savedUser) {
                 currentUser = JSON.parse(savedUser);
-                mulai();
+                siapkanRole(currentUser.role, mulai);
             } else {
                 db.collection("users").doc(user.uid).get().then(function (doc) {
                     if (doc.exists) {
                         currentUser = doc.data();
                         currentUser.uid = user.uid;
                         sessionStorage.setItem("omaopa_user", JSON.stringify(currentUser));
-                        mulai();
+                        siapkanRole(currentUser.role, mulai);
                     } else {
                         window.location.href = "index.html";
                     }
@@ -439,6 +476,13 @@
                         '<div class="hub-title">Promo</div>' +
                         '<div class="hub-desc">Kelola diskon & promo yang otomatis kepakai di kasir</div>' +
                     '</div>' +
+                    // Kotak Role hanya untuk management
+                    (currentUser.role === ROLE_TERKUNCI ?
+                    '<div class="hub-card" onclick="bukaSection(\'role\')">' +
+                        '<div class="hub-icon">🔑</div>' +
+                        '<div class="hub-title">Role & Hak Akses</div>' +
+                        '<div class="hub-desc">Atur halaman yang boleh dibuka tiap role</div>' +
+                    '</div>' : '') +
                 '</div>';
         }
 
@@ -447,7 +491,12 @@
            Menampilkan breadcrumb "Pengaturan / [Nama]" untuk kembali.
         ====================================================== */
         function bukaSection(nama) {
-            const judul = { produk: "Produk", outlet: "Outlet", user: "User", promo: "Promo" }[nama];
+            // Bagian Role hanya boleh dibuka management
+            if (nama === "role" && currentUser.role !== ROLE_TERKUNCI) {
+                alert("Hanya management yang boleh mengatur role.");
+                return;
+            }
+            const judul = { produk: "Produk", outlet: "Outlet", user: "User", promo: "Promo", role: "Role & Hak Akses" }[nama];
 
             // Lepas listener bagian sebelumnya sebelum pasang yang baru
             hentikanListenerSection();
@@ -478,6 +527,12 @@
                     '<div class="header-row"><h3></h3><button class="add-btn" onclick="Promo_bukaModalTambah()">+ Tambah Promo</button></div>' +
                     '<div id="promoListContainer"><div class="loading-state">Memuat...</div></div>' +
                     '<div style="font-size:10px; color:#9aa5b1; margin-top:14px; line-height:1.5;">Promo yang AKTIF & masih dalam periode tanggalnya otomatis kepakai saat kasir checkout. Stok produk tetap terpotong sesuai jumlah yang benar-benar keluar (termasuk item gratis dari promo Beli X Gratis Y).</div>';
+            } else if (nama === "role") {
+                kontenHtml =
+                    '<div class="header-row"><h3></h3><button class="add-btn" onclick="Role_bukaModalTambah()">+ Tambah Role</button></div>' +
+                    '<table><thead><tr><th>Role</th><th>Halaman yang boleh dibuka</th><th>Buat transfer</th><th></th></tr></thead>' +
+                    '<tbody id="roleTableBody"><tr><td colspan="4" class="loading-state">Memuat...</td></tr></tbody></table>' +
+                    '<div style="font-size:10px; color:#9aa5b1; margin-top:14px; line-height:1.5;">Role bawaan (admin, owner, kasir, forecaster) bisa diubah; tombol Hapus pada role bawaan mengembalikannya ke pengaturan awal. Perubahan berlaku saat user membuka halaman berikutnya.</div>';
             }
 
             document.getElementById("mainContent").innerHTML =
@@ -487,8 +542,9 @@
 
             if (nama === "produk") { Produk_load(); Kategori_load(); ModePenjualan_load(); }
             if (nama === "outlet") Outlet_load();
-            if (nama === "user") { User_isiDropdownRole(); User_loadOutletDropdown(); User_load(); }
+            if (nama === "user") { User_isiDropdownRole(); User_muatDaftarRole(); User_loadOutletDropdown(); User_load(); }
             if (nama === "promo") Promo_load();
+            if (nama === "role") Role_load();
         }
 
         /* =====================================================
@@ -1217,10 +1273,47 @@
 
         let User_editingUid = null;
 
+        // Isi dropdown role di modal Tambah/Edit User: role bawaan + semua
+        // role dari koleksi "roles". Pilihan yang sedang dipilih dipertahankan,
+        // lalu blok outlet disesuaikan lagi (outlet hanya untuk kasir).
         function User_isiDropdownRole() {
-            const optionsHtml = ROLE_LIST.map(function (r) { return '<option value="' + r + '">' + r + '</option>'; }).join("");
-            document.getElementById("uInputRole").innerHTML = optionsHtml;
-            document.getElementById("uEditRole").innerHTML = optionsHtml;
+            const optionsHtml = Role_daftarNama().map(function (r) { return '<option value="' + escapeHtmlAman(r) + '">' + escapeHtmlAman(r) + '</option>'; }).join("");
+            ["uInput", "uEdit"].forEach(function (prefix) {
+                const select = document.getElementById(prefix + "Role");
+                const nilaiLama = select.value;
+                select.innerHTML = optionsHtml;
+                if (nilaiLama) User_pilihRole(prefix, nilaiLama);
+                User_aturOutlet(prefix);
+            });
+        }
+
+        // Pilih role di dropdown; kalau role belum ada di daftar (mis. data
+        // role belum termuat), tambahkan opsinya supaya nilai user tidak hilang.
+        function User_pilihRole(prefix, role) {
+            const select = document.getElementById(prefix + "Role");
+            const ada = Array.from(select.options).some(function (o) { return o.value === role; });
+            if (!ada) {
+                const opt = document.createElement("option");
+                opt.value = role;
+                opt.textContent = role;
+                select.appendChild(opt);
+            }
+            select.value = role;
+        }
+
+        // Ambil daftar role dari database sekali saat bagian User dibuka
+        function User_muatDaftarRole() {
+            db.collection("roles").get().then(function (snapshot) {
+                if (sectionAktif !== "user") return;
+                daftarRoleDb = {};
+                snapshot.forEach(function (doc) {
+                    if (doc.id === ROLE_TERKUNCI) return;
+                    daftarRoleDb[doc.id] = doc.data();
+                });
+                User_isiDropdownRole();
+            }).catch(function (error) {
+                console.warn("Daftar role dari database belum bisa dibaca, pakai bawaan:", error.message);
+            });
         }
 
         // Realtime: isi ulang dropdown outlet di modal user, tapi pilihan
@@ -1258,7 +1351,7 @@
                 let rows = [];
                 snapshot.forEach(function (doc) {
                     const u = doc.data();
-                    rows.push({ uid: doc.id, nama: u.nama || "-", role: u.role || "-", outlet: u.outlet || "-" });
+                    rows.push({ uid: doc.id, nama: u.nama || "-", role: u.role || "-", outlet: (u.role === "kasir" && u.outlet) ? u.outlet : "-" });
                 });
                 rows.sort(function (a, b) { return a.nama.localeCompare(b.nama); });
 
@@ -1274,11 +1367,18 @@
             });
         }
 
+        // Outlet hanya untuk role kasir; role lain tidak terikat outlet
+        function User_aturOutlet(prefix) {
+            const kasir = document.getElementById(prefix + "Role").value === "kasir";
+            document.getElementById(prefix + "OutletBlok").style.display = kasir ? "block" : "none";
+        }
+
         function User_bukaModalTambah() {
             document.getElementById("uInputUsername").value = "";
             document.getElementById("uInputPassword").value = "";
             document.getElementById("uInputNama").value = "";
             document.getElementById("uInputRole").value = "kasir";
+            User_aturOutlet("uInput");
             document.getElementById("uFormErrorTambah").style.display = "none";
             document.getElementById("modalUserTambah").classList.add("open");
         }
@@ -1294,7 +1394,7 @@
             const errBox = document.getElementById("uFormErrorTambah");
             const btn = document.getElementById("uBtnSimpanTambah");
 
-            if (!username || !password || !nama || !outlet) { errBox.textContent = "Semua kolom wajib diisi."; errBox.style.display = "block"; return; }
+            if (!username || !password || !nama || (role === "kasir" && !outlet)) { errBox.textContent = "Semua kolom wajib diisi."; errBox.style.display = "block"; return; }
             if (password.length < 6) { errBox.textContent = "Password minimal 6 karakter."; errBox.style.display = "block"; return; }
 
             const email = username.trim().toLowerCase() + "@omaopa.internal";
@@ -1305,7 +1405,9 @@
 
             secondaryAuth.createUserWithEmailAndPassword(email, password)
                 .then(function (cred) {
-                    return db.collection("users").doc(cred.user.uid).set({ nama: nama, role: role, outlet: outlet });
+                    const profil = { nama: nama, role: role };
+                    if (role === "kasir") profil.outlet = outlet;
+                    return db.collection("users").doc(cred.user.uid).set(profil);
                 })
                 .then(function () { return secondaryAuth.signOut(); })
                 .then(function () { return secondaryApp.delete(); })
@@ -1322,8 +1424,9 @@
                 const u = doc.data();
                 User_editingUid = uid;
                 document.getElementById("uEditNama").value = u.nama || "";
-                document.getElementById("uEditRole").value = u.role || "kasir";
+                User_pilihRole("uEdit", u.role || "kasir");
                 document.getElementById("uEditOutlet").value = u.outlet || "";
+                User_aturOutlet("uEdit");
                 document.getElementById("uFormErrorEdit").style.display = "none";
                 document.getElementById("modalUserEdit").classList.add("open");
             });
@@ -1336,15 +1439,199 @@
             const role = document.getElementById("uEditRole").value;
             const outlet = document.getElementById("uEditOutlet").value;
             const errBox = document.getElementById("uFormErrorEdit");
-            if (!nama || !outlet) { errBox.textContent = "Nama dan outlet wajib diisi."; errBox.style.display = "block"; return; }
+            if (!nama || (role === "kasir" && !outlet)) { errBox.textContent = "Nama dan outlet wajib diisi."; errBox.style.display = "block"; return; }
 
-            db.collection("users").doc(User_editingUid).update({ nama: nama, role: role, outlet: outlet })
-                .then(function () { User_tutupModalEdit(); });
+            const data = { nama: nama, role: role };
+            data.outlet = role === "kasir" ? outlet : firebase.firestore.FieldValue.delete();
+            db.collection("users").doc(User_editingUid).update(data)
+                .then(function () { User_tutupModalEdit(); })
+                .catch(function (error) { errBox.textContent = "Gagal menyimpan: " + error.message; errBox.style.display = "block"; });
         }
 
         function User_hapus(uid, nama) {
             if (!confirm('Hapus data user "' + nama + '"? Akun login TIDAK ikut terhapus otomatis.')) return;
             db.collection("users").doc(uid).delete().catch(function (error) {
+                alert("Gagal menghapus: " + error.message);
+            });
+        }
+
+        /* =====================================================
+           ROLE & HAK AKSES (khusus management)
+           Disimpan di collection "roles", Document ID = nama role,
+           field { izin: [key halaman], buatTransfer: bool }.
+           Dokumen dengan nama role bawaan menimpa pengaturan bawaan
+           di roles.js; menghapusnya = kembali ke bawaan.
+           "management" selalu semua akses dan tidak bisa diubah.
+        ====================================================== */
+        // Semua nama role: bawaan dulu (urutan ROLE_LIST), lalu role
+        // tambahan dari database (urut abjad).
+        function Role_daftarNama() {
+            const daftar = ROLE_LIST.slice();
+            Object.keys(daftarRoleDb).sort().forEach(function (r) {
+                if (daftar.indexOf(r) === -1) daftar.push(r);
+            });
+            return daftar;
+        }
+
+        // Data efektif sebuah role: dokumen database kalau ada, kalau tidak bawaan
+        function Role_dataEfektif(nama) {
+            if (nama === ROLE_TERKUNCI) return { izin: SEMUA_HALAMAN.slice(), buatTransfer: true };
+            if (daftarRoleDb[nama]) return { izin: daftarRoleDb[nama].izin || [], buatTransfer: !!daftarRoleDb[nama].buatTransfer };
+            if (ROLE_BAWAAN[nama]) return { izin: ROLE_BAWAAN[nama].izin.slice(), buatTransfer: ROLE_BAWAAN[nama].buatTransfer };
+            return { izin: [], buatTransfer: false };
+        }
+
+        // Realtime: hanya tabel role yang di-render ulang, modal tidak disentuh.
+        function Role_load() {
+            if (roleUnsubscribe) { roleUnsubscribe(); roleUnsubscribe = null; }
+            if (sectionAktif !== "role") return;
+
+            roleUnsubscribe = db.collection("roles").onSnapshot(function (snapshot) {
+                const lama = daftarRoleDb;
+                daftarRoleDb = {};
+                snapshot.forEach(function (doc) {
+                    if (doc.id === ROLE_TERKUNCI) return;
+                    daftarRoleDb[doc.id] = doc.data();
+                    terapkanDataRole(doc.id, doc.data());
+                });
+                // Dokumen yang hilang: role bawaan kembali ke default,
+                // role tambahan dibuang dari daftar izin di memori.
+                Object.keys(lama).forEach(function (r) {
+                    if (daftarRoleDb[r]) return;
+                    if (ROLE_BAWAAN[r]) {
+                        terapkanDataRole(r, ROLE_BAWAAN[r]);
+                    } else {
+                        delete ROLE_PERMISSIONS[r];
+                        const idx = ROLE_BUAT_TRANSFER.indexOf(r);
+                        if (idx !== -1) ROLE_BUAT_TRANSFER.splice(idx, 1);
+                    }
+                });
+                Role_renderTabel();
+            }, function (error) {
+                const tbody = document.getElementById("roleTableBody");
+                if (tbody) tbody.innerHTML = '<tr><td colspan="4" class="empty-state">Gagal memuat: ' + escapeHtmlAman(error.message) + '</td></tr>';
+            });
+        }
+
+        function Role_renderTabel() {
+            const tbody = document.getElementById("roleTableBody");
+            if (!tbody) return;
+
+            tbody.innerHTML = Role_daftarNama().map(function (nama) {
+                const d = Role_dataEfektif(nama);
+                const judulHalaman = d.izin.filter(function (k) { return HALAMAN_INFO[k]; })
+                    .map(function (k) { return HALAMAN_INFO[k].title; }).join(", ");
+                let label = '<span class="badge role-badge">' + escapeHtmlAman(nama) + '</span>';
+                if (ROLE_BAWAAN[nama] && nama !== ROLE_TERKUNCI) {
+                    label += daftarRoleDb[nama]
+                        ? ' <span style="font-size:10px; color:#6b7280;">(bawaan, diubah)</span>'
+                        : ' <span style="font-size:10px; color:#6b7280;">(bawaan)</span>';
+                }
+
+                let aksi;
+                if (nama === ROLE_TERKUNCI) {
+                    aksi = '<span style="font-size:11px; color:#6b7280;">Semua akses (terkunci)</span>';
+                } else {
+                    aksi = '<button class="action-btn" onclick="Role_bukaModalEdit(\'' + escJsAttr(nama) + '\')">Edit</button>';
+                    if (daftarRoleDb[nama]) {
+                        aksi += '<button class="action-btn danger" onclick="Role_hapus(\'' + escJsAttr(nama) + '\')">Hapus</button>';
+                    }
+                }
+
+                return '<tr><td style="white-space:nowrap;">' + label + '</td>' +
+                    '<td>' + (judulHalaman ? escapeHtmlAman(judulHalaman) : '<span style="color:#9aa5b1;">Tidak ada</span>') + '</td>' +
+                    '<td>' + (d.buatTransfer ? 'Ya' : 'Tidak') + '</td>' +
+                    '<td style="text-align:right; white-space:nowrap;">' + aksi + '</td></tr>';
+            }).join("");
+        }
+
+        function Role_renderCheckboxHalaman(izinTerpilih) {
+            document.getElementById("rHalamanCheckbox").innerHTML = SEMUA_HALAMAN.map(function (k) {
+                const h = HALAMAN_INFO[k];
+                const checked = izinTerpilih.indexOf(k) !== -1 ? "checked" : "";
+                return '<label style="display:flex; align-items:center; gap:8px; padding:3px 0; margin:0; font-size:12px; font-weight:400;">' +
+                    '<input type="checkbox" class="roleHalamanChk" value="' + escapeHtmlAman(k) + '" ' + checked + ' style="width:14px; height:14px;"> ' +
+                    h.icon + ' ' + escapeHtmlAman(h.title) +
+                    (h.dibangun ? '' : ' <span style="color:#9aa5b1;">(segera hadir)</span>') +
+                '</label>';
+            }).join("");
+        }
+
+        function Role_bukaModalForm(nama) {
+            const edit = !!nama;
+            const d = edit ? Role_dataEfektif(nama) : { izin: [], buatTransfer: false };
+            Role_editingNama = edit ? nama : null;
+            document.getElementById("modalRoleTitle").textContent = edit ? "Edit Role" : "Tambah Role";
+            const inputNama = document.getElementById("rInputNama");
+            inputNama.value = edit ? nama : "";
+            inputNama.readOnly = edit;
+            inputNama.style.background = edit ? "#f1f4f8" : "";
+            document.getElementById("rHintNama").textContent = edit
+                ? (ROLE_BAWAAN[nama] ? "Role bawaan. Perubahan disimpan sebagai pengaturan baru yang menimpa bawaan." : "Nama role tidak bisa diganti.")
+                : 'Huruf kecil, angka, dan tanda "-" saja. Nama ini jadi ID permanen.';
+            Role_renderCheckboxHalaman(d.izin);
+            document.getElementById("rInputBuatTransfer").checked = !!d.buatTransfer;
+            document.getElementById("rFormError").style.display = "none";
+            document.getElementById("modalRole").classList.add("open");
+        }
+
+        function Role_bukaModalTambah() {
+            if (currentUser.role !== ROLE_TERKUNCI) return;
+            Role_bukaModalForm(null);
+        }
+
+        function Role_bukaModalEdit(nama) {
+            if (currentUser.role !== ROLE_TERKUNCI || nama === ROLE_TERKUNCI) return;
+            Role_bukaModalForm(nama);
+        }
+
+        function Role_tutupModal() { document.getElementById("modalRole").classList.remove("open"); }
+
+        function Role_simpan() {
+            const errBox = document.getElementById("rFormError");
+            const tampilError = function (pesan) { errBox.textContent = pesan; errBox.style.display = "block"; };
+            if (currentUser.role !== ROLE_TERKUNCI) { tampilError("Hanya management yang boleh mengatur role."); return; }
+
+            const nama = Role_editingNama || document.getElementById("rInputNama").value.trim().toLowerCase();
+            if (!nama) { tampilError("Nama role wajib diisi."); return; }
+            if (nama === ROLE_TERKUNCI) { tampilError('Role "' + ROLE_TERKUNCI + '" tidak bisa diubah.'); return; }
+            if (!Role_editingNama) {
+                if (!/^[a-z0-9-]+$/.test(nama)) { tampilError('Nama role hanya boleh huruf kecil, angka, dan tanda "-".'); return; }
+                if (ROLE_BAWAAN[nama] || daftarRoleDb[nama]) { tampilError('Role "' + nama + '" sudah ada.'); return; }
+            }
+
+            const izin = Array.from(document.querySelectorAll(".roleHalamanChk:checked")).map(function (c) { return c.value; });
+            const buatTransfer = document.getElementById("rInputBuatTransfer").checked;
+            const btn = document.getElementById("rBtnSimpan");
+            btn.disabled = true; btn.textContent = "Menyimpan...";
+
+            db.collection("roles").doc(nama).set({ izin: izin, buatTransfer: buatTransfer })
+                .then(function () { Role_tutupModal(); })
+                .catch(function (error) { tampilError("Gagal menyimpan: " + error.message); })
+                .then(function () { btn.disabled = false; btn.textContent = "Simpan"; });
+        }
+
+        function Role_hapus(nama) {
+            if (currentUser.role !== ROLE_TERKUNCI || nama === ROLE_TERKUNCI || !daftarRoleDb[nama]) return;
+
+            if (ROLE_BAWAAN[nama]) {
+                if (!confirm('Kembalikan role "' + nama + '" ke pengaturan bawaan? Role ini tetap ada, hanya hak aksesnya kembali seperti semula.')) return;
+                db.collection("roles").doc(nama).delete().catch(function (error) {
+                    alert("Gagal mereset: " + error.message);
+                });
+                return;
+            }
+
+            // Role tambahan: tolak kalau masih ada user yang memakainya
+            db.collection("users").where("role", "==", nama).limit(1).get().then(function (snap) {
+                if (!snap.empty) {
+                    const u = snap.docs[0].data();
+                    alert('Role "' + nama + '" masih dipakai oleh user "' + (u.nama || snap.docs[0].id) + '". Ganti role user tersebut dulu di Pengaturan > User, baru hapus role ini.');
+                    return;
+                }
+                if (!confirm('Hapus role "' + nama + '"?')) return;
+                return db.collection("roles").doc(nama).delete();
+            }).catch(function (error) {
                 alert("Gagal menghapus: " + error.message);
             });
         }

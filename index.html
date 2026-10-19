@@ -550,6 +550,8 @@
                             "omaopa_user",
                             JSON.stringify(userData)
                         );
+                        // Outlet pilihan di Kasir milik login sebelumnya tidak dibawa
+                        sessionStorage.removeItem("omaopa_outlet_kasir");
 
                         // Kasir langsung ke halaman kerja utamanya (pos.html),
                         // role lain diarahkan ke Beranda sebagai halaman ringkasan
