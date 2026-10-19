@@ -468,21 +468,14 @@
                     '</div>' +
                     '<div class="hub-card" onclick="bukaSection(\'user\')">' +
                         '<div class="hub-icon">👤</div>' +
-                        '<div class="hub-title">User</div>' +
-                        '<div class="hub-desc">Tambah & atur akun pengguna</div>' +
+                        '<div class="hub-title">' + (currentUser.role === ROLE_TERKUNCI ? "User & Role" : "User") + '</div>' +
+                        '<div class="hub-desc">' + (currentUser.role === ROLE_TERKUNCI ? "Akun pengguna, role, dan hak akses" : "Tambah & atur akun pengguna") + '</div>' +
                     '</div>' +
                     '<div class="hub-card" onclick="bukaSection(\'promo\')">' +
                         '<div class="hub-icon">🏷️</div>' +
                         '<div class="hub-title">Promo</div>' +
                         '<div class="hub-desc">Kelola diskon & promo yang otomatis kepakai di kasir</div>' +
                     '</div>' +
-                    // Kotak Role hanya untuk management
-                    (currentUser.role === ROLE_TERKUNCI ?
-                    '<div class="hub-card" onclick="bukaSection(\'role\')">' +
-                        '<div class="hub-icon">🔑</div>' +
-                        '<div class="hub-title">Role & Hak Akses</div>' +
-                        '<div class="hub-desc">Atur halaman yang boleh dibuka tiap role</div>' +
-                    '</div>' : '') +
                 '</div>';
         }
 
@@ -496,7 +489,16 @@
                 alert("Hanya management yang boleh mengatur role.");
                 return;
             }
-            const judul = { produk: "Produk", outlet: "Outlet", user: "User", promo: "Promo", role: "Role & Hak Akses" }[nama];
+            // User dan Role tampil sebagai satu bagian dengan dua tab (tab Role khusus management)
+            const bisaRole = currentUser.role === ROLE_TERKUNCI;
+            const judul = { produk: "Produk", outlet: "Outlet", user: bisaRole ? "User & Role" : "User", promo: "Promo", role: "User & Role" }[nama];
+            const gayaTabAktif = "background:#12305C; color:#ffffff; border-style:solid;";
+            const tabUserRole = (bisaRole && (nama === "user" || nama === "role"))
+                ? '<div class="kategori-chips" style="margin-bottom:14px;">' +
+                    '<button type="button" class="btn-tambah-kategori" style="' + (nama === "user" ? gayaTabAktif : "") + '" onclick="bukaSection(\'user\')">👤 Daftar User</button>' +
+                    '<button type="button" class="btn-tambah-kategori" style="' + (nama === "role" ? gayaTabAktif : "") + '" onclick="bukaSection(\'role\')">🔑 Role & Hak Akses</button>' +
+                  '</div>'
+                : "";
 
             // Lepas listener bagian sebelumnya sebelum pasang yang baru
             hentikanListenerSection();
@@ -538,6 +540,7 @@
             document.getElementById("mainContent").innerHTML =
                 '<div class="breadcrumb"><a href="#" onclick="renderHubPengaturan(); return false;">Pengaturan</a> / ' + judul + '</div>' +
                 '<div class="page-title" style="margin-bottom:14px;">' + judul + '</div>' +
+                tabUserRole +
                 kontenHtml;
 
             if (nama === "produk") { Produk_load(); Kategori_load(); ModePenjualan_load(); }
