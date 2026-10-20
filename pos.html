@@ -9,6 +9,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
     <script src="roles.js?v=20261020a"></script>
+    <script src="keuangan.js?v=20261020a"></script>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1831,6 +1832,35 @@
             return kode + "-" + hariIniStr().replace(/-/g, "") + "-" + docId.slice(-5).toUpperCase();
         }
 
+        /* ---------- RINGKASAN HARIAN (untuk Laporan Laba Rugi) ----------
+           Setelah transaksi tersimpan, tambahkan penjualan & diskon per detail
+           kategori ke ringkasan_harian/<outlet>__<tanggal>. Dibuat terpisah dari
+           transaksi supaya kalau gagal (mis. aturan Firestore), transaksi tetap
+           sah; angka bisa dibetulkan lewat "Hitung ulang ringkasan" di Laporan. */
+        function catatRingkasanHarian(items, diskonPromo) {
+            try {
+                if (typeof keuRingkasTransaksi !== "function") return;
+                const r = keuRingkasTransaksi({ items: items, diskonPromo: diskonPromo });
+                const naik = firebase.firestore.FieldValue.increment;
+                const sekarang = new Date();
+                const tgl = keuTanggalIso(sekarang);
+                const data = {
+                    outlet: currentUser.outlet, tanggal: tgl,
+                    tahun: sekarang.getFullYear(), bulan: sekarang.getMonth() + 1,
+                    trx: naik(1), penjualan: {}, diskon: {}, qty: {},
+                    diperbarui: firebase.firestore.FieldValue.serverTimestamp()
+                };
+                ["penjualan", "diskon", "qty"].forEach(function (k) {
+                    Object.keys(r[k]).forEach(function (d) { data[k][d] = naik(r[k][d]); });
+                });
+                db.collection("ringkasan_harian").doc(keuIdRingkasan(currentUser.outlet, tgl))
+                    .set(data, { merge: true })
+                    .catch(function (e) { console.warn("Ringkasan harian belum tercatat:", e.message); });
+            } catch (e) {
+                console.warn("Ringkasan harian belum tercatat:", e.message);
+            }
+        }
+
         /* ---------- PROSES BAYAR (stok & promo: sama seperti sebelumnya) ---------- */
         function prosesBayar() {
             if (sedangMemproses) return;
@@ -1860,6 +1890,14 @@
             const metodeBayar = metodeBayarAktif;
             const outletRef = db.collection("outlets").doc(currentUser.outlet);
             const productIds = Object.keys(totalPerProduk);
+
+            // Salinan item untuk ringkasan harian (dihitung sebelum keranjang dikosongkan)
+            const itemsRingkasan = entries.map(function (entry) {
+                const item = entry[1];
+                const prod = allProducts.find(function (p) { return p.id === item.productId; }) || {};
+                return { productId: item.productId, nama: item.nama, harga: item.hargaSatuan, qty: item.qty,
+                    isPromoGratis: !!item.isPromoGratis, detailKategori: item.detailKategori || prod.detailKategori || "" };
+            });
 
             const trxRef = db.collection("transactions").doc();
             const noNota = buatNoNota(trxRef.id);
@@ -1910,6 +1948,7 @@
                 });
             })
             .then(function () {
+                catatRingkasanHarian(itemsRingkasan, diskonPromo);
                 transaksiTerakhir = snapshotStruk;
                 cart = {};
                 promoDinonaktifkanManual = {};
