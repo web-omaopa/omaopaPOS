@@ -11,6 +11,10 @@
     <script src="roles.js?v=20261019c"></script>
 
     <!-- Download Excel & PDF -->
+    <!-- Kalender rentang tanggal (satu kolom: dari - sampai) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/l10n/id.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
@@ -172,6 +176,8 @@
         .tampil-bar select { width: auto; }
         .tampil-halaman { display: flex; align-items: center; gap: 8px; margin-left: auto; }
         .tampil-halaman .btn[disabled] { opacity: 0.45; cursor: default; }
+        .tgl-rentang { min-width: 210px; cursor: pointer; background: #ffffff; }
+        .info-berubah { color: #b06d09; font-weight: 700; }
     </style>
 </head>
 <body>
@@ -195,9 +201,8 @@
                 <div class="filter-bar">
                     <select id="fPeriode" hidden><option value="pilih">Tanggal</option></select>
                     <div id="wadahTanggal">
-                        <div class="ctrl-label">Tanggal (dari – sampai)</div>
-                        <input type="date" class="tgl-input" id="fDari">
-                        <input type="date" class="tgl-input" id="fSampai">
+                        <div class="ctrl-label">Tanggal</div>
+                        <input type="text" class="tgl-input tgl-rentang" id="fTanggal" placeholder="Pilih tanggal dari – sampai" readonly>
                     </div>
                     <div><div class="ctrl-label">Area</div><select class="outlet-select" id="fArea"></select></div>
                     <div><div class="ctrl-label">Outlet</div><select class="outlet-select" id="fOutlet"></select></div>
@@ -455,8 +460,8 @@
             document.getElementById("judulLaporan").textContent = lap.nama;
 
             document.getElementById("fPeriode").value = filter.periode;
-            document.getElementById("fDari").value = filter.dari;
-            document.getElementById("fSampai").value = filter.sampai;
+            pasangKalender();
+            filterTerpakai = null;
             isiPilihanFilter();
             belumDitampilkan();
             window.scrollTo(0, 0);
@@ -473,37 +478,15 @@
         }
 
         function pasangEventFilter() {
-            document.getElementById("fPeriode").addEventListener("change", function () {
-                filter.periode = this.value;
-                document.getElementById("wadahTanggal").style.display = filter.periode === "pilih" ? "block" : "none";
-                if (filter.periode === "pilih" && (!filter.dari || !filter.sampai)) {
-                    const hariIni = tglKeIso(new Date());
-                    filter.dari = filter.dari || hariIni;
-                    filter.sampai = filter.sampai || hariIni;
-                    document.getElementById("fDari").value = filter.dari;
-                    document.getElementById("fSampai").value = filter.sampai;
-                }
-                simpanFilter();
-                dengarkanTransaksi();
-            });
-            ["fDari", "fSampai"].forEach(function (id) {
-                document.getElementById(id).addEventListener("change", function () {
-                    filter.dari = document.getElementById("fDari").value;
-                    filter.sampai = document.getElementById("fSampai").value;
-                    halamanProduk = 1;
-                    simpanFilter();
-                    belumDitampilkan();
-                });
-            });
+            // Tanggal diatur lewat kalender rentang (lihat pasangKalender)
             // Filter selain periode: cukup render ulang dari data yang sudah ada
             [["fArea", "area"], ["fOutlet", "outlet"], ["fMode", "mode"], ["fBayar", "bayar"], ["fKategori", "kategori"], ["fKasir", "kasir"]].forEach(function (p) {
                 document.getElementById(p[0]).addEventListener("change", function () {
                     filter[p[1]] = this.value;
                     if (p[1] === "area" && filter.outlet && filter.area && areaDariOutlet(filter.outlet) !== filter.area) filter.outlet = "";
-                    halamanProduk = 1;
                     simpanFilter();
                     isiPilihanFilter();
-                    belumDitampilkan();
+                    tandaiFilterBerubah();
                 });
             });
         }
@@ -549,6 +532,77 @@
         ====================================================== */
         /* Tabel tidak langsung tampil: pengguna memilih filter dulu, lalu klik
            "Tampilkan laporan". Setiap filter diubah, laporan kembali menunggu. */
+        /* Kalender satu kolom: klik tanggal awal lalu tanggal akhir.
+           Klik satu tanggal dua kali = laporan satu hari. */
+        let kalender = null;
+        function pasangKalender() {
+            const input = document.getElementById("fTanggal");
+            const opsi = {
+                mode: "range",
+                dateFormat: "Y-m-d",
+                altInput: true,
+                altFormat: "d/m/Y",
+                altInputClass: "tgl-input tgl-rentang",
+                defaultDate: [filter.dari, filter.sampai],
+                maxDate: tglKeIso(new Date()),
+                onClose: function (dipilih) {
+                    // Hanya satu tanggal yang diklik: anggap laporan satu hari
+                    if (dipilih.length === 1) kalender.setDate([dipilih[0], dipilih[0]], false);
+                    simpanTanggalKalender();
+                },
+                onChange: function (dipilih) { if (dipilih.length === 2) simpanTanggalKalender(); }
+            };
+            if (window.flatpickr) {
+                if (window.flatpickr.l10ns && window.flatpickr.l10ns.id) opsi.locale = window.flatpickr.l10ns.id;
+                if (kalender) kalender.destroy();
+                kalender = window.flatpickr(input, opsi);
+            } else {
+                // Cadangan kalau library kalender gagal dimuat: ketik "dd/mm/yyyy - dd/mm/yyyy"
+                input.readOnly = false;
+                input.value = tglTampil(isoKeTgl(filter.dari)) + " - " + tglTampil(isoKeTgl(filter.sampai));
+                input.onchange = function () {
+                    const m = /(\d{2})\/(\d{2})\/(\d{4})\D+(\d{2})\/(\d{2})\/(\d{4})/.exec(input.value);
+                    if (!m) return;
+                    filter.dari = m[3] + "-" + m[2] + "-" + m[1];
+                    filter.sampai = m[6] + "-" + m[5] + "-" + m[4];
+                    simpanFilter();
+                    tandaiFilterBerubah();
+                };
+            }
+        }
+
+        function simpanTanggalKalender() {
+            if (!kalender) return;
+            const d = kalender.selectedDates;
+            if (d.length === 0) return;
+            const dari = tglKeIso(d[0]), sampai = tglKeIso(d[d.length - 1]);
+            if (dari === filter.dari && sampai === filter.sampai) return;
+            filter.dari = dari;
+            filter.sampai = sampai;
+            simpanFilter();
+            tandaiFilterBerubah();
+        }
+
+        /* Filter yang sedang DIPAKAI tabel (filterTerpakai) terpisah dari isian
+           form (filter). Tabel baru berubah setelah klik "Tampilkan laporan". */
+        let filterTerpakai = null;
+
+        function samaFilter(a, b) {
+            return !!a && !!b && ["dari", "sampai", "area", "outlet", "mode", "bayar", "kategori"].every(function (k) { return a[k] === b[k]; });
+        }
+
+        function tulisInfoPeriode() {
+            const el = document.getElementById("infoPeriode");
+            if (!filterTerpakai) { el.textContent = ""; return; }
+            const r = rentangPeriode(filterTerpakai);
+            el.innerHTML = "Periode: " + escapeHtmlAman(r ? teksPeriode(r) : "-") +
+                (samaFilter(filter, filterTerpakai) ? "" : ' <span class="info-berubah">· Filter diubah, klik Tampilkan laporan untuk memperbarui tabel.</span>');
+        }
+
+        function tandaiFilterBerubah() {
+            if (filterTerpakai) tulisInfoPeriode();
+        }
+
         function belumDitampilkan() {
             hentikanTransaksi();
             dataTrx = [];
@@ -560,8 +614,17 @@
         }
 
         function tampilkanLaporan() {
+            if (!rentangPeriode(filter)) { alert("Pilih tanggal dari dan sampai dulu."); return; }
+            const tanggalSama = filterTerpakai && filterTerpakai.dari === filter.dari && filterTerpakai.sampai === filter.sampai;
+            filterTerpakai = JSON.parse(JSON.stringify(filter));
             halamanProduk = 1;
-            dengarkanTransaksi();
+            if (tanggalSama && trxUnsubscribe && trxSiap) {
+                // Data tanggal ini sudah dimuat: cukup hitung ulang dengan filter baru
+                tulisInfoPeriode();
+                renderLaporan();
+            } else {
+                dengarkanTransaksi();
+            }
         }
 
         function dengarkanTransaksi() {
@@ -571,14 +634,14 @@
             trxSiap = false;
             trxError = null;
 
-            const r = rentangPeriode(filter);
+            const r = rentangPeriode(filterTerpakai);
             if (!r) {
                 document.getElementById("infoPeriode").textContent = "";
                 document.getElementById("isiLaporan").innerHTML = '<div class="empty-state">Pilih tanggal "dari" dan "sampai" yang valid (dari tidak boleh setelah sampai).</div>';
                 return;
             }
             document.getElementById("isiLaporan").innerHTML = '<div class="loading-state">Memuat data penjualan...</div>';
-            document.getElementById("infoPeriode").textContent = "Periode: " + teksPeriode(r);
+            tulisInfoPeriode();
 
             trxUnsubscribe = db.collection("transactions")
                 .where("waktu", ">=", firebase.firestore.Timestamp.fromDate(r.start))
@@ -719,15 +782,16 @@
 
         // Hasil: { trx: [...], baris: [...] (sudah difilter kategori, terbaru dulu), filterItem: bool }
         function dataTerfilter() {
-            const trx = dataTrx.filter(function (t) { return trxLolosFilter(t, filter); });
+            const f = filterTerpakai || filter;
+            const trx = dataTrx.filter(function (t) { return trxLolosFilter(t, f); });
             let baris = buatBarisPenjualan(trx);
-            if (filter.kategori) baris = baris.filter(function (b) { return b.kategori === filter.kategori; });
+            if (f.kategori) baris = baris.filter(function (b) { return b.kategori === f.kategori; });
             baris.sort(function (a, b) {
                 if (b.waktu - a.waktu !== 0) return b.waktu - a.waktu;
                 if (a.noNota !== b.noNota) return a.noNota < b.noNota ? 1 : -1;
                 return a.urut - b.urut;
             });
-            return { trx: trx, baris: baris, filterItem: !!filter.kategori };
+            return { trx: trx, baris: baris, filterItem: !!f.kategori };
         }
 
         /* ===== Pilihan dropdown filter ===== */
@@ -777,13 +841,14 @@
         }
 
         function ringkasanFilter() {
-            const r = rentangPeriode(filter);
+            const f = filterTerpakai || filter;
+            const r = rentangPeriode(f);
             const bagian = ["Tanggal: " + (r ? teksPeriode(r) : "-")];
-            bagian.push("Area: " + (filter.area || "Semua"));
-            bagian.push("Outlet: " + (filter.outlet || "Semua"));
-            bagian.push("Mode: " + (filter.mode || "Semua"));
-            bagian.push("Bayar: " + (filter.bayar || "Semua"));
-            bagian.push("Kategori: " + (filter.kategori || "Semua"));
+            bagian.push("Area: " + (f.area || "Semua"));
+            bagian.push("Outlet: " + (f.outlet || "Semua"));
+            bagian.push("Mode: " + (f.mode || "Semua"));
+            bagian.push("Bayar: " + (f.bayar || "Semua"));
+            bagian.push("Kategori: " + (f.kategori || "Semua"));
             return bagian;
         }
 
@@ -857,7 +922,7 @@
         }
 
         function renderLaporan() {
-            if (!laporanAktif || !trxSiap || trxError) return;
+            if (!laporanAktif || !filterTerpakai || !trxSiap || trxError) return;
             const d = dataTerfilter();
             const wadah = document.getElementById("isiLaporan");
 
@@ -965,8 +1030,8 @@
            DOWNLOAD EXCEL & PDF
         ====================================================== */
         function siapDownload() {
-            if (!laporanAktif || !trxSiap || trxError) { alert("Klik Tampilkan laporan dulu, tunggu tabelnya muncul, baru download."); return null; }
-            const r = rentangPeriode(filter);
+            if (!laporanAktif || !filterTerpakai || !trxSiap || trxError) { alert("Klik Tampilkan laporan dulu, tunggu tabelnya muncul, baru download."); return null; }
+            const r = rentangPeriode(filterTerpakai);
             if (!r) { alert("Periode belum valid."); return null; }
             return r;
         }
