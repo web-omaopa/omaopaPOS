@@ -8,7 +8,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
-    <script src="roles.js?v=20261019c"></script>
+    <script src="roles.js?v=20261020a"></script>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1221,7 +1221,7 @@
             daftar.forEach(function (p) {
                 if (p.kategori !== "Topping" || !p.hargaPerKategori) { hasil.push(p); return; }
                 Object.keys(p.hargaPerKategori).sort().forEach(function (kat) {
-                    const harga = hargaToppingUntuk(p, { kategori: kat }, modeAktif);
+                    const harga = hargaToppingUntuk(p, { detailKategori: kat, kategori: kat }, modeAktif);
                     if (harga === null) return;
                     hasil.push(Object.assign({}, p, { nama: p.nama + " · " + kat, _kueKategori: kat, _hargaTopping: harga }));
                 });
@@ -1293,9 +1293,15 @@
            Topping lama tanpa hargaPerKategori tetap memakai cara lama:
            muncul di kue yang butuhTopping, dengan harga per mode.
         ====================================================== */
+        // Topping per kue memakai Detail Kategori (Malmil, Ogura, ...). Produk lama
+        // tanpa detail memakai kategori biasa supaya pengaturan lama tetap jalan.
+        function kunciKategoriKue(product) {
+            return product.detailKategori || product.kategori || "";
+        }
+
         function hargaToppingUntuk(t, product, mode) {
             if (t.hargaPerKategori) {
-                const cfg = t.hargaPerKategori[product.kategori];
+                const cfg = t.hargaPerKategori[kunciKategoriKue(product)];
                 if (!cfg) return null;
                 const v = cfg[mode];
                 return (v === null || v === undefined || v === "") ? null : Number(v);
@@ -1389,6 +1395,8 @@
                     lacakStok: !isTopping,
                     // Untuk laporan: kategori & harga tiap topping saat dijual
                     kategori: product.kategori || "",
+                    // Topping yang dijual sendiri ikut detail kategori kuenya (mis. "Keju · Malmil")
+                    detailKategori: product._kueKategori || product.detailKategori || "",
                     toppingHarga: toppings.map(function (t) { return hargaToppingUntuk(t, product, modeAktif) || 0; })
                 };
             }
@@ -1884,6 +1892,7 @@
                             isPromoGratis: !!item.isPromoGratis,
                             // Tambahan untuk laporan (transaksi lama tidak punya field ini)
                             kategori: item.kategori || ((allProducts.find(function (p) { return p.id === item.productId; }) || {}).kategori) || "",
+                            detailKategori: item.detailKategori !== undefined ? item.detailKategori : (((allProducts.find(function (p) { return p.id === item.productId; }) || {}).detailKategori) || ""),
                             hargaDasar: item.hargaDasar !== undefined ? item.hargaDasar : item.hargaSatuan,
                             toppingHarga: item.toppingHarga || []
                         };
