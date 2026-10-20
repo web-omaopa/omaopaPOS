@@ -10,6 +10,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-storage-compat.js"></script>
     <script src="roles.js?v=20261020a"></script>
+    <script src="keuangan.js?v=20261020a"></script>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -133,22 +134,9 @@
             <select id="pInputKategori" onchange="Produk_aturTampilanKategori()"><option value="">Pilih kategori...</option></select>
             <div id="pBlokDetail">
                 <label>Detail kategori</label>
-                <div style="display:flex; gap:6px; align-items:center;">
-                    <select id="pInputDetail" style="flex:1;" onchange="Produk_segarkanOpsiAkun()"><option value="">- Tanpa detail -</option></select>
-                    <button type="button" class="btn-tambah-kategori" style="flex-shrink:0;" onclick="Detail_bukaPopoverKelola()">+ Kelola</button>
-                </div>
-                <div class="field-hint">Mis. Malmil, Ogura, Chiffon. Dipakai untuk laporan laba rugi &amp; topping.</div>
+                <select id="pInputDetail"><option value="">- Pilih detail -</option></select>
+                <div class="field-hint">Mis. Malmil, Ogura. Menentukan akun penjualan, COGS &amp; diskon di laporan laba rugi.</div>
             </div>
-            <details id="pBlokAkun" style="margin-top:10px; border:1px solid #e4e8ee; border-radius:8px; padding:6px 10px;">
-                <summary style="font-size:11px; font-weight:700; cursor:pointer;">Akun laporan keuangan</summary>
-                <div class="field-hint">Biarkan "Ikut detail kategori" supaya akun mengikuti pemetaan detail kategori di Master Akun.</div>
-                <label>Akun penjualan</label>
-                <select id="pInputAkunPenjualan"><option value="">Ikut detail kategori (belum diatur)</option></select>
-                <label>Akun COGS</label>
-                <select id="pInputAkunCogs"><option value="">Ikut detail kategori (belum diatur)</option></select>
-                <label>Akun diskon</label>
-                <select id="pInputAkunDiskon"><option value="">Ikut detail kategori (belum diatur)</option></select>
-            </details>
             <label>Satuan (opsional)</label>
             <input type="text" id="pInputSatuan" placeholder="pcs, gram, kg, dll">
             <div class="field-hint">Kosongkan untuk pakai default "pcs". Untuk topping biasanya "gram".</div>
@@ -179,7 +167,6 @@
                 <label style="margin-top:10px;">Detail Kategori yang Bisa Pakai Topping Ini</label>
                 <div class="field-hint">Centang detail kategori kuenya (mis. Malmil, Ogura), lalu isi harga topping di tiap mode. Berlaku untuk semua kue dengan detail kategori itu. Kosongkan = topping tidak tersedia di mode tsb.</div>
                 <div id="toppingKueContainer" style="margin-top:6px;"></div>
-                <button type="button" class="btn-tambah-kategori" style="margin-top:2px;" onclick="Detail_bukaPopoverKelola()">+ Kelola Detail Kategori</button>
             </div>
             <div class="err-text" id="pFormError"></div>
             <div class="modal-actions">
@@ -291,43 +278,6 @@
         </div>
     </div>
 
-    <div class="modal-overlay mode-overlay" id="modalKelolaDetail">
-        <div class="modal-box mode-popover-box">
-            <h3>Kelola Detail Kategori</h3>
-            <div class="modal-hint">Tambah detail kategori baru (mis. Malmil, Ogura), atau klik &times; untuk hapus yang tidak dipakai produk mana pun.</div>
-            <div id="popoverDetailList" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px;"></div>
-            <div class="mode-custom-row">
-                <input type="text" id="popoverInputDetail" placeholder="Nama detail kategori baru..." onkeydown="if(event.key==='Enter'){Detail_tambahDariPopover();}">
-                <button type="button" class="mode-custom-add-btn" onclick="Detail_tambahDariPopover()">+</button>
-            </div>
-            <div class="modal-actions">
-                <button class="btn-cancel" style="flex:1;" onclick="Detail_tutupPopover()">Selesai</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal-overlay" id="modalAkun">
-        <div class="modal-box">
-            <h3 id="modalAkunTitle">Tambah Akun</h3>
-            <label>Kode Akun</label>
-            <input type="text" id="aInputKode" placeholder="4 1 01 07">
-            <div class="field-hint" id="aHintKode">Angka dipisah satu spasi, mis. "4 1 01 07". Kode ini jadi ID permanen.</div>
-            <label>Nama Akun</label>
-            <input type="text" id="aInputNama" placeholder="Penjualan - Malmil">
-            <label>Kelompok</label>
-            <select id="aInputKelompok">
-                <option value="Penjualan">Penjualan</option>
-                <option value="Diskon">Diskon</option>
-                <option value="COGS">COGS</option>
-            </select>
-            <div class="err-text" id="aFormError"></div>
-            <div class="modal-actions">
-                <button class="btn-cancel" onclick="Akun_tutupModal()">Batal</button>
-                <button class="btn-save" id="aBtnSimpan" onclick="Akun_simpan()">Simpan</button>
-            </div>
-        </div>
-    </div>
-
     <div class="modal-overlay" id="modalPromo">
         <div class="modal-box" style="max-width:420px;">
             <h3 id="modalPromoTitle">Tambah Promo</h3>
@@ -407,10 +357,6 @@
         let currentUser = null;
         let daftarKategoriProduk = [];
         let daftarModePenjualan = [];
-        // Detail kategori (level kedua, mis. Malmil, Ogura). daftarDetailKategori
-        // berisi nama saja; daftarDetailKategoriData berisi { nama, akunPenjualan, akunCogs, akunDiskon }.
-        let daftarDetailKategori = [];
-        let daftarDetailKategoriData = [];
         const ROLE_LIST = ["management", "admin", "owner", "kasir", "forecaster"];
 
         // Salinan hak akses bawaan dari roles.js, diambil sebelum data dari
@@ -453,9 +399,8 @@
         let promoProdukUnsubscribe = null;
         let promoOutletUnsubscribe = null;
         let roleUnsubscribe = null;
-        let detailKategoriUnsubscribe = null;
-        let akunUnsubscribe = null;
-        let akunProdukUnsubscribe = null;
+        let hppUnsubscribe = null;
+        let hppProdukUnsubscribe = null;
 
         function hentikanListenerSection() {
             if (kategoriUnsubscribe) { kategoriUnsubscribe(); kategoriUnsubscribe = null; }
@@ -468,9 +413,8 @@
             if (promoProdukUnsubscribe) { promoProdukUnsubscribe(); promoProdukUnsubscribe = null; }
             if (promoOutletUnsubscribe) { promoOutletUnsubscribe(); promoOutletUnsubscribe = null; }
             if (roleUnsubscribe) { roleUnsubscribe(); roleUnsubscribe = null; }
-            if (detailKategoriUnsubscribe) { detailKategoriUnsubscribe(); detailKategoriUnsubscribe = null; }
-            if (akunUnsubscribe) { akunUnsubscribe(); akunUnsubscribe = null; }
-            if (akunProdukUnsubscribe) { akunProdukUnsubscribe(); akunProdukUnsubscribe = null; }
+            if (hppUnsubscribe) { hppUnsubscribe(); hppUnsubscribe = null; }
+            if (hppProdukUnsubscribe) { hppProdukUnsubscribe(); hppProdukUnsubscribe = null; }
         }
 
         auth.onAuthStateChanged(function (user) {
@@ -542,10 +486,10 @@
                         '<div class="hub-title">Promo</div>' +
                         '<div class="hub-desc">Kelola diskon & promo yang otomatis kepakai di kasir</div>' +
                     '</div>' +
-                    '<div class="hub-card" onclick="bukaSection(\'akun\')">' +
+                    '<div class="hub-card" onclick="bukaSection(\'hpp\')">' +
                         '<div class="hub-icon">📒</div>' +
-                        '<div class="hub-title">Master Akun</div>' +
-                        '<div class="hub-desc">Akun laporan keuangan & pemetaan detail kategori</div>' +
+                        '<div class="hub-title">Pemetaan & HPP</div>' +
+                        '<div class="hub-desc">Akun laporan keuangan & HPP per detail kategori</div>' +
                     '</div>' +
                 '</div>';
         }
@@ -562,7 +506,7 @@
             }
             // User dan Role tampil sebagai satu bagian dengan dua tab (tab Role khusus management)
             const bisaRole = currentUser.role === ROLE_TERKUNCI;
-            const judul = { produk: "Produk", outlet: "Outlet", user: bisaRole ? "User & Role" : "User", promo: "Promo", role: "User & Role", akun: "Master Akun" }[nama];
+            const judul = { produk: "Produk", outlet: "Outlet", user: bisaRole ? "User & Role" : "User", promo: "Promo", role: "User & Role", hpp: "Pemetaan & HPP" }[nama];
             const gayaTabAktif = "background:#12305C; color:#ffffff; border-style:solid;";
             const tabUserRole = (bisaRole && (nama === "user" || nama === "role"))
                 ? '<div class="kategori-chips" style="margin-bottom:14px;">' +
@@ -606,17 +550,8 @@
                     '<table><thead><tr><th>Role</th><th>Halaman yang boleh dibuka</th><th>Buat transfer</th><th></th></tr></thead>' +
                     '<tbody id="roleTableBody"><tr><td colspan="4" class="loading-state">Memuat...</td></tr></tbody></table>' +
                     '<div style="font-size:10px; color:#9aa5b1; margin-top:14px; line-height:1.5;">Role bawaan (admin, owner, kasir, forecaster) bisa diubah; tombol Hapus pada role bawaan mengembalikannya ke pengaturan awal. Perubahan berlaku saat user membuka halaman berikutnya.</div>';
-            } else if (nama === "akun") {
-                kontenHtml =
-                    '<div class="header-row"><h3 style="font-size:14px;">Daftar Akun</h3><button class="add-btn" onclick="Akun_bukaModalTambah()">+ Tambah Akun</button></div>' +
-                    '<div id="akunBawaanBlok"></div>' +
-                    '<table><thead><tr><th>Kode</th><th>Nama akun</th><th>Kelompok</th><th></th></tr></thead>' +
-                    '<tbody id="akunTableBody"><tr><td colspan="4" class="loading-state">Memuat...</td></tr></tbody></table>' +
-                    '<div class="area-title" style="margin-top:22px;">Pemetaan Detail Kategori → Akun</div>' +
-                    '<div style="font-size:11px; color:#6b7280; margin-bottom:8px;">Pilih akun penjualan & akun COGS untuk tiap detail kategori. Perubahan langsung tersimpan.</div>' +
-                    '<table><thead><tr><th>Detail kategori</th><th>Akun penjualan</th><th>Akun COGS</th><th>Akun diskon</th><th></th></tr></thead>' +
-                    '<tbody id="pemetaanTableBody"><tr><td colspan="5" class="loading-state">Memuat...</td></tr></tbody></table>' +
-                    '<div id="akunProdukTanpaDetail"></div>';
+            } else if (nama === "hpp") {
+                kontenHtml = Hpp_renderKerangka();
             }
 
             document.getElementById("mainContent").innerHTML =
@@ -625,8 +560,8 @@
                 tabUserRole +
                 kontenHtml;
 
-            if (nama === "produk") { Produk_load(); Kategori_load(); DetailKategori_load(); Akun_load(); ModePenjualan_load(); }
-            if (nama === "akun") { Akun_load(); DetailKategori_load(); Akun_loadProduk(); }
+            if (nama === "produk") { Produk_load(); Kategori_load(); ModePenjualan_load(); }
+            if (nama === "hpp") Hpp_load();
             if (nama === "outlet") Outlet_load();
             if (nama === "user") { User_isiDropdownRole(); User_muatDaftarRole(); User_loadOutletDropdown(); User_load(); }
             if (nama === "promo") Promo_load();
@@ -720,126 +655,34 @@
 
         /* =====================================================
            DETAIL KATEGORI (level kedua, mirip "Menu Category
-           Detail" di ESB: Malmil, Ogura, Mini Ogura, Chiffon, ...)
-           Disimpan di collection "detail_kategori", Document ID =
-           nama detail, field { akunPenjualan, akunCogs, akunDiskon } (kode akun
-           dari collection "akun", boleh ""). Produk menyimpan nama
-           detailnya di field detailKategori (boleh "").
+           Detail" di ESB: Malmil, Ogura, Mini Ogura, ...)
+           Daftarnya TETAP, diambil dari DETAIL_KATEGORI di
+           keuangan.js (lengkap dengan akun penjualan/COGS/diskon).
+           Produk menyimpan namanya di field detailKategori.
         ====================================================== */
-        let Detail_pilihSetelahTambah = null; // nama detail baru yang otomatis dipilih di modal produk
-
-        // Realtime: dipakai bagian Produk dan Master Akun. Hanya me-render ulang
-        // chip popover, opsi dropdown detail (nilai terpilih dipertahankan),
-        // dan tabel pemetaan. Isian modal yang sedang terbuka tidak direset.
-        function DetailKategori_load() {
-            if (detailKategoriUnsubscribe) { detailKategoriUnsubscribe(); detailKategoriUnsubscribe = null; }
-            if (sectionAktif !== "produk" && sectionAktif !== "akun") return;
-
-            detailKategoriUnsubscribe = db.collection("detail_kategori").onSnapshot(function (snapshot) {
-                daftarDetailKategoriData = [];
-                snapshot.forEach(function (doc) {
-                    const d = doc.data() || {};
-                    daftarDetailKategoriData.push({ nama: doc.id, akunPenjualan: d.akunPenjualan || "", akunCogs: d.akunCogs || "", akunDiskon: d.akunDiskon || "" });
-                });
-                daftarDetailKategoriData.sort(function (a, b) { return a.nama.localeCompare(b.nama); });
-                daftarDetailKategori = daftarDetailKategoriData.map(function (d) { return d.nama; });
-
-                renderPopoverDetailList();
-                Produk_segarkanOpsiDetail();
-                Produk_segarkanToppingDetail();
-                Produk_segarkanOpsiAkun();
-                Akun_renderPemetaan();
-            }, function (error) {
-                console.error("Gagal memuat detail kategori:", error.message);
-            });
+        function Detail_daftarNama() {
+            if (typeof DETAIL_KATEGORI === "undefined") return [];
+            return DETAIL_KATEGORI.map(function (d) { return d.nama; });
         }
 
-        // Isi dropdown detail di modal produk. Nilai yang tidak terdaftar
-        // (mis. detail sudah dihapus) tetap ditampilkan supaya tidak hilang.
+        // HTML opsi detail kategori. Nilai yang tidak ada di daftar (data lama)
+        // tetap ditampilkan dengan tanda "(lama)" supaya tidak hilang saat disimpan.
+        function Detail_opsiHtml(selectedValue) {
+            const daftar = Detail_daftarNama();
+            let html = '<option value="">- Pilih detail -</option>' + daftar.map(function (d) {
+                return '<option value="' + escapeHtmlAman(d) + '"' + (d === selectedValue ? " selected" : "") + '>' + escapeHtmlAman(d) + '</option>';
+            }).join("");
+            if (selectedValue && daftar.indexOf(selectedValue) === -1) {
+                html += '<option value="' + escapeHtmlAman(selectedValue) + '" selected>' + escapeHtmlAman(selectedValue) + ' (lama)</option>';
+            }
+            return html;
+        }
+
         function isiDropdownDetail(selectedValue) {
             const select = document.getElementById("pInputDetail");
             if (!select) return;
-            selectedValue = selectedValue || "";
-            let optionsHtml = '<option value="">- Tanpa detail -</option>' + daftarDetailKategori.map(function (d) {
-                return '<option value="' + escapeHtmlAman(d) + '">' + escapeHtmlAman(d) + '</option>';
-            }).join("");
-            if (selectedValue && daftarDetailKategori.indexOf(selectedValue) === -1) {
-                optionsHtml += '<option value="' + escapeHtmlAman(selectedValue) + '">' + escapeHtmlAman(selectedValue) + ' (tidak terdaftar)</option>';
-            }
-            select.innerHTML = optionsHtml;
-            select.value = selectedValue;
-        }
-
-        // Dipanggil listener: perbarui opsi tanpa mengubah pilihan di modal yang terbuka
-        function Produk_segarkanOpsiDetail() {
-            const select = document.getElementById("pInputDetail");
-            if (!select) return;
-            let nilai = select.value;
-            const modalBuka = document.getElementById("modalProduk").classList.contains("open");
-            if (modalBuka && Detail_pilihSetelahTambah && daftarDetailKategori.indexOf(Detail_pilihSetelahTambah) !== -1) {
-                nilai = Detail_pilihSetelahTambah;
-                Detail_pilihSetelahTambah = null;
-            }
-            isiDropdownDetail(nilai);
-        }
-
-        function Detail_bukaPopoverKelola() {
-            renderPopoverDetailList();
-            document.getElementById("popoverInputDetail").value = "";
-            document.getElementById("modalKelolaDetail").classList.add("open");
-        }
-
-        function Detail_tutupPopover() {
-            document.getElementById("modalKelolaDetail").classList.remove("open");
-        }
-
-        function renderPopoverDetailList() {
-            const container = document.getElementById("popoverDetailList");
-            if (!container) return;
-
-            if (daftarDetailKategori.length === 0) {
-                container.innerHTML = '<span style="font-size:12px; color:#6b7280;">Belum ada detail kategori.</span>';
-                return;
-            }
-
-            container.innerHTML = daftarDetailKategori.map(function (d) {
-                return '<span class="kategori-chip">' + escapeHtmlAman(d) +
-                    '<button onclick="Detail_hapusDariPopover(\'' + escJsAttr(d) + '\')" title="Hapus detail kategori">&times;</button></span>';
-            }).join("");
-        }
-
-        function Detail_tambahDariPopover() {
-            const el = document.getElementById("popoverInputDetail");
-            const nama = (el.value || "").trim().replace(/\s+/g, " ");
-            if (!nama) return;
-            if (nama.indexOf("/") !== -1 || nama === "." || nama === "..") { alert('Nama detail kategori tidak boleh memakai tanda "/".'); return; }
-            const sudahAda = daftarDetailKategori.some(function (d) { return d.toLowerCase() === nama.toLowerCase(); });
-            if (sudahAda) { alert('Detail kategori "' + nama + '" sudah ada.'); return; }
-
-            el.value = "";
-            if (document.getElementById("modalProduk").classList.contains("open")) Detail_pilihSetelahTambah = nama;
-            // Daftar & dropdown otomatis ter-update lewat listener onSnapshot
-            db.collection("detail_kategori").doc(nama).set({ akunPenjualan: "", akunCogs: "", akunDiskon: "" }).catch(function (error) {
-                Detail_pilihSetelahTambah = null;
-                alert("Gagal menambah detail kategori: " + error.message);
-            });
-        }
-
-        function Detail_hapusDariPopover(nama) {
-            // Tolak kalau masih dipakai produk (detailKategori) atau topping (hargaPerKategori)
-            const pemakai = Produk_daftarSemua.filter(function (p) {
-                return p.detailKategori === nama || (Produk_isTopping(p) && p.hargaPerKategori && p.hargaPerKategori[nama]);
-            });
-            if (pemakai.length > 0) {
-                const contoh = pemakai.slice(0, 5).map(function (p) { return p.nama || p.id; }).join(", ");
-                alert('Detail kategori "' + nama + '" masih dipakai ' + pemakai.length + ' produk (' + contoh + (pemakai.length > 5 ? ", ..." : "") + '). Ganti dulu detail kategori produk tersebut, baru hapus.');
-                return;
-            }
-            if (!confirm('Hapus detail kategori "' + nama + '"? Pemetaan akunnya ikut terhapus.')) return;
-
-            db.collection("detail_kategori").doc(nama).delete().catch(function (error) {
-                alert("Gagal menghapus: " + error.message);
-            });
+            select.innerHTML = Detail_opsiHtml(selectedValue || "");
+            select.value = selectedValue || "";
         }
 
         /* =====================================================
@@ -1021,7 +864,6 @@
         function Produk_aturTampilanKategori() {
             const topping = document.getElementById("pInputKategori").value === "Topping";
             document.getElementById("pBlokDetail").style.display = topping ? "none" : "block";
-            Produk_segarkanOpsiAkun();
             document.getElementById("pBlokHargaOffline").style.display = topping ? "none" : "block";
             document.getElementById("pBlokHargaMode").style.display = topping ? "none" : "block";
             document.getElementById("pBlokHargaTopping").style.display = topping ? "block" : "none";
@@ -1032,9 +874,6 @@
         function Produk_toggleKue(cb) {
             cb.closest(".tk-kue").querySelector(".tk-isi").style.display = cb.checked ? "grid" : "none";
         }
-
-        // hargaPerKategori topping yang sedang diedit (dipakai saat daftar detail baru termuat)
-        let Produk_toppingAwal = {};
 
         function renderToppingKueBaris(id, cfg, lama) {
             const dipilih = !!cfg;
@@ -1060,37 +899,19 @@
         function renderToppingKueInputs(hargaPerKategori) {
             const container = document.getElementById("toppingKueContainer");
             hargaPerKategori = hargaPerKategori || {};
-            Produk_toppingAwal = hargaPerKategori;
-            const daftarDetail = daftarDetailKategori.slice().sort();
+            const daftarDetail = Detail_daftarNama();
             const kunciLama = Object.keys(hargaPerKategori)
                 .filter(function (k) { return daftarDetail.indexOf(k) === -1; })
                 .sort();
 
             if (daftarDetail.length === 0 && kunciLama.length === 0) {
-                container.innerHTML = '<div class="tk-kosong" style="font-size:11px; color:#6b7280; margin-bottom:6px;">Belum ada detail kategori. Tambah lewat tombol di bawah.</div>';
+                container.innerHTML = '<div class="tk-kosong" style="font-size:11px; color:#6b7280; margin-bottom:6px;">Daftar detail kategori (keuangan.js) belum termuat.</div>';
                 return;
             }
 
             container.innerHTML =
                 daftarDetail.map(function (d) { return renderToppingKueBaris(d, hargaPerKategori[d], false); }).join("") +
                 kunciLama.map(function (k) { return renderToppingKueBaris(k, hargaPerKategori[k], true); }).join("");
-        }
-
-        // Dipanggil listener detail_kategori: hanya MENAMBAH baris detail yang
-        // belum ada di form topping; baris yang sudah ada (dan isiannya) tidak disentuh.
-        function Produk_segarkanToppingDetail() {
-            const container = document.getElementById("toppingKueContainer");
-            if (!container) return;
-            if (!document.getElementById("modalProduk").classList.contains("open")) return;
-
-            if (!container.querySelector(".tk-kue")) {
-                renderToppingKueInputs(Produk_toppingAwal);
-                return;
-            }
-            const sudahAda = Array.from(container.querySelectorAll(".tk-kue")).map(function (el) { return el.getAttribute("data-id"); });
-            const html = daftarDetailKategori.filter(function (d) { return sudahAda.indexOf(d) === -1; })
-                .map(function (d) { return renderToppingKueBaris(d, Produk_toppingAwal[d], false); }).join("");
-            if (html) container.insertAdjacentHTML("beforeend", html);
         }
 
         function ambilHargaPerKueDariForm() {
@@ -1315,10 +1136,7 @@
             document.getElementById("pInputNama").value = "";
             document.getElementById("pInputHarga").value = "";
             isiDropdownKategori("");
-            Detail_pilihSetelahTambah = null;
             isiDropdownDetail("");
-            Produk_isiOpsiAkun({});
-            document.getElementById("pBlokAkun").open = false;
             document.getElementById("pInputSatuan").value = "";
             document.getElementById("pInputStatus").value = "aktif";
             document.getElementById("pInputResetHarian").value = "true";
@@ -1341,10 +1159,7 @@
                 document.getElementById("pInputNama").value = p.nama;
                 document.getElementById("pInputHarga").value = p.harga;
                 isiDropdownKategori(p.kategori || "");
-                Detail_pilihSetelahTambah = null;
                 isiDropdownDetail(p.detailKategori || "");
-                Produk_isiOpsiAkun(p);
-                document.getElementById("pBlokAkun").open = !!(p.akunPenjualan || p.akunCogs || p.akunDiskon);
                 document.getElementById("pInputSatuan").value = p.satuan || "";
                 document.getElementById("pInputStatus").value = p.status;
                 document.getElementById("pInputResetHarian").value = p.resetHarian === false ? "false" : "true";
@@ -1395,10 +1210,6 @@
                 data.modeHarga = ambilModeHargaDariForm();
                 data.detailKategori = document.getElementById("pInputDetail").value || "";
             }
-            // Akun laporan keuangan per produk ("" = ikut pemetaan detail kategori)
-            data.akunPenjualan = document.getElementById("pInputAkunPenjualan").value || "";
-            data.akunCogs = document.getElementById("pInputAkunCogs").value || "";
-            data.akunDiskon = document.getElementById("pInputAkunDiskon").value || "";
             const p = Produk_editingId ? db.collection("products").doc(Produk_editingId).update(data) : db.collection("products").add(data);
             p.then(function () {
                 Produk_tutupModal();
@@ -1892,338 +1703,175 @@
         }
 
         /* =====================================================
-           MASTER AKUN (bagian dari chart of accounts, untuk
-           laporan Laba Rugi). Disimpan di collection "akun",
-           Document ID = kode akun dengan spasi (mis. "4 1 01 07"),
-           field { nama, kelompok: "Penjualan" | "Diskon" | "COGS" }.
-           Di bawahnya ada pemetaan Detail Kategori -> akun penjualan
-           & akun COGS (field di collection "detail_kategori").
+           PEMETAAN & HPP
+           Akun penjualan/COGS/diskon tiap detail kategori TETAP
+           (dari keuangan.js, hanya ditampilkan). Yang bisa diatur:
+           HPP % per detail kategori, disimpan di collection
+           "detail_kategori", Document ID = nama detail, field
+           hppPersen (angka 0-100). HPP sementara = penjualan x HPP %.
         ====================================================== */
-        const KELOMPOK_AKUN = ["Penjualan", "Diskon", "COGS"];
-        const AKUN_BAWAAN_ESB = [
-            { kode: "4 1 01 01", nama: "Penjualan - Makanan", kelompok: "Penjualan" },
-            { kode: "4 1 01 02", nama: "Penjualan - Minuman", kelompok: "Penjualan" },
-            { kode: "4 1 01 03", nama: "Penjualan - Lainya", kelompok: "Penjualan" },
-            { kode: "4 1 01 06", nama: "Penjualan - Ogura", kelompok: "Penjualan" },
-            { kode: "4 1 01 07", nama: "Penjualan - Malmil", kelompok: "Penjualan" },
-            { kode: "4 1 01 08", nama: "Penjualan - Mini Ogura", kelompok: "Penjualan" },
-            { kode: "4 1 01 09", nama: "Penjualan - Cisfon", kelompok: "Penjualan" },
-            { kode: "4 1 01 10", nama: "Penjualan - Snibby", kelompok: "Penjualan" },
-            { kode: "4 1 03 02", nama: "Diskon Makanan", kelompok: "Diskon" },
-            { kode: "5 1 01 01", nama: "COGS - Makanan", kelompok: "COGS" },
-            { kode: "5 1 01 02", nama: "COGS - Minuman", kelompok: "COGS" },
-            { kode: "5 1 01 03", nama: "COGS - Lainya", kelompok: "COGS" },
-            { kode: "5 1 01 05", nama: "COGS - Ogura", kelompok: "COGS" },
-            { kode: "5 1 01 06", nama: "COGS - Malmil", kelompok: "COGS" },
-            { kode: "5 1 01 07", nama: "COGS - Mini Ogura", kelompok: "COGS" },
-            { kode: "5 1 01 08", nama: "COGS - Cisfon", kelompok: "COGS" },
-            { kode: "5 1 01 09", nama: "COGS - Snibby", kelompok: "COGS" }
-        ];
+        let Hpp_tersimpan = {};   // nama detail -> hppPersen dari database (atau null)
+        let Hpp_produk = [];      // daftar produk, untuk jumlah & produk tanpa detail
 
-        let daftarAkun = [];           // [{ kode, nama, kelompok }] urut kode
-        let Akun_sudahMuat = false;    // true setelah snapshot akun pertama diterima
-        let Akun_daftarProduk = [];    // produk untuk catatan "belum punya detail kategori"
-        let Akun_editingKode = null;
-        let Akun_statusSimpan = {};    // key "nama|field" -> true, untuk label "Tersimpan ✓"
+        function Hpp_teksAkun(a) {
+            return a ? escapeHtmlAman(a[0] + " · " + a[1]) : "-";
+        }
 
-        // Realtime: tabel akun + tabel pemetaan di-render ulang. Modal Tambah/Edit
-        // Akun yang sedang terbuka tidak disentuh.
-        function Akun_load() {
-            if (akunUnsubscribe) { akunUnsubscribe(); akunUnsubscribe = null; }
-            Akun_sudahMuat = false;
-            if (sectionAktif !== "akun" && sectionAktif !== "produk") return;
+        function Hpp_renderKerangka() {
+            const daftar = (typeof DETAIL_KATEGORI === "undefined") ? [] : DETAIL_KATEGORI;
+            const baris = daftar.map(function (d, i) {
+                return '<tr><td style="font-weight:700; white-space:nowrap;">' + escapeHtmlAman(d.nama) + '</td>' +
+                    '<td style="font-size:11px;">' + Hpp_teksAkun(d.penjualan) + '</td>' +
+                    '<td style="font-size:11px;">' + Hpp_teksAkun(d.cogs) + '</td>' +
+                    '<td style="font-size:11px;">' + Hpp_teksAkun(d.diskon) + '</td>' +
+                    '<td><input type="number" id="hppInput_' + i + '" min="0" max="100" step="0.1" placeholder="-" oninput="this.setAttribute(\'data-ubah\', \'1\')" style="width:70px; height:30px; border:1px solid #d1d5db; border-radius:6px; padding:0 6px; font-size:12px;"></td>' +
+                    '<td id="hppJumlah_' + i + '" style="text-align:right;">-</td></tr>';
+            }).join("");
+            return '<div style="font-size:11px; color:#6b7280; margin-bottom:10px;">HPP sementara dihitung = penjualan × HPP %. Nanti bisa diganti HPP dari resep.</div>' +
+                '<table><thead><tr><th>Detail kategori</th><th>Akun penjualan</th><th>Akun COGS</th><th>Akun diskon</th><th>HPP %</th><th style="text-align:right;">Jumlah produk</th></tr></thead>' +
+                '<tbody id="hppTableBody">' + (baris || '<tr><td colspan="6" class="empty-state">Daftar detail kategori (keuangan.js) belum termuat.</td></tr>') + '</tbody></table>' +
+                '<div style="display:flex; align-items:center; gap:10px; margin-bottom:18px;">' +
+                    '<button class="add-btn" id="hppBtnSimpan" onclick="Hpp_simpan()">Simpan HPP</button>' +
+                    '<span id="hppStatus" style="font-size:11px; color:#1e7d32;"></span>' +
+                '</div>' +
+                '<div id="hppTanpaDetail"></div>';
+        }
 
-            akunUnsubscribe = db.collection("akun").onSnapshot(function (snapshot) {
-                daftarAkun = [];
+        // Realtime: HPP % (tidak menimpa kolom yang sedang diketik/diubah) dan
+        // daftar produk (jumlah per detail + produk yang belum punya detail).
+        function Hpp_load() {
+            if (hppUnsubscribe) { hppUnsubscribe(); hppUnsubscribe = null; }
+            if (hppProdukUnsubscribe) { hppProdukUnsubscribe(); hppProdukUnsubscribe = null; }
+            if (sectionAktif !== "hpp") return;
+
+            hppUnsubscribe = db.collection("detail_kategori").onSnapshot(function (snapshot) {
+                Hpp_tersimpan = {};
                 snapshot.forEach(function (doc) {
-                    const d = doc.data() || {};
-                    daftarAkun.push({ kode: doc.id, nama: d.nama || "", kelompok: d.kelompok || "" });
+                    const v = (doc.data() || {}).hppPersen;
+                    Hpp_tersimpan[doc.id] = (typeof v === "number") ? v : null;
                 });
-                daftarAkun.sort(function (a, b) { return a.kode.localeCompare(b.kode, undefined, { numeric: true }); });
-                Akun_sudahMuat = true;
-                Akun_renderTabel();
-                Akun_renderPemetaan();
-                Produk_segarkanOpsiAkun();
+                Hpp_isiInput();
             }, function (error) {
-                console.error("Gagal memuat akun:", error.message);
-                const tbody = document.getElementById("akunTableBody");
-                if (tbody) tbody.innerHTML = '<tr><td colspan="4" class="empty-state">Gagal memuat: ' + escapeHtmlAman(error.message) + '</td></tr>';
+                document.getElementById("hppStatus") && (document.getElementById("hppStatus").textContent = "Gagal memuat HPP: " + error.message);
             });
-        }
 
-        // Realtime: produk hanya dipakai untuk catatan produk tanpa detail kategori
-        function Akun_loadProduk() {
-            if (akunProdukUnsubscribe) { akunProdukUnsubscribe(); akunProdukUnsubscribe = null; }
-            if (sectionAktif !== "akun") return;
-
-            akunProdukUnsubscribe = db.collection("products").onSnapshot(function (snapshot) {
-                Akun_daftarProduk = [];
-                snapshot.forEach(function (doc) { Akun_daftarProduk.push(Object.assign({ id: doc.id }, doc.data())); });
-                Akun_renderProdukTanpaDetail();
+            hppProdukUnsubscribe = db.collection("products").onSnapshot(function (snapshot) {
+                Hpp_produk = [];
+                snapshot.forEach(function (doc) { Hpp_produk.push(Object.assign({ id: doc.id }, doc.data())); });
+                Hpp_renderJumlah();
+                Hpp_renderTanpaDetail();
             }, function (error) {
-                console.error("Gagal memuat produk:", error.message);
+                const box = document.getElementById("hppTanpaDetail");
+                if (box) box.innerHTML = '<div class="empty-state">Gagal memuat produk: ' + escapeHtmlAman(error.message) + '</div>';
             });
         }
 
-        function Akun_cari(kode) {
-            return daftarAkun.find(function (a) { return a.kode === kode; }) || null;
-        }
-
-        function Akun_renderTabel() {
-            const tbody = document.getElementById("akunTableBody");
-            const blokBawaan = document.getElementById("akunBawaanBlok");
-            if (!tbody) return;
-
-            if (blokBawaan) {
-                blokBawaan.innerHTML = daftarAkun.length === 0
-                    ? '<div style="margin-bottom:12px;"><button type="button" class="btn-tambah-kategori" id="akunBtnBawaan" onclick="Akun_isiBawaan()">Isi akun bawaan (dari ESB)</button>' +
-                      '<div class="field-hint" style="font-size:10px; color:#6b7280; margin-top:4px;">Mengisi ' + AKUN_BAWAAN_ESB.length + ' akun penjualan, diskon, dan COGS sesuai ESB.</div></div>'
-                    : "";
-            }
-
-            if (daftarAkun.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" class="empty-state">Belum ada akun.</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = daftarAkun.map(function (a) {
-                return '<tr><td style="white-space:nowrap; font-family:monospace;">' + escapeHtmlAman(a.kode) + '</td>' +
-                    '<td>' + escapeHtmlAman(a.nama) + '</td>' +
-                    '<td><span class="badge role-badge">' + escapeHtmlAman(a.kelompok || "-") + '</span></td>' +
-                    '<td style="text-align:right; white-space:nowrap;">' +
-                        '<button class="action-btn" onclick="Akun_bukaModalEdit(\'' + escJsAttr(a.kode) + '\')">Edit</button>' +
-                        '<button class="action-btn danger" onclick="Akun_hapus(\'' + escJsAttr(a.kode) + '\')">Hapus</button></td></tr>';
-            }).join("");
-        }
-
-        // Opsi select akun untuk satu kelompok. Kode terpilih yang tidak ada
-        // di daftar (mis. akunnya terhapus) tetap ditampilkan supaya terlihat.
-        function Akun_opsiSelect(kelompok, terpilih) {
-            const daftar = daftarAkun.filter(function (a) { return a.kelompok === kelompok; });
-            let html = '<option value="">- Belum dipilih -</option>' + daftar.map(function (a) {
-                return '<option value="' + escapeHtmlAman(a.kode) + '"' + (a.kode === terpilih ? " selected" : "") + '>' + escapeHtmlAman(a.kode + " · " + a.nama) + '</option>';
-            }).join("");
-            if (terpilih && !daftar.some(function (a) { return a.kode === terpilih; })) {
-                html += '<option value="' + escapeHtmlAman(terpilih) + '" selected>' + escapeHtmlAman(terpilih) + ' (tidak ditemukan)</option>';
-            }
-            return html;
-        }
-
-        function Akun_renderPemetaan() {
-            const tbody = document.getElementById("pemetaanTableBody");
-            if (!tbody || sectionAktif !== "akun") return;
-            if (!Akun_sudahMuat) return;
-
-            if (daftarDetailKategoriData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Belum ada detail kategori. Tambahkan lewat Pengaturan &gt; Produk &gt; form produk &gt; "+ Kelola".</td></tr>';
-                Akun_renderProdukTanpaDetail();
-                return;
-            }
-
-            const gayaSelect = 'style="width:100%; height:32px; border:1px solid #d1d5db; border-radius:6px; padding:0 8px; font-size:11.5px;"';
-            tbody.innerHTML = daftarDetailKategoriData.map(function (d) {
-                const namaJs = escJsAttr(d.nama);
-                const belum = !d.akunPenjualan || !d.akunCogs;
-                const statusPenjualan = Akun_statusSimpan[d.nama + "|akunPenjualan"] ? "Tersimpan ✓" : "";
-                const statusCogs = Akun_statusSimpan[d.nama + "|akunCogs"] ? "Tersimpan ✓" : "";
-                const statusDiskon = Akun_statusSimpan[d.nama + "|akunDiskon"] ? "Tersimpan ✓" : "";
-                return '<tr><td style="font-weight:700;">' + escapeHtmlAman(d.nama) + '</td>' +
-                    '<td><select ' + gayaSelect + ' onchange="Akun_ubahPemetaan(\'' + namaJs + '\', \'akunPenjualan\', this.value)">' + Akun_opsiSelect("Penjualan", d.akunPenjualan) + '</select>' +
-                        '<div class="akun-status-simpan" data-key="' + escapeHtmlAman(d.nama + "|akunPenjualan") + '" style="font-size:10px; color:#1e7d32; min-height:12px; margin-top:2px;">' + statusPenjualan + '</div></td>' +
-                    '<td><select ' + gayaSelect + ' onchange="Akun_ubahPemetaan(\'' + namaJs + '\', \'akunCogs\', this.value)">' + Akun_opsiSelect("COGS", d.akunCogs) + '</select>' +
-                        '<div class="akun-status-simpan" data-key="' + escapeHtmlAman(d.nama + "|akunCogs") + '" style="font-size:10px; color:#1e7d32; min-height:12px; margin-top:2px;">' + statusCogs + '</div></td>' +
-                    '<td><select ' + gayaSelect + ' onchange="Akun_ubahPemetaan(\'' + namaJs + '\', \'akunDiskon\', this.value)">' + Akun_opsiSelect("Diskon", d.akunDiskon) + '</select>' +
-                        '<div class="akun-status-simpan" data-key="' + escapeHtmlAman(d.nama + "|akunDiskon") + '" style="font-size:10px; color:#1e7d32; min-height:12px; margin-top:2px;">' + statusDiskon + '</div></td>' +
-                    '<td style="white-space:nowrap;">' + (belum ? '<span class="badge" style="background:#fdf1e1; color:#b06d09;">Belum dipetakan</span>' : '') + '</td></tr>';
-            }).join("");
-            Akun_renderProdukTanpaDetail();
-        }
-
-        function Akun_ubahPemetaan(nama, field, nilai) {
-            const data = {};
-            data[field] = nilai || "";
-            const key = nama + "|" + field;
-            db.collection("detail_kategori").doc(nama).update(data).then(function () {
-                Akun_statusSimpan[key] = true;
-                // Listener bisa me-render ulang tabel; label diambil lagi dari Akun_statusSimpan
-                document.querySelectorAll("#pemetaanTableBody .akun-status-simpan").forEach(function (el) {
-                    if (el.getAttribute("data-key") === key) el.textContent = "Tersimpan ✓";
-                });
-                setTimeout(function () {
-                    delete Akun_statusSimpan[key];
-                    document.querySelectorAll("#pemetaanTableBody .akun-status-simpan").forEach(function (el) {
-                        if (el.getAttribute("data-key") === key) el.textContent = "";
-                    });
-                }, 2000);
-            }).catch(function (error) {
-                alert("Gagal menyimpan pemetaan: " + error.message);
+        function Hpp_isiInput() {
+            if (typeof DETAIL_KATEGORI === "undefined") return;
+            DETAIL_KATEGORI.forEach(function (d, i) {
+                const el = document.getElementById("hppInput_" + i);
+                if (!el) return;
+                // Jangan timpa kolom yang sedang diketik atau sudah diubah tapi belum disimpan
+                if (el === document.activeElement || el.getAttribute("data-ubah") === "1") return;
+                const v = Hpp_tersimpan[d.nama];
+                el.value = (v !== null && v !== undefined) ? v : "";
             });
         }
 
-        // Catatan produk (selain topping) yang belum punya detail kategori
-        function Akun_renderProdukTanpaDetail() {
-            const box = document.getElementById("akunProdukTanpaDetail");
+        function Hpp_renderJumlah() {
+            if (typeof DETAIL_KATEGORI === "undefined") return;
+            DETAIL_KATEGORI.forEach(function (d, i) {
+                const el = document.getElementById("hppJumlah_" + i);
+                if (!el) return;
+                el.textContent = Hpp_produk.filter(function (p) { return !Produk_isTopping(p) && p.detailKategori === d.nama; }).length;
+            });
+        }
+
+        // Produk (selain topping) yang detailnya kosong / tidak ada di daftar,
+        // lengkap dengan dropdown untuk langsung memperbaikinya.
+        function Hpp_renderTanpaDetail() {
+            const box = document.getElementById("hppTanpaDetail");
             if (!box) return;
-            const tanpa = Akun_daftarProduk.filter(function (p) { return !Produk_isTopping(p) && !p.detailKategori; });
-            // Produk yang akun penjualan / COGS-nya tidak ada dari override produk maupun pemetaan detail
-            const tanpaAkun = Akun_daftarProduk.filter(function (p) {
-                const det = daftarDetailKategoriData.find(function (d) { return d.nama === p.detailKategori; }) || {};
-                return !(p.akunPenjualan || det.akunPenjualan) || !(p.akunCogs || det.akunCogs);
+            const daftar = Detail_daftarNama();
+            const tanpa = Hpp_produk.filter(function (p) {
+                return !Produk_isTopping(p) && (!p.detailKategori || daftar.indexOf(p.detailKategori) === -1);
             });
-            let htmlAkun = "";
-            if (tanpaAkun.length > 0) {
-                tanpaAkun.sort(function (a, b) { return (a.nama || "").localeCompare(b.nama || ""); });
-                htmlAkun = '<div style="font-size:11px; color:#c0392b; background:#fdf0ee; border:1px solid #f3cfc9; border-radius:8px; padding:10px 12px; margin-top:8px; line-height:1.5;">' +
-                    '<b>' + tanpaAkun.length + ' produk belum punya akun</b> penjualan/COGS (tidak ada di pemetaan detail kategori maupun di produknya): ' +
-                    escapeHtmlAman(tanpaAkun.slice(0, 10).map(function (p) { return p.nama || p.id; }).join(", ")) + (tanpaAkun.length > 10 ? ", ..." : "") + '.</div>';
-            }
-            if (tanpa.length === 0) { box.innerHTML = htmlAkun; return; }
             tanpa.sort(function (a, b) { return (a.nama || "").localeCompare(b.nama || ""); });
-            const contoh = tanpa.slice(0, 10).map(function (p) { return p.nama || p.id; }).join(", ");
-            box.innerHTML = '<div style="font-size:11px; color:#b06d09; background:#fdf6ec; border:1px solid #f3dfc1; border-radius:8px; padding:10px 12px; margin-top:4px; line-height:1.5;">' +
-                '<b>' + tanpa.length + ' produk belum punya detail kategori</b> (belum bisa masuk laporan laba rugi per akun): ' +
-                escapeHtmlAman(contoh) + (tanpa.length > 10 ? ", ..." : "") +
-                '. Atur lewat Pengaturan &gt; Produk &gt; Edit.</div>' + htmlAkun;
+
+            let html = '<div class="area-title">Produk belum punya detail kategori: ' + tanpa.length + '</div>';
+            if (tanpa.length === 0) {
+                html += '<div style="font-size:11px; color:#1e7d32;">Semua produk sudah punya detail kategori ✓</div>';
+            } else {
+                html += '<div style="font-size:11px; color:#6b7280; margin-bottom:8px;">Pilih detail kategorinya, langsung tersimpan. Sampai diisi, produk ini masuk kelompok "' + escapeHtmlAman(typeof DETAIL_CADANGAN === "undefined" ? "Lainnya" : DETAIL_CADANGAN) + '" di laporan.</div>' +
+                    '<table><thead><tr><th>Produk</th><th>Kategori</th><th>Detail kategori</th></tr></thead><tbody>' +
+                    tanpa.map(function (p) {
+                        return '<tr><td>' + escapeHtmlAman(p.nama || p.id) + '</td>' +
+                            '<td>' + escapeHtmlAman(p.kategori || "-") + '</td>' +
+                            '<td><select onchange="Hpp_ubahDetailProduk(\'' + escJsAttr(p.id) + '\', this)" style="height:30px; border:1px solid #d1d5db; border-radius:6px; padding:0 6px; font-size:12px;">' + Detail_opsiHtml(p.detailKategori || "") + '</select></td></tr>';
+                    }).join("") +
+                    '</tbody></table>';
+            }
+            box.innerHTML = html;
         }
 
-        /* Select "Akun laporan keuangan" di modal produk. Opsi pertama ("")
-           = ikut pemetaan detail kategori; labelnya menyebut akun hasil
-           pemetaan detail yang sedang dipilih di form. */
-        const PRODUK_SELECT_AKUN = [
-            { id: "pInputAkunPenjualan", field: "akunPenjualan", kelompok: "Penjualan" },
-            { id: "pInputAkunCogs", field: "akunCogs", kelompok: "COGS" },
-            { id: "pInputAkunDiskon", field: "akunDiskon", kelompok: "Diskon" }
-        ];
-
-        function Produk_isiOpsiAkun(nilai) {
-            nilai = nilai || {};
-            const elDetail = document.getElementById("pInputDetail");
-            const topping = document.getElementById("pInputKategori").value === "Topping";
-            const namaDetail = (elDetail && !topping) ? elDetail.value : "";
-            const det = daftarDetailKategoriData.find(function (d) { return d.nama === namaDetail; }) || {};
-            PRODUK_SELECT_AKUN.forEach(function (s) {
-                const select = document.getElementById(s.id);
-                if (!select) return;
-                const kodeDetail = det[s.field] || "";
-                const akunDetail = kodeDetail ? Akun_cari(kodeDetail) : null;
-                const labelIkut = "Ikut detail kategori (" + (kodeDetail ? (akunDetail ? akunDetail.nama : kodeDetail) : "belum diatur") + ")";
-                const terpilih = nilai[s.field] || "";
-                const daftar = daftarAkun.filter(function (a) { return a.kelompok === s.kelompok; });
-                let html = '<option value="">' + escapeHtmlAman(labelIkut) + '</option>' + daftar.map(function (a) {
-                    return '<option value="' + escapeHtmlAman(a.kode) + '">' + escapeHtmlAman(a.kode + " · " + a.nama) + '</option>';
-                }).join("");
-                if (terpilih && !daftar.some(function (a) { return a.kode === terpilih; })) {
-                    html += '<option value="' + escapeHtmlAman(terpilih) + '">' + escapeHtmlAman(terpilih) + ' (tidak ditemukan)</option>';
-                }
-                select.innerHTML = html;
-                select.value = terpilih;
+        function Hpp_ubahDetailProduk(id, select) {
+            select.disabled = true;
+            db.collection("products").doc(id).update({ detailKategori: select.value || "" }).catch(function (error) {
+                select.disabled = false;
+                alert("Gagal menyimpan detail kategori: " + error.message);
             });
+            // Baris otomatis hilang lewat listener produk kalau detailnya sudah valid
         }
 
-        // Dipanggil listener akun/detail & saat detail kategori diganti: label
-        // diperbarui, pilihan yang sedang dipilih di modal tetap dipertahankan.
-        function Produk_segarkanOpsiAkun() {
-            if (!document.getElementById("pInputAkunPenjualan")) return;
-            const nilai = {};
-            PRODUK_SELECT_AKUN.forEach(function (s) { nilai[s.field] = document.getElementById(s.id).value; });
-            Produk_isiOpsiAkun(nilai);
-        }
+        function Hpp_simpan() {
+            if (typeof DETAIL_KATEGORI === "undefined") return;
+            const status = document.getElementById("hppStatus");
+            const batch = db.batch();
+            const diubah = [];
+            let salah = null;
 
-        function Akun_bukaModalTambah() {
-            Akun_editingKode = null;
-            document.getElementById("modalAkunTitle").textContent = "Tambah Akun";
-            const inputKode = document.getElementById("aInputKode");
-            inputKode.value = "";
-            inputKode.readOnly = false;
-            inputKode.style.background = "";
-            document.getElementById("aHintKode").textContent = 'Angka dipisah satu spasi, mis. "4 1 01 07". Kode ini jadi ID permanen.';
-            document.getElementById("aInputNama").value = "";
-            document.getElementById("aInputKelompok").value = "Penjualan";
-            document.getElementById("aFormError").style.display = "none";
-            document.getElementById("modalAkun").classList.add("open");
-        }
+            DETAIL_KATEGORI.forEach(function (d, i) {
+                const el = document.getElementById("hppInput_" + i);
+                if (!el) return;
+                const teks = el.value.trim();
+                const lama = Hpp_tersimpan[d.nama];
+                const ref = db.collection("detail_kategori").doc(d.nama);
+                if (teks === "") {
+                    if (lama !== null && lama !== undefined) {
+                        batch.set(ref, { hppPersen: firebase.firestore.FieldValue.delete() }, { merge: true });
+                        diubah.push(el);
+                    }
+                    return;
+                }
+                const n = Number(teks);
+                if (isNaN(n) || n < 0 || n > 100) { if (!salah) salah = d.nama; return; }
+                if (n === lama) return;
+                batch.set(ref, { hppPersen: n }, { merge: true });
+                diubah.push(el);
+            });
 
-        function Akun_bukaModalEdit(kode) {
-            const a = Akun_cari(kode);
-            if (!a) return;
-            Akun_editingKode = kode;
-            document.getElementById("modalAkunTitle").textContent = "Edit Akun";
-            const inputKode = document.getElementById("aInputKode");
-            inputKode.value = kode;
-            inputKode.readOnly = true;
-            inputKode.style.background = "#f1f4f8";
-            document.getElementById("aHintKode").textContent = "Kode akun tidak bisa diganti.";
-            document.getElementById("aInputNama").value = a.nama;
-            document.getElementById("aInputKelompok").value = KELOMPOK_AKUN.indexOf(a.kelompok) !== -1 ? a.kelompok : "Penjualan";
-            document.getElementById("aFormError").style.display = "none";
-            document.getElementById("modalAkun").classList.add("open");
-        }
-
-        function Akun_tutupModal() { document.getElementById("modalAkun").classList.remove("open"); }
-
-        function Akun_simpan() {
-            const errBox = document.getElementById("aFormError");
-            const tampilError = function (pesan) { errBox.textContent = pesan; errBox.style.display = "block"; };
-            const kode = Akun_editingKode || document.getElementById("aInputKode").value.trim();
-            const nama = document.getElementById("aInputNama").value.trim();
-            const kelompok = document.getElementById("aInputKelompok").value;
-
-            if (!kode) { tampilError("Kode akun wajib diisi."); return; }
-            if (!/^\d+( \d+)*$/.test(kode)) { tampilError('Kode hanya boleh angka dipisah satu spasi, mis. "4 1 01 07".'); return; }
-            if (!nama) { tampilError("Nama akun wajib diisi."); return; }
-            if (KELOMPOK_AKUN.indexOf(kelompok) === -1) { tampilError("Pilih kelompok akun."); return; }
-            if (!Akun_editingKode && Akun_cari(kode)) { tampilError('Kode akun "' + kode + '" sudah ada.'); return; }
-
-            const btn = document.getElementById("aBtnSimpan");
-            btn.disabled = true; btn.textContent = "Menyimpan...";
-            const ref = db.collection("akun").doc(kode);
-            const data = { nama: nama, kelompok: kelompok };
-
-            const p = Akun_editingKode
-                ? ref.update(data)
-                : ref.get().then(function (doc) {
-                    if (doc.exists) throw new Error('Kode akun "' + kode + '" sudah ada.');
-                    return ref.set(data);
-                });
-            p.then(function () { Akun_tutupModal(); })
-                .catch(function (error) { tampilError(error.message); })
-                .then(function () { btn.disabled = false; btn.textContent = "Simpan"; });
-        }
-
-        function Akun_hapus(kode) {
-            // Tolak kalau masih dipakai pemetaan detail kategori
-            const pemakai = daftarDetailKategoriData.filter(function (d) { return d.akunPenjualan === kode || d.akunCogs === kode || d.akunDiskon === kode; });
-            if (pemakai.length > 0) {
-                alert('Akun "' + kode + '" masih dipakai pemetaan detail kategori: ' + pemakai.map(function (d) { return d.nama; }).join(", ") + '. Ganti pemetaannya dulu, baru hapus akun ini.');
+            status.style.color = "#c0392b";
+            if (salah) { status.textContent = 'HPP % untuk "' + salah + '" harus angka 0 - 100.'; return; }
+            if (diubah.length === 0) {
+                document.querySelectorAll("#hppTableBody input").forEach(function (el) { el.removeAttribute("data-ubah"); });
+                status.style.color = "#6b7280";
+                status.textContent = "Tidak ada perubahan.";
                 return;
             }
-            const a = Akun_cari(kode);
-            if (!confirm('Hapus akun "' + kode + (a && a.nama ? " - " + a.nama : "") + '"?')) return;
-            db.collection("akun").doc(kode).delete().catch(function (error) {
-                alert("Gagal menghapus: " + error.message);
-            });
-        }
 
-        // Isi akun bawaan sekali jalan; akun yang sudah ada tidak ditimpa
-        function Akun_isiBawaan() {
-            if (!confirm("Isi " + AKUN_BAWAAN_ESB.length + " akun bawaan dari ESB?")) return;
-            const btn = document.getElementById("akunBtnBawaan");
-            if (btn) { btn.disabled = true; btn.textContent = "Mengisi..."; }
-
-            db.collection("akun").get().then(function (snapshot) {
-                const sudahAda = {};
-                snapshot.forEach(function (doc) { sudahAda[doc.id] = true; });
-                const batch = db.batch();
-                AKUN_BAWAAN_ESB.forEach(function (a) {
-                    if (sudahAda[a.kode]) return;
-                    batch.set(db.collection("akun").doc(a.kode), { nama: a.nama, kelompok: a.kelompok });
-                });
-                return batch.commit();
+            const btn = document.getElementById("hppBtnSimpan");
+            btn.disabled = true;
+            status.style.color = "#52606d";
+            status.textContent = "Menyimpan...";
+            batch.commit().then(function () {
+                document.querySelectorAll("#hppTableBody input").forEach(function (el) { el.removeAttribute("data-ubah"); });
+                status.style.color = "#1e7d32";
+                status.textContent = "Tersimpan ✓";
+                setTimeout(function () { if (status.textContent === "Tersimpan ✓") status.textContent = ""; }, 2500);
             }).catch(function (error) {
-                alert("Gagal mengisi akun bawaan: " + error.message);
-                if (btn) { btn.disabled = false; btn.textContent = "Isi akun bawaan (dari ESB)"; }
-            });
-            // Tabel otomatis ter-update lewat listener onSnapshot
+                status.style.color = "#c0392b";
+                status.textContent = "Gagal menyimpan: " + error.message;
+            }).then(function () { btn.disabled = false; });
         }
 
         /* =====================================================
