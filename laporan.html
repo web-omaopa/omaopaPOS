@@ -8,7 +8,8 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
-    <script src="roles.js?v=20261019c"></script>
+    <script src="roles.js?v=20261020a"></script>
+    <script src="keuangan.js?v=20261020a"></script>
 
     <!-- Download Excel & PDF -->
     <!-- Kalender rentang tanggal (satu kolom: dari - sampai) -->
@@ -178,6 +179,23 @@
         .tampil-halaman .btn[disabled] { opacity: 0.45; cursor: default; }
         .tgl-rentang { min-width: 210px; cursor: pointer; background: #ffffff; }
         .info-berubah { color: #b06d09; font-weight: 700; }
+
+        /* ===== Laba Rugi ===== */
+        .tabel-lr { width: auto; min-width: 100%; overflow: visible; }
+        .tabel-lr th.n, .tabel-lr td.n { text-align: right; font-variant-numeric: tabular-nums; }
+        .tabel-lr th:nth-child(1), .tabel-lr td:nth-child(1) {
+            position: sticky; left: 0; z-index: 1; width: 86px; min-width: 86px; max-width: 86px; background: #ffffff;
+        }
+        .tabel-lr th:nth-child(2), .tabel-lr td:nth-child(2) {
+            position: sticky; left: 86px; z-index: 1; min-width: 190px; background: #ffffff; box-shadow: 1px 0 0 #dde3ea;
+        }
+        .tabel-lr thead th { background: #f1f4f8; }
+        .tabel-lr tr.baris-total td { background: #f1f4f8; }
+        .tabel-lr tr.baris-utama td { font-weight: 800; color: #12305C; background: #E9F0FB; }
+        .panel-hitung { border: 1px solid #dde3ea; border-radius: 10px; padding: 12px 14px; margin-bottom: 16px; background: #ffffff; max-width: 720px; }
+        .panel-hitung .baris-hitung { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
+        .status-hitung { font-size: 11.5px; color: #12305C; font-weight: 700; margin-top: 8px; }
+        .link-hint { color: #12305C; font-weight: 700; text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -198,7 +216,7 @@
                 <div class="breadcrumb"><a onclick="kembaliKeDaftar()">Laporan</a> / <span id="bcNama"></span></div>
                 <div class="header-row"><h2 id="judulLaporan"></h2></div>
 
-                <div class="filter-bar">
+                <div class="filter-bar" id="filterBarUmum">
                     <select id="fPeriode" hidden><option value="pilih">Tanggal</option></select>
                     <div id="wadahTanggal">
                         <div class="ctrl-label">Tanggal</div>
@@ -214,6 +232,37 @@
                         <button class="btn btn-primary" onclick="tampilkanLaporan()">Tampilkan laporan</button>
                         <button class="btn" onclick="downloadExcel()">Download Excel</button>
                         <button class="btn" onclick="downloadPdf()">Download PDF</button>
+                    </div>
+                </div>
+
+                <!-- Filter khusus Laba Rugi (per bulan, bukan rentang tanggal) -->
+                <div class="filter-bar" id="filterBarLR" style="display:none;">
+                    <div><div class="ctrl-label">Tahun</div><select class="outlet-select" id="lrTahun"></select></div>
+                    <div><div class="ctrl-label">Bulan</div><select class="outlet-select" id="lrBulan"></select></div>
+                    <div><div class="ctrl-label">Tampilan</div><select class="outlet-select" id="lrTampilan"></select></div>
+                    <div><div class="ctrl-label">Area</div><select class="outlet-select" id="lrArea"></select></div>
+                    <div><div class="ctrl-label">Outlet</div><select class="outlet-select" id="lrOutlet"></select></div>
+                    <div><div class="ctrl-label">Nilai nol</div><select class="outlet-select" id="lrNol"></select></div>
+                    <div class="filter-aksi">
+                        <button class="btn btn-primary" onclick="tampilkanLabaRugi()">Tampilkan laporan</button>
+                        <button class="btn" onclick="downloadExcel()">Download Excel</button>
+                        <button class="btn" onclick="downloadPdf()">Download PDF</button>
+                    </div>
+                </div>
+
+                <!-- Hitung ulang ringkasan harian (hanya management) -->
+                <div id="wadahHitungUlang" style="display:none;">
+                    <div style="margin-bottom:12px;"><button class="btn" onclick="bukaPanelHitungUlang()">Hitung ulang ringkasan</button></div>
+                    <div class="panel-hitung" id="panelHitungUlang" style="display:none;">
+                        <div class="judul-tabel">Hitung ulang ringkasan harian</div>
+                        <div class="baris-hitung">
+                            <div><div class="ctrl-label">Bulan</div><select class="outlet-select" id="huBulan"></select></div>
+                            <div><div class="ctrl-label">Tahun</div><select class="outlet-select" id="huTahun"></select></div>
+                            <button class="btn btn-primary" id="huMulai" onclick="mulaiHitungUlang()">Mulai</button>
+                            <button class="btn" id="huTutup" onclick="tutupPanelHitungUlang()">Tutup</button>
+                        </div>
+                        <div class="hint-text">Membaca semua transaksi bulan itu lalu menulis ulang ringkasan harian. Jalankan saat toko sepi.</div>
+                        <div class="status-hitung" id="huStatus"></div>
                     </div>
                 </div>
 
@@ -245,7 +294,8 @@
            aktif: false -> tampil "Segera hadir" dan tidak bisa diklik.
         ====================================================== */
         const DAFTAR_LAPORAN = [
-            { key: "rekap",  grup: "Penjualan", icon: "📈", nama: "Rekap penjualan",     desc: "Penjualan bersih, jumlah transaksi, diskon, dan produk terlaris", file: "Rekap-Penjualan",      aktif: true },
+            { key: "labarugi", grup: "Keuangan", icon: "📒", nama: "Laba Rugi",          desc: "Penjualan per akun sampai laba kotor, seperti Profit Loss ESB", file: "Laba-Rugi",            aktif: true },
+            { key: "rekap", grup: "Penjualan", icon: "📈", nama: "Rekap penjualan",     desc: "Penjualan bersih, jumlah transaksi, diskon, dan produk terlaris", file: "Rekap-Penjualan",      aktif: true },
             { key: "produk", grup: "Penjualan", icon: "🧁", nama: "Penjualan per produk", desc: "Setiap item terjual per nota, lengkap untuk diolah di Excel",   file: "Penjualan-per-Produk", aktif: true },
             { key: "outlet", grup: "Penjualan", icon: "🏪", nama: "Penjualan per outlet", desc: "Bandingkan penjualan antar outlet dan area",                     file: "Penjualan-per-Outlet", aktif: false },
             { key: "jam",    grup: "Penjualan", icon: "🕐", nama: "Penjualan per jam",    desc: "Jam-jam paling ramai di tiap outlet",                             file: "Penjualan-per-Jam",    aktif: false },
@@ -360,10 +410,12 @@
             if (productsUnsubscribe) productsUnsubscribe();
             productsUnsubscribe = db.collection("products").onSnapshot(function (snapshot) {
                 kategoriProduk = {};
+                detailProdukMap = {};
                 daftarKategoriProduk = [];
                 snapshot.forEach(function (doc) {
                     const k = doc.data().kategori || "";
                     kategoriProduk[doc.id] = k;
+                    detailProdukMap[doc.id] = doc.data().detailKategori || "";
                     if (k && daftarKategoriProduk.indexOf(k) === -1) daftarKategoriProduk.push(k);
                 });
                 segarkanLaporan();
@@ -378,7 +430,9 @@
         }
 
         function segarkanLaporan() {
-            if (laporanAktif) { isiPilihanFilter(); renderLaporan(); }
+            if (!laporanAktif) return;
+            if (laporanAktif.key === "labarugi") { isiPilihanLR(); renderLabaRugi(); return; }
+            isiPilihanFilter(); renderLaporan();
         }
 
         /* =====================================================
@@ -452,12 +506,20 @@
             const lap = DAFTAR_LAPORAN.filter(function (l) { return l.key === key && l.aktif; })[0];
             if (!lap) return;
             laporanAktif = lap;
-            filter = muatFilterTersimpan(key);
 
             document.getElementById("viewDaftar").style.display = "none";
             document.getElementById("viewLaporan").style.display = "block";
             document.getElementById("bcNama").textContent = lap.nama;
             document.getElementById("judulLaporan").textContent = lap.nama;
+
+            // Laba Rugi punya filter bar sendiri (tahun/bulan/tampilan)
+            const lr = key === "labarugi";
+            document.getElementById("filterBarUmum").style.display = lr ? "none" : "";
+            document.getElementById("filterBarLR").style.display = lr ? "" : "none";
+            document.getElementById("wadahHitungUlang").style.display = (lr && currentUser.role === "management") ? "" : "none";
+            if (lr) { bukaLabaRugi(); window.scrollTo(0, 0); return; }
+
+            filter = muatFilterTersimpan(key);
 
             document.getElementById("fPeriode").value = filter.periode;
             pasangKalender();
@@ -472,6 +534,11 @@
             laporanAktif = null;
             dataTrx = [];
             trxSiap = false;
+            tokenLR++;
+            dataLR = [];
+            lrSiap = false;
+            filterLRTerpakai = null;
+            document.getElementById("panelHitungUlang").style.display = "none";
             document.getElementById("viewLaporan").style.display = "none";
             document.getElementById("viewDaftar").style.display = "block";
             renderDaftarLaporan();
@@ -487,6 +554,18 @@
                     simpanFilter();
                     isiPilihanFilter();
                     tandaiFilterBerubah();
+                });
+            });
+
+            // Filter Laba Rugi: tabel tetap, hanya tampil catatan "Filter diubah"
+            [["lrTahun", "tahun"], ["lrBulan", "bulan"], ["lrTampilan", "tampilan"], ["lrArea", "area"], ["lrOutlet", "outlet"], ["lrNol", "nol"]].forEach(function (p) {
+                document.getElementById(p[0]).addEventListener("change", function () {
+                    if (!filterLR) return;
+                    filterLR[p[1]] = this.value;
+                    if (p[1] === "area" && filterLR.outlet && filterLR.area && areaDariOutlet(filterLR.outlet) !== filterLR.area) filterLR.outlet = "";
+                    simpanFilterLR();
+                    isiPilihanLR();
+                    tulisInfoLR();
                 });
             });
         }
@@ -1056,6 +1135,7 @@
         }
 
         function downloadExcel() {
+            if (laporanAktif && laporanAktif.key === "labarugi") { downloadExcelLabaRugi(); return; }
             const r = siapDownload();
             if (!r) return;
             if (typeof XLSX === "undefined") { alert("Library Excel belum termuat. Cek koneksi internet lalu muat ulang halaman."); return; }
@@ -1109,6 +1189,7 @@
         }
 
         function downloadPdf() {
+            if (laporanAktif && laporanAktif.key === "labarugi") { downloadPdfLabaRugi(); return; }
             const r = siapDownload();
             if (!r) return;
             if (!window.jspdf || !window.jspdf.jsPDF) { alert("Library PDF belum termuat. Cek koneksi internet lalu muat ulang halaman."); return; }
@@ -1157,6 +1238,587 @@
                 tabel({ startY: y, head: [KOLOM_PRODUK], body: body, styles: { fontSize: 6, cellPadding: 1 }, columnStyles: kanan, margin: { left: 8, right: 8 } });
             }
             doc.save(namaFile(r, "pdf"));
+        }
+
+        /* =====================================================
+           LAPORAN LABA RUGI (seperti Profit Loss Report di ESB)
+           Sumber: koleksi ringkasan_harian (<outlet>__<yyyy-mm-dd>) yang
+           ditulis Kasir setiap transaksi, + HPP % di koleksi detail_kategori.
+           Query hanya rentang field "tanggal"; area/outlet difilter di browser.
+           Akun & kode diambil dari DETAIL_KATEGORI (keuangan.js).
+        ====================================================== */
+        const NAMA_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+        const NAMA_BULAN_PENDEK = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+        const PILIHAN_TAMPILAN_LR = [
+            ["bulanan", "Bulan ke bulan"],
+            ["harian", "Harian dalam bulan"],
+            ["posisi", "Posisi saja"],
+            ["banding_bulan", "Banding bulan lalu"],
+            ["banding_tahun", "Banding tahun lalu"]
+        ];
+        const PILIHAN_NOL_LR = [["sembunyi", "Sembunyikan"], ["tampil", "Tampilkan"]];
+        const NAMA_PERUSAHAAN = "PT Ultima Rasa Nusantara";
+
+        let detailProdukMap = {};        // { productId: detailKategori } dari koleksi products
+        let filterLR = null;             // isian form Laba Rugi
+        let filterLRTerpakai = null;     // filter yang dipakai tabel
+        let dataLR = [];                 // dokumen ringkasan_harian periode terpilih
+        let hppLR = {};                  // { detail: hppPersen }
+        let hppLRGagal = false;
+        let lrSiap = false;
+        let lrError = null;
+        let tokenLR = 0;
+
+        function labelDari(daftar, nilai) {
+            for (let i = 0; i < daftar.length; i++) if (daftar[i][0] === nilai) return daftar[i][1];
+            return nilai;
+        }
+
+        function daftarTahunLR() {
+            const th = new Date().getFullYear();
+            return [String(th), String(th - 1), String(th - 2)];
+        }
+
+        function filterLRBawaan() {
+            const n = new Date();
+            return { tahun: String(n.getFullYear()), bulan: String(n.getMonth() + 1), tampilan: "bulanan", area: "", outlet: "", nol: "sembunyi" };
+        }
+
+        function muatFilterLR() {
+            const f = filterLRBawaan();
+            try {
+                const simpan = JSON.parse(sessionStorage.getItem(kunciSimpanFilter("labarugi")) || "null");
+                if (simpan) Object.keys(f).forEach(function (k) { if (typeof simpan[k] === "string") f[k] = simpan[k]; });
+            } catch (e) { /* abaikan, pakai bawaan */ }
+            const bawaan = filterLRBawaan();
+            if (daftarTahunLR().indexOf(f.tahun) === -1) f.tahun = bawaan.tahun;
+            if (!(Number(f.bulan) >= 1 && Number(f.bulan) <= 12)) f.bulan = bawaan.bulan;
+            if (PILIHAN_TAMPILAN_LR.map(function (p) { return p[0]; }).indexOf(f.tampilan) === -1) f.tampilan = bawaan.tampilan;
+            if (f.nol !== "tampil") f.nol = "sembunyi";
+            return f;
+        }
+
+        function simpanFilterLR() {
+            try { sessionStorage.setItem(kunciSimpanFilter("labarugi"), JSON.stringify(filterLR)); } catch (e) { /* abaikan */ }
+        }
+
+        function opsiHtml(daftar) {
+            return daftar.map(function (p) { return '<option value="' + escapeHtmlAman(p[0]) + '">' + escapeHtmlAman(p[1]) + '</option>'; }).join("");
+        }
+
+        function opsiBulanHtml() {
+            return opsiHtml(NAMA_BULAN.map(function (b, i) { return [String(i + 1), b]; }));
+        }
+
+        function isiPilihanLR() {
+            if (!filterLR) return;
+            const f = filterLR;
+            const tahun = daftarTahunLR().map(function (t) { return [t, t]; });
+            setOpsi(document.getElementById("lrTahun"), opsiHtml(tahun), f.tahun);
+            setOpsi(document.getElementById("lrBulan"), opsiBulanHtml(), f.bulan);
+            setOpsi(document.getElementById("lrTampilan"), opsiHtml(PILIHAN_TAMPILAN_LR), f.tampilan);
+            setOpsi(document.getElementById("lrNol"), opsiHtml(PILIHAN_NOL_LR), f.nol);
+            ["lrTahun", "lrBulan", "lrTampilan", "lrNol"].forEach(function (id) { document.getElementById(id).classList.remove("dipilih"); });
+
+            const outletData = dataLR.map(function (d) { return d.outlet || "-"; });
+            const semuaArea = unik(daftarArea.concat(outletData.map(areaDariOutlet)));
+            const semuaOutlet = unik(daftarOutlet.concat(outletData)).filter(function (o) {
+                return !f.area || areaDariOutlet(o) === f.area;
+            }).sort(urutTeks);
+            isiSatuFilter("lrArea", "Semua area", semuaArea, f.area);
+            isiSatuFilter("lrOutlet", f.area ? "Semua outlet " + f.area : "Semua outlet", semuaOutlet, f.outlet);
+        }
+
+        function bukaLabaRugi() {
+            filterLR = muatFilterLR();
+            filterLRTerpakai = null;
+            tokenLR++;
+            dataLR = [];
+            lrSiap = false;
+            lrError = null;
+            isiPilihanLR();
+            document.getElementById("panelHitungUlang").style.display = "none";
+            document.getElementById("infoPeriode").textContent = "";
+            document.getElementById("isiLaporan").innerHTML =
+                '<div class="empty-state">Pilih tahun, bulan, dan tampilan, lalu klik <b>Tampilkan laporan</b>.</div>';
+        }
+
+        /* Kolom periode sesuai pilihan Tampilan.
+           Hasil: { kolom: [{label, dari, sampai}], ambil: [{dari, sampai}] (rentang query),
+                    tambahan: "total" | "banding" | "", periode: teks } */
+        function awalBulanIso(th, bl) { return th + "-" + dua(bl) + "-01"; }
+        function akhirBulanIso(th, bl) { return tglKeIso(new Date(th, bl, 0)); }
+        function kolomBulan(th, bl, label) { return { label: label, dari: awalBulanIso(th, bl), sampai: akhirBulanIso(th, bl) }; }
+        function teksBulan(th, bl) { return NAMA_BULAN[bl - 1] + " " + th; }
+
+        function susunKolomLR(f) {
+            const th = Number(f.tahun), bl = Number(f.bulan);
+            const hasil = { kolom: [], ambil: [], tambahan: "", periode: "" };
+            if (f.tampilan === "bulanan") {
+                for (let m = 1; m <= bl; m++) hasil.kolom.push(kolomBulan(th, m, NAMA_BULAN_PENDEK[m - 1] + " " + th));
+                hasil.ambil = [{ dari: awalBulanIso(th, 1), sampai: akhirBulanIso(th, bl) }];
+                hasil.tambahan = "total";
+                hasil.periode = bl === 1 ? teksBulan(th, 1) : "Januari – " + teksBulan(th, bl);
+            } else if (f.tampilan === "harian") {
+                const hariIniIso = tglKeIso(new Date());
+                const jumlahHari = new Date(th, bl, 0).getDate();
+                for (let d = 1; d <= jumlahHari; d++) {
+                    const iso = th + "-" + dua(bl) + "-" + dua(d);
+                    if (iso > hariIniIso) break;
+                    hasil.kolom.push({ label: dua(d) + "/" + dua(bl), dari: iso, sampai: iso });
+                }
+                hasil.ambil = [{ dari: awalBulanIso(th, bl), sampai: akhirBulanIso(th, bl) }];
+                hasil.tambahan = "total";
+                hasil.periode = teksBulan(th, bl);
+            } else if (f.tampilan === "banding_bulan") {
+                const thL = bl === 1 ? th - 1 : th, blL = bl === 1 ? 12 : bl - 1;
+                hasil.kolom = [kolomBulan(thL, blL, NAMA_BULAN_PENDEK[blL - 1] + " " + thL), kolomBulan(th, bl, NAMA_BULAN_PENDEK[bl - 1] + " " + th)];
+                hasil.ambil = [{ dari: awalBulanIso(thL, blL), sampai: akhirBulanIso(th, bl) }];
+                hasil.tambahan = "banding";
+                hasil.periode = teksBulan(thL, blL) + " vs " + teksBulan(th, bl);
+            } else if (f.tampilan === "banding_tahun") {
+                hasil.kolom = [kolomBulan(th - 1, bl, NAMA_BULAN_PENDEK[bl - 1] + " " + (th - 1)), kolomBulan(th, bl, NAMA_BULAN_PENDEK[bl - 1] + " " + th)];
+                // Dua rentang terpisah supaya tidak membaca satu tahun penuh
+                hasil.ambil = [{ dari: hasil.kolom[0].dari, sampai: hasil.kolom[0].sampai }, { dari: hasil.kolom[1].dari, sampai: hasil.kolom[1].sampai }];
+                hasil.tambahan = "banding";
+                hasil.periode = teksBulan(th - 1, bl) + " vs " + teksBulan(th, bl);
+            } else {
+                hasil.kolom = [kolomBulan(th, bl, teksBulan(th, bl))];
+                hasil.ambil = [{ dari: hasil.kolom[0].dari, sampai: hasil.kolom[0].sampai }];
+                hasil.periode = teksBulan(th, bl);
+            }
+            return hasil;
+        }
+
+        function samaFilterLR(a, b) {
+            return !!a && !!b && ["tahun", "bulan", "tampilan", "area", "outlet", "nol"].every(function (k) { return a[k] === b[k]; });
+        }
+
+        function tulisInfoLR() {
+            const el = document.getElementById("infoPeriode");
+            if (!filterLRTerpakai) { el.textContent = ""; return; }
+            const f = filterLRTerpakai;
+            el.innerHTML = "Periode: " + escapeHtmlAman(susunKolomLR(f).periode) +
+                " · Tampilan: " + escapeHtmlAman(labelDari(PILIHAN_TAMPILAN_LR, f.tampilan)) +
+                " · Area: " + escapeHtmlAman(f.area || "Semua") + " · Outlet: " + escapeHtmlAman(f.outlet || "Semua") +
+                (samaFilterLR(filterLR, filterLRTerpakai) ? "" : ' <span class="info-berubah">· Filter diubah, klik Tampilkan laporan untuk memperbarui tabel.</span>');
+        }
+
+        function tampilkanLabaRugi() {
+            if (!filterLR) return;
+            filterLRTerpakai = JSON.parse(JSON.stringify(filterLR));
+            muatDataLR();
+        }
+
+        // Baca sekali (get), tidak perlu listener realtime
+        function muatDataLR() {
+            tokenLR++;
+            const token = tokenLR;
+            dataLR = [];
+            lrSiap = false;
+            lrError = null;
+            const s = susunKolomLR(filterLRTerpakai);
+            document.getElementById("isiLaporan").innerHTML = '<div class="loading-state">Memuat ringkasan penjualan...</div>';
+            tulisInfoLR();
+
+            const kueri = s.ambil.map(function (a) {
+                return db.collection("ringkasan_harian").where("tanggal", ">=", a.dari).where("tanggal", "<=", a.sampai).get();
+            });
+            const kueriHpp = db.collection("detail_kategori").get().then(function (snap) {
+                const peta = {};
+                snap.forEach(function (doc) {
+                    const v = doc.data().hppPersen;
+                    if (typeof v === "number" && isFinite(v)) peta[doc.id] = v;
+                });
+                return { peta: peta, gagal: false };
+            }).catch(function (error) {
+                console.warn("HPP % belum bisa dibaca:", error.message);
+                return { peta: {}, gagal: true };
+            });
+
+            Promise.all([Promise.all(kueri), kueriHpp]).then(function (hasil) {
+                if (token !== tokenLR) return;
+                const sudah = {};
+                const docs = [];
+                hasil[0].forEach(function (snap) {
+                    snap.forEach(function (doc) {
+                        if (sudah[doc.id]) return;
+                        sudah[doc.id] = true;
+                        docs.push(doc.data());
+                    });
+                });
+                dataLR = docs;
+                hppLR = hasil[1].peta;
+                hppLRGagal = hasil[1].gagal;
+                lrSiap = true;
+                isiPilihanLR();
+                renderLabaRugi();
+            }).catch(function (error) {
+                if (token !== tokenLR) return;
+                lrError = error;
+                document.getElementById("isiLaporan").innerHTML = '<div class="empty-state">' +
+                    (error.code === "permission-denied"
+                        ? "Ringkasan penjualan belum bisa ditampilkan: akses akun ini ke koleksi ringkasan_harian dibatasi oleh aturan Firestore."
+                        : "Gagal memuat: " + escapeHtmlAman(error.message)) + '</div>';
+            });
+        }
+
+        /* Hitung semua baris Laba Rugi.
+           Hasil: { s, header: [label kolom angka], idxPersen (-1 kalau tidak ada),
+                    baris: [{akun, ket, nilai: [...], jenis: "akun"|"total"|"utama"}],
+                    belumHpp: [detail], jumlahDok } */
+        function hitungLabaRugi(docs, s, hpp, f) {
+            const n = s.kolom.length;
+            function nol() { return s.kolom.map(function () { return 0; }); }
+            const jual = {}, disk = {};
+            DETAIL_KATEGORI.forEach(function (d) { jual[d.nama] = nol(); disk[d.nama] = nol(); });
+            function tambahPeta(target, sumber, i) {
+                Object.keys(sumber || {}).forEach(function (k) {
+                    const d = cariDetailKategori(k) ? k : DETAIL_CADANGAN;
+                    target[d][i] += Number(sumber[k]) || 0;
+                });
+            }
+
+            let jumlahDok = 0;
+            docs.forEach(function (doc) {
+                if (f.area && areaDariOutlet(doc.outlet) !== f.area) return;
+                if (f.outlet && (doc.outlet || "-") !== f.outlet) return;
+                let terpakai = false;
+                s.kolom.forEach(function (k, i) {
+                    if (!doc.tanggal || doc.tanggal < k.dari || doc.tanggal > k.sampai) return;
+                    terpakai = true;
+                    tambahPeta(jual, doc.penjualan, i);
+                    tambahPeta(disk, doc.diskon, i);
+                });
+                if (terpakai) jumlahDok++;
+            });
+
+            const baris = [];
+            function tambahBaris(akun, ket, nilai, jenis) { baris.push({ akun: akun, ket: ket, nilai: nilai, jenis: jenis }); }
+            function jumlahkan(total, nilai) { nilai.forEach(function (v, i) { total[i] += v || 0; }); }
+
+            // Penjualan per akun
+            const totalJual = nol();
+            DETAIL_KATEGORI.forEach(function (d) {
+                tambahBaris(d.penjualan[0], d.penjualan[1], jual[d.nama], "akun");
+                jumlahkan(totalJual, jual[d.nama]);
+            });
+            tambahBaris("", "Total Sales", totalJual, "utama");
+
+            // Diskon: beberapa detail berbagi satu akun -> satu baris, angka negatif
+            const grupDiskon = [], petaDiskon = {};
+            DETAIL_KATEGORI.forEach(function (d) {
+                const kode = d.diskon[0];
+                if (!petaDiskon[kode]) { petaDiskon[kode] = { akun: d.diskon, nilai: nol() }; grupDiskon.push(petaDiskon[kode]); }
+                disk[d.nama].forEach(function (v, i) { petaDiskon[kode].nilai[i] -= v; });
+            });
+            const totalDisk = nol();
+            grupDiskon.forEach(function (g) {
+                tambahBaris(g.akun[0], g.akun[1], g.nilai, "akun");
+                jumlahkan(totalDisk, g.nilai);
+            });
+            tambahBaris("", "Total Discount", totalDisk, "total");
+            const netSales = totalJual.map(function (v, i) { return v + totalDisk[i]; });
+            tambahBaris("", "Net Sales", netSales, "utama");
+
+            // COGS = penjualan x HPP % (null kalau HPP % belum diisi)
+            const belumHpp = [];
+            const totalCogs = nol();
+            DETAIL_KATEGORI.forEach(function (d) {
+                const p = hpp[d.nama];
+                const ada = typeof p === "number" && isFinite(p);
+                const nilai = jual[d.nama].map(function (v) {
+                    if (!v) return 0;
+                    return ada ? Math.round(v * p / 100) : null;
+                });
+                if (!ada && jual[d.nama].some(function (v) { return v; })) belumHpp.push(d.nama);
+                tambahBaris(d.cogs[0], d.cogs[1], nilai, "akun");
+                jumlahkan(totalCogs, nilai);
+            });
+            tambahBaris("", "Total Cost of Goods Sold", totalCogs, "total");
+            tambahBaris("", "Gross Profit", netSales.map(function (v, i) { return v - totalCogs[i]; }), "utama");
+
+            // Kolom tambahan: Total, atau Selisih & %
+            const header = s.kolom.map(function (k) { return k.label; });
+            let idxPersen = -1;
+            if (s.tambahan === "total") header.push("Total");
+            if (s.tambahan === "banding") { header.push("Selisih", "%"); idxPersen = n + 1; }
+            baris.forEach(function (b) {
+                if (s.tambahan === "total") {
+                    let tot = 0, adaNull = false;
+                    b.nilai.forEach(function (v) { if (v === null) adaNull = true; else tot += v; });
+                    b.nilai.push(adaNull ? null : tot);
+                } else if (s.tambahan === "banding") {
+                    const a = b.nilai[0], c = b.nilai[1];
+                    const selisih = (a === null || c === null) ? null : c - a;
+                    b.nilai.push(selisih, (selisih === null || a === 0) ? null : selisih / Math.abs(a) * 100);
+                }
+            });
+
+            // Sembunyikan akun yang nol di semua kolom (baris total selalu tampil)
+            const tampil = f.nol === "sembunyi"
+                ? baris.filter(function (b) { return b.jenis !== "akun" || !b.nilai.slice(0, n).every(function (v) { return v === 0; }); })
+                : baris;
+
+            return { s: s, header: header, idxPersen: idxPersen, baris: tampil, belumHpp: belumHpp, jumlahDok: jumlahDok };
+        }
+
+        function hasilLabaRugi() {
+            return hitungLabaRugi(dataLR, susunKolomLR(filterLRTerpakai), hppLR, filterLRTerpakai);
+        }
+
+        // Angka id-ID tanpa desimal, negatif pakai "-"; null = "–"
+        function angkaLR(v, persen) {
+            if (v === null || v === undefined) return "–";
+            if (persen) {
+                const p = Math.round(v * 10) / 10;
+                return (p < 0 ? "-" : "") + Math.abs(p).toLocaleString("id-ID", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%";
+            }
+            const x = Math.round(v);
+            return (x < 0 ? "-" : "") + Math.abs(x).toLocaleString("id-ID");
+        }
+
+        function teksBelumHpp(h) {
+            return "HPP % belum diisi untuk: " + h.belumHpp.join(", ") + ". COGS & Gross Profit belum lengkap.";
+        }
+
+        function renderLabaRugi() {
+            if (!laporanAktif || laporanAktif.key !== "labarugi" || !filterLRTerpakai || !lrSiap || lrError) return;
+            tulisInfoLR();
+            const h = hasilLabaRugi();
+            const wadah = document.getElementById("isiLaporan");
+            if (h.s.kolom.length === 0) {
+                wadah.innerHTML = '<div class="empty-state">Bulan ini belum berjalan, belum ada hari yang bisa ditampilkan.</div>';
+                return;
+            }
+
+            let html = "";
+            if (h.jumlahDok === 0) {
+                html += '<div class="catatan">Belum ada ringkasan harian untuk periode & filter ini. Untuk bulan sebelum Kasir mulai mencatat ringkasan, jalankan <b>Hitung ulang ringkasan</b> (management).</div>';
+            }
+            if (hppLRGagal) {
+                html += '<div class="catatan">HPP % belum bisa dibaca (akses koleksi detail_kategori dibatasi aturan Firestore), COGS dianggap belum diisi.</div>';
+            }
+            html += '<div class="scroll-x"><table class="tabel-lr"><thead><tr><th>Akun</th><th>Keterangan</th>';
+            h.header.forEach(function (k) { html += '<th class="n">' + escapeHtmlAman(k) + '</th>'; });
+            html += '</tr></thead><tbody>';
+            h.baris.forEach(function (b) {
+                const kelas = b.jenis === "utama" ? ' class="baris-utama"' : (b.jenis === "total" ? ' class="baris-total"' : '');
+                html += '<tr' + kelas + '><td>' + escapeHtmlAman(b.akun) + '</td><td>' + escapeHtmlAman(b.ket) + '</td>' +
+                    b.nilai.map(function (v, i) { return '<td class="n">' + angkaLR(v, i === h.idxPersen) + '</td>'; }).join("") + '</tr>';
+            });
+            html += '</tbody></table></div>';
+            if (h.belumHpp.length) {
+                html += '<div class="hint-text">' + escapeHtmlAman(teksBelumHpp(h)) +
+                    ' <a class="link-hint" href="pengaturan.html">atur di Pengaturan &gt; Pemetaan &amp; HPP</a></div>';
+            }
+            wadah.innerHTML = html;
+        }
+
+        /* ===== Download Laba Rugi ===== */
+        function siapDownloadLR() {
+            if (!filterLRTerpakai || !lrSiap || lrError) { alert("Klik Tampilkan laporan dulu, tunggu tabelnya muncul, baru download."); return null; }
+            const h = hasilLabaRugi();
+            if (h.s.kolom.length === 0) { alert("Belum ada hari yang bisa ditampilkan untuk bulan ini."); return null; }
+            return h;
+        }
+
+        function namaFileLR(ext) {
+            const f = filterLRTerpakai;
+            return laporanAktif.file + "_" + f.tahun + "-" + dua(Number(f.bulan)) + "_" + f.tampilan + "." + ext;
+        }
+
+        function infoLR(h) {
+            const f = filterLRTerpakai;
+            return [
+                ["Periode", h.s.periode],
+                ["Tampilan", labelDari(PILIHAN_TAMPILAN_LR, f.tampilan)],
+                ["Area", f.area || "Semua"],
+                ["Outlet", f.outlet || "Semua"],
+                ["Dibuat", waktuSekarang() + " oleh " + (currentUser.nama || "-")]
+            ];
+        }
+
+        function downloadExcelLabaRugi() {
+            const h = siapDownloadLR();
+            if (!h) return;
+            if (typeof XLSX === "undefined") { alert("Library Excel belum termuat. Cek koneksi internet lalu muat ulang halaman."); return; }
+
+            const aoa = [[NAMA_PERUSAHAAN], ["Laporan", "Laba Rugi"]].concat(infoLR(h));
+            aoa.push([], ["Akun", "Keterangan"].concat(h.header));
+            h.baris.forEach(function (b) {
+                aoa.push([b.akun, b.ket].concat(b.nilai.map(function (v, i) {
+                    if (v === null) return "–";
+                    return i === h.idxPersen ? Math.round(v * 10) / 10 : Math.round(v);
+                })));
+            });
+            if (h.belumHpp.length) aoa.push([], ["Catatan", teksBelumHpp(h) + " Atur di Pengaturan > Pemetaan & HPP."]);
+
+            const ws = XLSX.utils.aoa_to_sheet(aoa);
+            ws["!cols"] = [{ wch: 12 }, { wch: 28 }].concat(h.header.map(function () { return { wch: 14 }; }));
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Laba Rugi");
+            XLSX.writeFile(wb, namaFileLR("xlsx"));
+        }
+
+        function downloadPdfLabaRugi() {
+            const h = siapDownloadLR();
+            if (!h) return;
+            if (!window.jspdf || !window.jspdf.jsPDF) { alert("Library PDF belum termuat. Cek koneksi internet lalu muat ulang halaman."); return; }
+            const doc = new window.jspdf.jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+            if (typeof doc.autoTable !== "function") { alert("Library tabel PDF belum termuat. Muat ulang halaman."); return; }
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(14);
+            doc.text(teksPdf(NAMA_PERUSAHAAN + " — Laba Rugi"), 14, 15);
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(8);
+            const lines = doc.splitTextToSize(teksPdf(infoLR(h).map(function (r) { return r[0] + ": " + r[1]; }).join("  |  ")), 269);
+            doc.text(lines, 14, 21);
+            const y = 21 + lines.length * 3.6 + 2;
+
+            const banyak = h.header.length > 8;
+            const kanan = {};
+            h.header.forEach(function (_, i) { kanan[i + 2] = { halign: "right" }; });
+            const jenis = h.baris.map(function (b) { return b.jenis; });
+            doc.autoTable({
+                startY: y,
+                theme: "grid",
+                styles: { fontSize: banyak ? 5.5 : 8, cellPadding: banyak ? 0.8 : 1.6 },
+                headStyles: { fillColor: [18, 48, 92], textColor: 255 },
+                margin: { left: banyak ? 6 : 14, right: banyak ? 6 : 14 },
+                columnStyles: kanan,
+                head: [["Akun", "Keterangan"].concat(h.header).map(teksPdf)],
+                body: h.baris.map(function (b) {
+                    return [b.akun, b.ket].concat(b.nilai.map(function (v, i) { return angkaLR(v, i === h.idxPersen); })).map(teksPdf);
+                }),
+                didParseCell: function (data) {
+                    if (data.section === "body" && jenis[data.row.index] !== "akun") {
+                        data.cell.styles.fontStyle = "bold";
+                        data.cell.styles.fillColor = jenis[data.row.index] === "utama" ? [233, 240, 251] : [241, 244, 248];
+                    }
+                }
+            });
+            if (h.belumHpp.length) {
+                doc.setFontSize(8);
+                doc.text(doc.splitTextToSize(teksPdf(teksBelumHpp(h) + " Atur di Pengaturan > Pemetaan & HPP."), 269), 14, doc.lastAutoTable.finalY + 6);
+            }
+            doc.save(namaFileLR("pdf"));
+        }
+
+        /* =====================================================
+           HITUNG ULANG RINGKASAN HARIAN (hanya management)
+           Untuk bulan sebelum Kasir mencatat ringkasan, atau kalau angka
+           ringkasan tidak cocok dengan transaksi.
+        ====================================================== */
+
+        /* Fungsi murni (tanpa Firestore, bisa diuji): transaksi -> dokumen ringkasan_harian.
+           daftarTrx: data transaksi { outlet, waktu (Timestamp/Date), status, items, diskonPromo }
+           detailProduk(productId): detail kategori produk saat ini.
+           Hasil: { "<outlet>__<yyyy-mm-dd>": { outlet, tanggal, tahun, bulan, trx, penjualan, diskon, qty } } */
+        function hitungRingkasanDariTransaksi(daftarTrx, detailProduk) {
+            const hasil = {};
+            (daftarTrx || []).forEach(function (t) {
+                if (!t || t.status === "batal") return;
+                const w = t.waktu && typeof t.waktu.toDate === "function" ? t.waktu.toDate() : (t.waktu && typeof t.waktu.getTime === "function" ? t.waktu : null);
+                if (!w || isNaN(w.getTime())) return;
+                const tanggal = keuTanggalIso(w);
+                const outlet = t.outlet || "-";
+                const id = keuIdRingkasan(outlet, tanggal);
+                if (!hasil[id]) {
+                    hasil[id] = { outlet: outlet, tanggal: tanggal, tahun: w.getFullYear(), bulan: w.getMonth() + 1, trx: 0, penjualan: {}, diskon: {}, qty: {} };
+                }
+                const h = hasil[id];
+                const r = keuRingkasTransaksi(t, detailProduk);
+                h.trx++;
+                ["penjualan", "diskon", "qty"].forEach(function (k) {
+                    Object.keys(r[k]).forEach(function (d) { h[k][d] = (h[k][d] || 0) + r[k][d]; });
+                });
+            });
+            return hasil;
+        }
+
+        let hitungUlangJalan = false;
+
+        function statusHitung(teks) { document.getElementById("huStatus").textContent = teks; }
+
+        function bukaPanelHitungUlang() {
+            if (!currentUser || currentUser.role !== "management") return;
+            const n = new Date();
+            const fb = filterLR || filterLRBawaan();
+            setOpsi(document.getElementById("huBulan"), opsiBulanHtml(), fb.bulan || String(n.getMonth() + 1));
+            setOpsi(document.getElementById("huTahun"), opsiHtml(daftarTahunLR().map(function (t) { return [t, t]; })), fb.tahun || String(n.getFullYear()));
+            ["huBulan", "huTahun"].forEach(function (id) { document.getElementById(id).classList.remove("dipilih"); });
+            if (!hitungUlangJalan) statusHitung("");
+            document.getElementById("panelHitungUlang").style.display = "block";
+        }
+
+        function tutupPanelHitungUlang() {
+            document.getElementById("panelHitungUlang").style.display = "none";
+        }
+
+        function mulaiHitungUlang() {
+            if (hitungUlangJalan || !currentUser || currentUser.role !== "management") return;
+            const th = Number(document.getElementById("huTahun").value);
+            const bl = Number(document.getElementById("huBulan").value);
+            const awal = new Date(th, bl - 1, 1), akhir = new Date(th, bl, 1);
+            if (awal > new Date()) { statusHitung(teksBulan(th, bl) + " belum berjalan, tidak ada yang dihitung."); return; }
+
+            hitungUlangJalan = true;
+            document.getElementById("huMulai").disabled = true;
+            document.getElementById("huTutup").disabled = true;
+            statusHitung("Membaca transaksi " + teksBulan(th, bl) + "…");
+
+            const koleksi = db.collection("ringkasan_harian");
+            let ringkas = {}, jumlahHapus = 0, jumlahTrx = 0;
+            Promise.all([
+                db.collection("transactions")
+                    .where("waktu", ">=", firebase.firestore.Timestamp.fromDate(awal))
+                    .where("waktu", "<", firebase.firestore.Timestamp.fromDate(akhir))
+                    .get(),
+                koleksi.where("tanggal", ">=", awalBulanIso(th, bl)).where("tanggal", "<=", akhirBulanIso(th, bl)).get()
+            ]).then(function (hasil) {
+                const daftar = [];
+                hasil[0].forEach(function (doc) { daftar.push(doc.data()); });
+                ringkas = hitungRingkasanDariTransaksi(daftar, function (pid) { return detailProdukMap[pid] || ""; });
+                const ids = Object.keys(ringkas);
+                ids.forEach(function (id) { jumlahTrx += ringkas[id].trx; });
+
+                // Operasi tulis: set (tanpa merge) + hapus ringkasan yang tidak punya transaksi lagi
+                const ops = ids.map(function (id) {
+                    return { ref: koleksi.doc(id), data: Object.assign({}, ringkas[id], { diperbarui: firebase.firestore.FieldValue.serverTimestamp() }) };
+                });
+                hasil[1].forEach(function (doc) {
+                    if (!ringkas[doc.id]) { ops.push({ ref: doc.ref, hapus: true }); jumlahHapus++; }
+                });
+
+                statusHitung("Menulis " + ids.length + " ringkasan…");
+                let urutan = Promise.resolve();
+                for (let i = 0; i < ops.length; i += 400) {
+                    (function (potong, mulai) {
+                        urutan = urutan.then(function () {
+                            const batch = db.batch();
+                            potong.forEach(function (o) { if (o.hapus) batch.delete(o.ref); else batch.set(o.ref, o.data); });
+                            statusHitung("Menulis " + ids.length + " ringkasan… (" + Math.min(mulai + potong.length, ops.length) + "/" + ops.length + " operasi)");
+                            return batch.commit();
+                        });
+                    })(ops.slice(i, i + 400), i);
+                }
+                return urutan;
+            }).then(function () {
+                statusHitung("Selesai: " + teksBulan(th, bl) + " · " + angka(jumlahTrx) + " transaksi · " +
+                    angka(Object.keys(ringkas).length) + " ringkasan ditulis · " + angka(jumlahHapus) + " ringkasan lama dihapus.");
+                // Tabel yang sedang tampil dimuat ulang supaya angkanya ikut baru
+                if (laporanAktif && laporanAktif.key === "labarugi" && filterLRTerpakai) muatDataLR();
+            }).catch(function (error) {
+                statusHitung(error.code === "permission-denied"
+                    ? "Gagal: akses ditolak aturan Firestore (transactions / ringkasan_harian)."
+                    : "Gagal: " + error.message);
+            }).then(function () {
+                hitungUlangJalan = false;
+                document.getElementById("huMulai").disabled = false;
+                document.getElementById("huTutup").disabled = false;
+            });
         }
     </script>
 

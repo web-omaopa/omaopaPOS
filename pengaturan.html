@@ -9,7 +9,8 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-storage-compat.js"></script>
-    <script src="roles.js?v=20261019c"></script>
+    <script src="roles.js?v=20261020a"></script>
+    <script src="keuangan.js?v=20261020a"></script>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -131,6 +132,11 @@
             </div>
             <label>Kategori</label>
             <select id="pInputKategori" onchange="Produk_aturTampilanKategori()"><option value="">Pilih kategori...</option></select>
+            <div id="pBlokDetail">
+                <label>Detail kategori</label>
+                <select id="pInputDetail"><option value="">- Pilih detail -</option></select>
+                <div class="field-hint">Mis. Malmil, Ogura. Menentukan akun penjualan, COGS &amp; diskon di laporan laba rugi.</div>
+            </div>
             <label>Satuan (opsional)</label>
             <input type="text" id="pInputSatuan" placeholder="pcs, gram, kg, dll">
             <div class="field-hint">Kosongkan untuk pakai default "pcs". Untuk topping biasanya "gram".</div>
@@ -158,8 +164,8 @@
                 <div id="modeHargaContainer" style="margin-top:6px;"></div>
             </div>
             <div id="pBlokHargaTopping" style="display:none;">
-                <label style="margin-top:10px;">Kategori Kue yang Bisa Pakai Topping Ini</label>
-                <div class="field-hint">Centang kategori kuenya (mis. Malmil, Ogura), lalu isi harga topping di tiap mode. Berlaku untuk semua kue di kategori itu. Kosongkan = topping tidak tersedia di mode tsb.</div>
+                <label style="margin-top:10px;">Detail Kategori yang Bisa Pakai Topping Ini</label>
+                <div class="field-hint">Centang detail kategori kuenya (mis. Malmil, Ogura), lalu isi harga topping di tiap mode. Berlaku untuk semua kue dengan detail kategori itu. Kosongkan = topping tidak tersedia di mode tsb.</div>
                 <div id="toppingKueContainer" style="margin-top:6px;"></div>
             </div>
             <div class="err-text" id="pFormError"></div>
@@ -393,6 +399,8 @@
         let promoProdukUnsubscribe = null;
         let promoOutletUnsubscribe = null;
         let roleUnsubscribe = null;
+        let hppUnsubscribe = null;
+        let hppProdukUnsubscribe = null;
 
         function hentikanListenerSection() {
             if (kategoriUnsubscribe) { kategoriUnsubscribe(); kategoriUnsubscribe = null; }
@@ -405,6 +413,8 @@
             if (promoProdukUnsubscribe) { promoProdukUnsubscribe(); promoProdukUnsubscribe = null; }
             if (promoOutletUnsubscribe) { promoOutletUnsubscribe(); promoOutletUnsubscribe = null; }
             if (roleUnsubscribe) { roleUnsubscribe(); roleUnsubscribe = null; }
+            if (hppUnsubscribe) { hppUnsubscribe(); hppUnsubscribe = null; }
+            if (hppProdukUnsubscribe) { hppProdukUnsubscribe(); hppProdukUnsubscribe = null; }
         }
 
         auth.onAuthStateChanged(function (user) {
@@ -476,6 +486,11 @@
                         '<div class="hub-title">Promo</div>' +
                         '<div class="hub-desc">Kelola diskon & promo yang otomatis kepakai di kasir</div>' +
                     '</div>' +
+                    '<div class="hub-card" onclick="bukaSection(\'hpp\')">' +
+                        '<div class="hub-icon">📒</div>' +
+                        '<div class="hub-title">Pemetaan & HPP</div>' +
+                        '<div class="hub-desc">Akun laporan keuangan & HPP per detail kategori</div>' +
+                    '</div>' +
                 '</div>';
         }
 
@@ -491,7 +506,7 @@
             }
             // User dan Role tampil sebagai satu bagian dengan dua tab (tab Role khusus management)
             const bisaRole = currentUser.role === ROLE_TERKUNCI;
-            const judul = { produk: "Produk", outlet: "Outlet", user: bisaRole ? "User & Role" : "User", promo: "Promo", role: "User & Role" }[nama];
+            const judul = { produk: "Produk", outlet: "Outlet", user: bisaRole ? "User & Role" : "User", promo: "Promo", role: "User & Role", hpp: "Pemetaan & HPP" }[nama];
             const gayaTabAktif = "background:#12305C; color:#ffffff; border-style:solid;";
             const tabUserRole = (bisaRole && (nama === "user" || nama === "role"))
                 ? '<div class="kategori-chips" style="margin-bottom:14px;">' +
@@ -535,6 +550,8 @@
                     '<table><thead><tr><th>Role</th><th>Halaman yang boleh dibuka</th><th>Buat transfer</th><th></th></tr></thead>' +
                     '<tbody id="roleTableBody"><tr><td colspan="4" class="loading-state">Memuat...</td></tr></tbody></table>' +
                     '<div style="font-size:10px; color:#9aa5b1; margin-top:14px; line-height:1.5;">Role bawaan (admin, owner, kasir, forecaster) bisa diubah; tombol Hapus pada role bawaan mengembalikannya ke pengaturan awal. Perubahan berlaku saat user membuka halaman berikutnya.</div>';
+            } else if (nama === "hpp") {
+                kontenHtml = Hpp_renderKerangka();
             }
 
             document.getElementById("mainContent").innerHTML =
@@ -544,6 +561,7 @@
                 kontenHtml;
 
             if (nama === "produk") { Produk_load(); Kategori_load(); ModePenjualan_load(); }
+            if (nama === "hpp") Hpp_load();
             if (nama === "outlet") Outlet_load();
             if (nama === "user") { User_isiDropdownRole(); User_muatDaftarRole(); User_loadOutletDropdown(); User_load(); }
             if (nama === "promo") Promo_load();
@@ -633,6 +651,38 @@
                 daftarKategoriProduk.sort();
                 renderPopoverKategoriList();
             });
+        }
+
+        /* =====================================================
+           DETAIL KATEGORI (level kedua, mirip "Menu Category
+           Detail" di ESB: Malmil, Ogura, Mini Ogura, ...)
+           Daftarnya TETAP, diambil dari DETAIL_KATEGORI di
+           keuangan.js (lengkap dengan akun penjualan/COGS/diskon).
+           Produk menyimpan namanya di field detailKategori.
+        ====================================================== */
+        function Detail_daftarNama() {
+            if (typeof DETAIL_KATEGORI === "undefined") return [];
+            return DETAIL_KATEGORI.map(function (d) { return d.nama; });
+        }
+
+        // HTML opsi detail kategori. Nilai yang tidak ada di daftar (data lama)
+        // tetap ditampilkan dengan tanda "(lama)" supaya tidak hilang saat disimpan.
+        function Detail_opsiHtml(selectedValue) {
+            const daftar = Detail_daftarNama();
+            let html = '<option value="">- Pilih detail -</option>' + daftar.map(function (d) {
+                return '<option value="' + escapeHtmlAman(d) + '"' + (d === selectedValue ? " selected" : "") + '>' + escapeHtmlAman(d) + '</option>';
+            }).join("");
+            if (selectedValue && daftar.indexOf(selectedValue) === -1) {
+                html += '<option value="' + escapeHtmlAman(selectedValue) + '" selected>' + escapeHtmlAman(selectedValue) + ' (lama)</option>';
+            }
+            return html;
+        }
+
+        function isiDropdownDetail(selectedValue) {
+            const select = document.getElementById("pInputDetail");
+            if (!select) return;
+            select.innerHTML = Detail_opsiHtml(selectedValue || "");
+            select.value = selectedValue || "";
         }
 
         /* =====================================================
@@ -805,12 +855,15 @@
             if (Produk_isTopping(p)) {
                 return p.hargaPerKategori ? ("untuk " + Object.keys(p.hargaPerKategori).join(", ")) : "-";
             }
-            const n = semua.filter(function (t) { return Produk_isTopping(t) && t.hargaPerKategori && t.hargaPerKategori[p.kategori]; }).length;
+            // Kunci hargaPerKategori sekarang nama detail kategori; data lama masih pakai kategori
+            const kunci = p.detailKategori || p.kategori;
+            const n = semua.filter(function (t) { return Produk_isTopping(t) && t.hargaPerKategori && t.hargaPerKategori[kunci]; }).length;
             return n > 0 ? (n + " topping") : "-";
         }
 
         function Produk_aturTampilanKategori() {
             const topping = document.getElementById("pInputKategori").value === "Topping";
+            document.getElementById("pBlokDetail").style.display = topping ? "none" : "block";
             document.getElementById("pBlokHargaOffline").style.display = topping ? "none" : "block";
             document.getElementById("pBlokHargaMode").style.display = topping ? "none" : "block";
             document.getElementById("pBlokHargaTopping").style.display = topping ? "block" : "none";
@@ -822,37 +875,43 @@
             cb.closest(".tk-kue").querySelector(".tk-isi").style.display = cb.checked ? "grid" : "none";
         }
 
+        function renderToppingKueBaris(id, cfg, lama) {
+            const dipilih = !!cfg;
+            const inputs = Produk_modeTopping().map(function (m) {
+                const v = cfg && cfg[m] !== null && cfg[m] !== undefined ? cfg[m] : "";
+                return '<div style="display:flex; align-items:center; gap:6px;">' +
+                    '<span style="font-size:10.5px; color:#52606d; width:64px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis;">' + escapeHtmlAman(m) + '</span>' +
+                    '<input type="number" class="tk-harga" data-mode="' + escapeHtmlAman(m) + '" value="' + escapeHtmlAman(v) + '" placeholder="-" style="height:30px; font-size:12px;">' +
+                '</div>';
+            }).join("");
+            return '<div class="tk-kue" data-id="' + escapeHtmlAman(id) + '" style="border:1px solid #e4e8ee; border-radius:8px; padding:8px 10px; margin-bottom:6px;">' +
+                '<label style="display:flex; align-items:center; gap:8px; margin:0; cursor:pointer;">' +
+                    '<input type="checkbox" class="tk-pilih" style="width:14px; height:14px;"' + (dipilih ? " checked" : "") + ' onchange="Produk_toggleKue(this)">' +
+                    escapeHtmlAman(id) +
+                    (lama ? ' <span style="font-size:10px; font-weight:400; color:#b06d09;">(kategori lama)</span>' : '') +
+                '</label>' +
+                '<div class="tk-isi" style="display:' + (dipilih ? "grid" : "none") + '; grid-template-columns:1fr 1fr; gap:6px 10px; margin-top:8px;">' + inputs + '</div>' +
+            '</div>';
+        }
+
+        // Daftar = semua Detail Kategori, ditambah kunci lama di hargaPerKategori
+        // yang bukan detail terdaftar (ditandai "kategori lama") supaya tidak hilang.
         function renderToppingKueInputs(hargaPerKategori) {
             const container = document.getElementById("toppingKueContainer");
             hargaPerKategori = hargaPerKategori || {};
-            const daftarKategori = daftarKategoriProduk
-                .filter(function (k) { return k !== "Topping"; })
-                .slice().sort();
+            const daftarDetail = Detail_daftarNama();
+            const kunciLama = Object.keys(hargaPerKategori)
+                .filter(function (k) { return daftarDetail.indexOf(k) === -1; })
+                .sort();
 
-            if (daftarKategori.length === 0) {
-                container.innerHTML = '<div style="font-size:11px; color:#6b7280;">Belum ada kategori kue.</div>';
+            if (daftarDetail.length === 0 && kunciLama.length === 0) {
+                container.innerHTML = '<div class="tk-kosong" style="font-size:11px; color:#6b7280; margin-bottom:6px;">Daftar detail kategori (keuangan.js) belum termuat.</div>';
                 return;
             }
 
-            container.innerHTML = daftarKategori.map(function (kat) {
-                const k = { id: kat, nama: kat };
-                const cfg = hargaPerKategori[kat];
-                const dipilih = !!cfg;
-                const inputs = Produk_modeTopping().map(function (m) {
-                    const v = cfg && cfg[m] !== null && cfg[m] !== undefined ? cfg[m] : "";
-                    return '<div style="display:flex; align-items:center; gap:6px;">' +
-                        '<span style="font-size:10.5px; color:#52606d; width:64px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis;">' + escapeHtmlAman(m) + '</span>' +
-                        '<input type="number" class="tk-harga" data-mode="' + escapeHtmlAman(m) + '" value="' + escapeHtmlAman(v) + '" placeholder="-" style="height:30px; font-size:12px;">' +
-                    '</div>';
-                }).join("");
-                return '<div class="tk-kue" data-id="' + escapeHtmlAman(k.id) + '" style="border:1px solid #e4e8ee; border-radius:8px; padding:8px 10px; margin-bottom:6px;">' +
-                    '<label style="display:flex; align-items:center; gap:8px; margin:0; cursor:pointer;">' +
-                        '<input type="checkbox" class="tk-pilih" style="width:14px; height:14px;"' + (dipilih ? " checked" : "") + ' onchange="Produk_toggleKue(this)">' +
-                        escapeHtmlAman(k.nama) +
-                    '</label>' +
-                    '<div class="tk-isi" style="display:' + (dipilih ? "grid" : "none") + '; grid-template-columns:1fr 1fr; gap:6px 10px; margin-top:8px;">' + inputs + '</div>' +
-                '</div>';
-            }).join("");
+            container.innerHTML =
+                daftarDetail.map(function (d) { return renderToppingKueBaris(d, hargaPerKategori[d], false); }).join("") +
+                kunciLama.map(function (k) { return renderToppingKueBaris(k, hargaPerKategori[k], true); }).join("");
         }
 
         function ambilHargaPerKueDariForm() {
@@ -934,7 +993,8 @@
                 Produk_daftarSemua = rows;
 
                 tbody.innerHTML = rows.map(function (p) {
-                    return '<tr><td>' + escapeHtmlAman(p.nama) + '<div style="font-size:10px; color:#a89a8c;">satuan: ' + escapeHtmlAman(p.satuan || "pcs") + '</div></td><td>' + escapeHtmlAman(p.kategori || "-") + '</td>' +
+                    const teksKategori = (p.kategori || "-") + (p.detailKategori ? " · " + p.detailKategori : "");
+                    return '<tr><td>' + escapeHtmlAman(p.nama) + '<div style="font-size:10px; color:#a89a8c;">satuan: ' + escapeHtmlAman(p.satuan || "pcs") + '</div></td><td>' + escapeHtmlAman(teksKategori) + '</td>' +
                         '<td style="text-align:right;">Rp ' + Number(p.harga).toLocaleString("id-ID") + '</td>' +
                         '<td style="text-align:right;"><span class="badge badge-' + p.status + '">' + (p.status === "aktif" ? "Aktif" : "Nonaktif") + '</span></td>' +
                         '<td style="font-size:11px; color:#6b7280;">' + Produk_infoTopping(p, rows) + '</td>' +
@@ -1076,6 +1136,7 @@
             document.getElementById("pInputNama").value = "";
             document.getElementById("pInputHarga").value = "";
             isiDropdownKategori("");
+            isiDropdownDetail("");
             document.getElementById("pInputSatuan").value = "";
             document.getElementById("pInputStatus").value = "aktif";
             document.getElementById("pInputResetHarian").value = "true";
@@ -1098,6 +1159,7 @@
                 document.getElementById("pInputNama").value = p.nama;
                 document.getElementById("pInputHarga").value = p.harga;
                 isiDropdownKategori(p.kategori || "");
+                isiDropdownDetail(p.detailKategori || "");
                 document.getElementById("pInputSatuan").value = p.satuan || "";
                 document.getElementById("pInputStatus").value = p.status;
                 document.getElementById("pInputResetHarian").value = p.resetHarian === false ? "false" : "true";
@@ -1137,7 +1199,7 @@
                 Object.keys(hargaPerKategori).forEach(function (id) {
                     Object.keys(hargaPerKategori[id]).forEach(function (m) { if (hargaPerKategori[id][m]) semuaHarga.push(hargaPerKategori[id][m]); });
                 });
-                if (semuaHarga.length === 0) { errBox.textContent = "Centang minimal satu kategori kue dan isi harganya."; errBox.style.display = "block"; return; }
+                if (semuaHarga.length === 0) { errBox.textContent = "Centang minimal satu detail kategori dan isi harganya."; errBox.style.display = "block"; return; }
                 data.hargaPerKategori = hargaPerKategori;
                 // harga & modeHarga tetap diisi supaya halaman lain yang membaca field lama tidak rusak
                 data.harga = Math.min.apply(null, semuaHarga);
@@ -1146,6 +1208,7 @@
                 if (!harga || harga <= 0) { errBox.textContent = "Nama dan harga wajib diisi."; errBox.style.display = "block"; return; }
                 data.harga = harga;
                 data.modeHarga = ambilModeHargaDariForm();
+                data.detailKategori = document.getElementById("pInputDetail").value || "";
             }
             const p = Produk_editingId ? db.collection("products").doc(Produk_editingId).update(data) : db.collection("products").add(data);
             p.then(function () {
@@ -1637,6 +1700,178 @@
             }).catch(function (error) {
                 alert("Gagal menghapus: " + error.message);
             });
+        }
+
+        /* =====================================================
+           PEMETAAN & HPP
+           Akun penjualan/COGS/diskon tiap detail kategori TETAP
+           (dari keuangan.js, hanya ditampilkan). Yang bisa diatur:
+           HPP % per detail kategori, disimpan di collection
+           "detail_kategori", Document ID = nama detail, field
+           hppPersen (angka 0-100). HPP sementara = penjualan x HPP %.
+        ====================================================== */
+        let Hpp_tersimpan = {};   // nama detail -> hppPersen dari database (atau null)
+        let Hpp_produk = [];      // daftar produk, untuk jumlah & produk tanpa detail
+
+        function Hpp_teksAkun(a) {
+            return a ? escapeHtmlAman(a[0] + " · " + a[1]) : "-";
+        }
+
+        function Hpp_renderKerangka() {
+            const daftar = (typeof DETAIL_KATEGORI === "undefined") ? [] : DETAIL_KATEGORI;
+            const baris = daftar.map(function (d, i) {
+                return '<tr><td style="font-weight:700; white-space:nowrap;">' + escapeHtmlAman(d.nama) + '</td>' +
+                    '<td style="font-size:11px;">' + Hpp_teksAkun(d.penjualan) + '</td>' +
+                    '<td style="font-size:11px;">' + Hpp_teksAkun(d.cogs) + '</td>' +
+                    '<td style="font-size:11px;">' + Hpp_teksAkun(d.diskon) + '</td>' +
+                    '<td><input type="number" id="hppInput_' + i + '" min="0" max="100" step="0.1" placeholder="-" oninput="this.setAttribute(\'data-ubah\', \'1\')" style="width:70px; height:30px; border:1px solid #d1d5db; border-radius:6px; padding:0 6px; font-size:12px;"></td>' +
+                    '<td id="hppJumlah_' + i + '" style="text-align:right;">-</td></tr>';
+            }).join("");
+            return '<div style="font-size:11px; color:#6b7280; margin-bottom:10px;">HPP sementara dihitung = penjualan × HPP %. Nanti bisa diganti HPP dari resep.</div>' +
+                '<table><thead><tr><th>Detail kategori</th><th>Akun penjualan</th><th>Akun COGS</th><th>Akun diskon</th><th>HPP %</th><th style="text-align:right;">Jumlah produk</th></tr></thead>' +
+                '<tbody id="hppTableBody">' + (baris || '<tr><td colspan="6" class="empty-state">Daftar detail kategori (keuangan.js) belum termuat.</td></tr>') + '</tbody></table>' +
+                '<div style="display:flex; align-items:center; gap:10px; margin-bottom:18px;">' +
+                    '<button class="add-btn" id="hppBtnSimpan" onclick="Hpp_simpan()">Simpan HPP</button>' +
+                    '<span id="hppStatus" style="font-size:11px; color:#1e7d32;"></span>' +
+                '</div>' +
+                '<div id="hppTanpaDetail"></div>';
+        }
+
+        // Realtime: HPP % (tidak menimpa kolom yang sedang diketik/diubah) dan
+        // daftar produk (jumlah per detail + produk yang belum punya detail).
+        function Hpp_load() {
+            if (hppUnsubscribe) { hppUnsubscribe(); hppUnsubscribe = null; }
+            if (hppProdukUnsubscribe) { hppProdukUnsubscribe(); hppProdukUnsubscribe = null; }
+            if (sectionAktif !== "hpp") return;
+
+            hppUnsubscribe = db.collection("detail_kategori").onSnapshot(function (snapshot) {
+                Hpp_tersimpan = {};
+                snapshot.forEach(function (doc) {
+                    const v = (doc.data() || {}).hppPersen;
+                    Hpp_tersimpan[doc.id] = (typeof v === "number") ? v : null;
+                });
+                Hpp_isiInput();
+            }, function (error) {
+                document.getElementById("hppStatus") && (document.getElementById("hppStatus").textContent = "Gagal memuat HPP: " + error.message);
+            });
+
+            hppProdukUnsubscribe = db.collection("products").onSnapshot(function (snapshot) {
+                Hpp_produk = [];
+                snapshot.forEach(function (doc) { Hpp_produk.push(Object.assign({ id: doc.id }, doc.data())); });
+                Hpp_renderJumlah();
+                Hpp_renderTanpaDetail();
+            }, function (error) {
+                const box = document.getElementById("hppTanpaDetail");
+                if (box) box.innerHTML = '<div class="empty-state">Gagal memuat produk: ' + escapeHtmlAman(error.message) + '</div>';
+            });
+        }
+
+        function Hpp_isiInput() {
+            if (typeof DETAIL_KATEGORI === "undefined") return;
+            DETAIL_KATEGORI.forEach(function (d, i) {
+                const el = document.getElementById("hppInput_" + i);
+                if (!el) return;
+                // Jangan timpa kolom yang sedang diketik atau sudah diubah tapi belum disimpan
+                if (el === document.activeElement || el.getAttribute("data-ubah") === "1") return;
+                const v = Hpp_tersimpan[d.nama];
+                el.value = (v !== null && v !== undefined) ? v : "";
+            });
+        }
+
+        function Hpp_renderJumlah() {
+            if (typeof DETAIL_KATEGORI === "undefined") return;
+            DETAIL_KATEGORI.forEach(function (d, i) {
+                const el = document.getElementById("hppJumlah_" + i);
+                if (!el) return;
+                el.textContent = Hpp_produk.filter(function (p) { return !Produk_isTopping(p) && p.detailKategori === d.nama; }).length;
+            });
+        }
+
+        // Produk (selain topping) yang detailnya kosong / tidak ada di daftar,
+        // lengkap dengan dropdown untuk langsung memperbaikinya.
+        function Hpp_renderTanpaDetail() {
+            const box = document.getElementById("hppTanpaDetail");
+            if (!box) return;
+            const daftar = Detail_daftarNama();
+            const tanpa = Hpp_produk.filter(function (p) {
+                return !Produk_isTopping(p) && (!p.detailKategori || daftar.indexOf(p.detailKategori) === -1);
+            });
+            tanpa.sort(function (a, b) { return (a.nama || "").localeCompare(b.nama || ""); });
+
+            let html = '<div class="area-title">Produk belum punya detail kategori: ' + tanpa.length + '</div>';
+            if (tanpa.length === 0) {
+                html += '<div style="font-size:11px; color:#1e7d32;">Semua produk sudah punya detail kategori ✓</div>';
+            } else {
+                html += '<div style="font-size:11px; color:#6b7280; margin-bottom:8px;">Pilih detail kategorinya, langsung tersimpan. Sampai diisi, produk ini masuk kelompok "' + escapeHtmlAman(typeof DETAIL_CADANGAN === "undefined" ? "Lainnya" : DETAIL_CADANGAN) + '" di laporan.</div>' +
+                    '<table><thead><tr><th>Produk</th><th>Kategori</th><th>Detail kategori</th></tr></thead><tbody>' +
+                    tanpa.map(function (p) {
+                        return '<tr><td>' + escapeHtmlAman(p.nama || p.id) + '</td>' +
+                            '<td>' + escapeHtmlAman(p.kategori || "-") + '</td>' +
+                            '<td><select onchange="Hpp_ubahDetailProduk(\'' + escJsAttr(p.id) + '\', this)" style="height:30px; border:1px solid #d1d5db; border-radius:6px; padding:0 6px; font-size:12px;">' + Detail_opsiHtml(p.detailKategori || "") + '</select></td></tr>';
+                    }).join("") +
+                    '</tbody></table>';
+            }
+            box.innerHTML = html;
+        }
+
+        function Hpp_ubahDetailProduk(id, select) {
+            select.disabled = true;
+            db.collection("products").doc(id).update({ detailKategori: select.value || "" }).catch(function (error) {
+                select.disabled = false;
+                alert("Gagal menyimpan detail kategori: " + error.message);
+            });
+            // Baris otomatis hilang lewat listener produk kalau detailnya sudah valid
+        }
+
+        function Hpp_simpan() {
+            if (typeof DETAIL_KATEGORI === "undefined") return;
+            const status = document.getElementById("hppStatus");
+            const batch = db.batch();
+            const diubah = [];
+            let salah = null;
+
+            DETAIL_KATEGORI.forEach(function (d, i) {
+                const el = document.getElementById("hppInput_" + i);
+                if (!el) return;
+                const teks = el.value.trim();
+                const lama = Hpp_tersimpan[d.nama];
+                const ref = db.collection("detail_kategori").doc(d.nama);
+                if (teks === "") {
+                    if (lama !== null && lama !== undefined) {
+                        batch.set(ref, { hppPersen: firebase.firestore.FieldValue.delete() }, { merge: true });
+                        diubah.push(el);
+                    }
+                    return;
+                }
+                const n = Number(teks);
+                if (isNaN(n) || n < 0 || n > 100) { if (!salah) salah = d.nama; return; }
+                if (n === lama) return;
+                batch.set(ref, { hppPersen: n }, { merge: true });
+                diubah.push(el);
+            });
+
+            status.style.color = "#c0392b";
+            if (salah) { status.textContent = 'HPP % untuk "' + salah + '" harus angka 0 - 100.'; return; }
+            if (diubah.length === 0) {
+                document.querySelectorAll("#hppTableBody input").forEach(function (el) { el.removeAttribute("data-ubah"); });
+                status.style.color = "#6b7280";
+                status.textContent = "Tidak ada perubahan.";
+                return;
+            }
+
+            const btn = document.getElementById("hppBtnSimpan");
+            btn.disabled = true;
+            status.style.color = "#52606d";
+            status.textContent = "Menyimpan...";
+            batch.commit().then(function () {
+                document.querySelectorAll("#hppTableBody input").forEach(function (el) { el.removeAttribute("data-ubah"); });
+                status.style.color = "#1e7d32";
+                status.textContent = "Tersimpan ✓";
+                setTimeout(function () { if (status.textContent === "Tersimpan ✓") status.textContent = ""; }, 2500);
+            }).catch(function (error) {
+                status.style.color = "#c0392b";
+                status.textContent = "Gagal menyimpan: " + error.message;
+            }).then(function () { btn.disabled = false; });
         }
 
         /* =====================================================
