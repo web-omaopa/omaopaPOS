@@ -1302,7 +1302,9 @@
 
         function hargaToppingUntuk(t, product, mode) {
             if (t.hargaPerKategori) {
-                const cfg = t.hargaPerKategori[kunciKategoriKue(product)];
+                // Coba detail kategori dulu; kalau topping masih diatur dengan kategori lama
+                // (mis. "Kue"), tetap pakai itu supaya Kasir tidak berubah sebelum topping diedit.
+                const cfg = t.hargaPerKategori[kunciKategoriKue(product)] || t.hargaPerKategori[product.kategori || ""];
                 if (!cfg) return null;
                 const v = cfg[mode];
                 return (v === null || v === undefined || v === "") ? null : Number(v);
