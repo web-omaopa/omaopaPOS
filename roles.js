@@ -18,7 +18,7 @@ const HALAMAN_INFO = {
     alokasi:        { href: "alokasi.html",        icon: "📋", title: "Manajemen Menu", desc: "Rencana, lapor & approval stok", dibangun: true },
     transfer:       { href: "transfer.html",       icon: "🚚", title: "Transfer",        desc: "Kirim & terima stok antar outlet",  dibangun: true },
     riwayat:        { href: "riwayat.html",        icon: "🕘", title: "Riwayat",         desc: "Riwayat transaksi & transfer",      dibangun: false },
-    laporan:        { href: "laporan.html",        icon: "📊", title: "Laporan",         desc: "Analisis penjualan & stok",         dibangun: false },
+    laporan:        { href: "laporan.html",        icon: "📊", title: "Laporan",         desc: "Rekap & download laporan penjualan",         dibangun: true },
     pengaturan:     { href: "pengaturan.html",     icon: "⚙️", title: "Pengaturan",      desc: "Kelola produk, outlet, & user",     dibangun: true }
 };
 
