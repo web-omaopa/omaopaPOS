@@ -16,12 +16,14 @@ Sistem kasir (POS) multi-outlet untuk Oma Opa. Situs: https://pos.omaopa.store (
 - `pengaturan.html`, `produk.html`, `user.html` : pengelolaan produk, outlet, user
 - `api/upload-foto.php`, `api/foto.php` : upload & tampil foto produk di Hostinger (PHP). Foto disimpan di `foto_produk/` di luar `public_html` supaya tidak hilang saat deploy ulang.
 - `roles.js` : sumber tunggal hak akses per role (`ROLE_PERMISSIONS`, `HALAMAN_INFO`)
+- `kas.html` + `kas.js` : sesi kas outlet (buka toko dengan kas awal di `pos.html`, pengeluaran outlet, tutup toko dengan kas akhir & selisih, riwayat)
 - `laporan.html` : daftar laporan + Rekap penjualan & Penjualan per produk (filter, download Excel/PDF)
 - Halaman terencana tapi belum ada: `riwayat.html`
 
 ## Koleksi Firestore yang dipakai
 users, outlets, products, stock, transfer_stok, promo, mode_penjualan,
-laporan_stok, kategori_produk, transactions, alokasi_log
+laporan_stok, kategori_produk, transactions, alokasi_log,
+sesi_kas, pengeluaran (skema di komentar atas `kas.js`)
 
 ## Role
 management, admin, owner, kasir (forecaster disebut untuk pembuatan transfer).
