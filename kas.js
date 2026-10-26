@@ -21,15 +21,28 @@
    (CDN Hostinger menyimpan file .js 7 hari).
 ========================================================================= */
 
+/* Sama dengan kategori pengeluaran outlet di ESB */
 const KATEGORI_PENGELUARAN = [
-    "Bahan baku",
-    "Kemasan & perlengkapan",
-    "Air galon / es batu",
-    "Gas / listrik / pulsa",
-    "Transport / parkir / ojek",
-    "Kebersihan",
-    "Konsumsi karyawan",
-    "Lain-lain"
+    "Salah Nota",
+    "Kompensasi Customer",
+    "Marketing",
+    "Biaya Operasional",
+    "Biaya Kebersihan",
+    "Pengeluaran Reward",
+    "Bensin TVS",
+    "Upgrading",
+    "Biaya Listrik",
+    "Biaya Air PAM",
+    "Pengiriman dari Pabrik",
+    "Biaya Transfer Kue",
+    "Perbaikan dan Pemeliharaan",
+    "Biaya Alat Tulis",
+    "Telekomunikasi",
+    "Konsumsi Rapat",
+    "Utilitis",
+    "Pengiriman Kue ke Customer",
+    "Biaya Backup Kasir",
+    "Reward Sniby"
 ];
 
 /* Nominal cepat di form kas awal / kas akhir */
@@ -163,5 +176,55 @@ function kasRingkasanSesi(db, sesi) {
             totalPengeluaran: totalPengeluaran,
             kasSeharusnya: kasAwal + tunai - totalPengeluaran
         };
+    });
+}
+
+/* =====================================================================
+   BUKTI / LAMPIRAN PENGELUARAN
+   Foto diperkecil di browser (maks 1200px, JPEG), lalu diupload ke
+   api/upload-foto.php dengan jenis "bukti" (disimpan terpisah dari
+   foto produk). Hasil: URL "api/foto.php?b=...".
+========================================================================= */
+function kasKecilkanGambar(file) {
+    return new Promise(function (resolve, reject) {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = function () {
+            URL.revokeObjectURL(url);
+            const MAKS = 1200;
+            const skala = Math.min(1, MAKS / Math.max(img.width, img.height));
+            const w = Math.round(img.width * skala), h = Math.round(img.height * skala);
+            const cv = document.createElement("canvas");
+            cv.width = w; cv.height = h;
+            const ctx = cv.getContext("2d");
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, w, h);
+            ctx.drawImage(img, 0, 0, w, h);
+            cv.toBlob(function (blob) { blob ? resolve(blob) : reject(new Error("Gambar gagal diproses. Coba gambar lain.")); }, "image/jpeg", 0.82);
+        };
+        img.onerror = function () { URL.revokeObjectURL(url); reject(new Error("File itu bukan gambar yang bisa dibaca. Pilih JPG, PNG, atau WEBP.")); };
+        img.src = url;
+    });
+}
+
+function kasUploadBukti(file) {
+    if (!/^image\//.test(file.type)) return Promise.reject(new Error("Bukti harus berupa foto (JPG, PNG, WEBP)."));
+    if (file.size > 15 * 1024 * 1024) return Promise.reject(new Error("Foto terlalu besar (maks 15 MB)."));
+    return Promise.all([kasKecilkanGambar(file), firebase.auth().currentUser.getIdToken()]).then(function (h) {
+        const form = new FormData();
+        form.append("token", h[1]);
+        form.append("jenis", "bukti");
+        form.append("foto", h[0], "bukti.jpg");
+        return fetch("api/upload-foto.php", { method: "POST", body: form });
+    }).then(function (res) {
+        return res.json().catch(function () {
+            throw new Error("Server tidak merespons dengan benar (kode " + res.status + ").");
+        }).then(function (data) {
+            if (!res.ok || !data.url) throw new Error(data.error || ("kode " + res.status));
+            return data.url;
+        });
+    }).catch(function (e) {
+        if (e && e.message === "Failed to fetch") throw new Error("Koneksi terputus saat upload. Coba lagi.");
+        throw e;
     });
 }

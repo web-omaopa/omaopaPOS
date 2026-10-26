@@ -9,7 +9,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
     <script src="roles.js?v=20261026a"></script>
-    <script src="kas.js?v=20261026a"></script>
+    <script src="kas.js?v=20261026b"></script>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -124,6 +124,34 @@
         .chip { font-size: 11px; padding: 5px 10px; border-radius: 14px; background: #F1F4F8; color: #52606d; }
         .chip b { color: #1f2937; }
 
+        /* Pengeluaran outlet (mengikuti tampilan ESB) */
+        .info-pengeluaran {
+            display: flex; gap: 12px; align-items: center; background: #FBEBDC; border: 1px solid #F0B27A;
+            border-radius: 10px; padding: 12px 16px; margin-bottom: 14px; max-width: 640px;
+        }
+        .info-pengeluaran .ikon { font-size: 22px; }
+        .info-pengeluaran .j { font-size: 12px; font-weight: 800; color: #1f2937; }
+        .info-pengeluaran .d { font-size: 12px; color: #374151; margin-top: 2px; }
+        .judul-bagian { font-size: 15px; color: #1f2937; padding-bottom: 8px; border-bottom: 1px solid #dde3ea; margin-bottom: 12px; }
+        .kosong-pengeluaran { text-align: center; color: #9aa5b1; font-size: 12px; padding: 50px 0 40px; line-height: 1.5; }
+        .kosong-pengeluaran .ikon { font-size: 44px; opacity: 0.45; margin-bottom: 8px; }
+        .fab-tambah {
+            position: fixed; right: 28px; bottom: 28px; width: 56px; height: 56px; border-radius: 50%; border: none;
+            background: #E0522A; color: #ffffff; font-size: 30px; line-height: 1; cursor: pointer; z-index: 10;
+            box-shadow: 0 6px 18px rgba(224, 82, 42, 0.4); font-family: inherit;
+        }
+        .fab-tambah:hover { background: #C8441F; }
+        .fld-in[readonly] { background: #EEF0F3; color: #52606d; }
+        .bukti-kotak {
+            width: 92px; height: 82px; border: 1.5px dashed #2F6FD6; border-radius: 8px; background: #ffffff;
+            display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; overflow: hidden;
+        }
+        .bukti-kotak .plus { width: 24px; height: 24px; border-radius: 50%; background: #2F6FD6; color: #ffffff; font-size: 18px; line-height: 24px; text-align: center; font-weight: 700; }
+        .bukti-kotak img { width: 100%; height: 100%; object-fit: cover; }
+        .bukti-hapus { position: absolute; top: 3px; right: 3px; width: 20px; height: 20px; border-radius: 50%; border: none; background: rgba(0,0,0,0.6); color: #fff; font-size: 12px; cursor: pointer; line-height: 20px; padding: 0; }
+        .bukti-status { font-size: 10.5px; color: #52606d; margin-top: 6px; }
+        .link-bukti { color: #2F6FD6; font-weight: 700; text-decoration: none; font-size: 11px; }
+
         .modal-overlay {
             display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(18, 48, 92, 0.35); align-items: center; justify-content: center; z-index: 20; padding: 16px;
@@ -163,27 +191,35 @@
         </div>
     </div>
 
-    <!-- Catat pengeluaran -->
+    <!-- Tambah transaksi pengeluaran -->
     <div class="modal-overlay" id="modalPengeluaran">
         <div class="modal-box">
-            <h3>Catat Pengeluaran</h3>
-            <div class="modal-sub">Pengeluaran operasional outlet hari ini.</div>
+            <h3>Tambah Transaksi</h3>
+            <div class="modal-sub">Pengeluaran outlet akan mempengaruhi total kas akhir.</div>
             <div id="pgOutletWrap">
                 <div class="fld-lbl">Outlet</div>
                 <select class="fld-sel" id="pgOutlet"></select>
             </div>
-            <div class="fld-lbl">Kategori</div>
+            <div class="fld-lbl">Tanggal</div>
+            <input type="text" class="fld-in" id="pgTanggal" readonly>
+            <div class="fld-lbl">Kategori Pengeluaran</div>
             <select class="fld-sel" id="pgKategori"></select>
-            <div class="fld-lbl">Nominal</div>
-            <div class="uang-input-wrap" style="height:44px; max-width:none;"><span>Rp</span><input type="text" inputmode="numeric" id="pgNominal" placeholder="0" autocomplete="off" oninput="kasFormatInput(this)" style="font-size:18px;"></div>
-            <div class="fld-lbl">Keterangan</div>
-            <input type="text" class="fld-in" id="pgKeterangan" maxlength="120" placeholder="Contoh: beli es batu 2 bungkus">
-            <label class="cek-row"><input type="checkbox" id="pgDariLaci" checked>
-                <span><b>Uang diambil dari laci kas</b><br><span style="color:#6b7280;">Mengurangi kas seharusnya saat tutup toko. Hilangkan centang kalau dibayar di luar laci (transfer, uang pribadi, dll).</span></span></label>
+            <div class="fld-lbl">Catatan</div>
+            <input type="text" class="fld-in" id="pgKeterangan" maxlength="120" placeholder="Masukkan Catatan">
+            <div class="fld-lbl">Jumlah<span style="color:#B03A2E;">*</span></div>
+            <input type="text" inputmode="numeric" class="fld-in" id="pgNominal" placeholder="Masukkan Jumlah Transaksi" autocomplete="off" oninput="kasFormatInput(this); cekFormPengeluaran()">
+            <div class="fld-lbl">Bukti / Lampiran Transaksi</div>
+            <div class="bukti-kotak" id="pgBuktiKotak" onclick="pilihBukti()"><span class="plus">+</span></div>
+            <input type="file" id="pgBuktiFile" accept="image/*" style="display:none;" onchange="uploadBukti(this)">
+            <div class="bukti-status" id="pgBuktiStatus"></div>
+            <div id="pgLaciWrap">
+                <label class="cek-row"><input type="checkbox" id="pgDariLaci" checked>
+                    <span><b>Uang diambil dari laci kas</b><br><span style="color:#6b7280;">Mengurangi kas seharusnya saat tutup toko. Hilangkan centang kalau dibayar di luar laci (transfer, dll).</span></span></label>
+            </div>
             <div class="msg-box msg-error" id="pgError"></div>
             <div class="modal-actions">
-                <button class="btn" onclick="tutupModal('modalPengeluaran')">Batal</button>
-                <button class="btn btn-primary" id="pgSimpan" style="flex:1.3;" onclick="simpanPengeluaran()">Simpan</button>
+                <button class="btn btn-danger" style="border-color:#E0522A;" onclick="tutupModal('modalPengeluaran')">Batal</button>
+                <button class="btn btn-primary" id="pgSimpan" onclick="simpanPengeluaran()" disabled>Simpan</button>
             </div>
         </div>
     </div>
@@ -434,17 +470,19 @@
 
             // Pengeluaran sesi ini
             html += '<div class="kartu">' +
-                '<div class="kartu-judul"><span>Pengeluaran dari laci (sesi ini)</span>' +
-                    '<button class="btn btn-primary btn-kecil" onclick="bukaModalPengeluaran()">+ Catat pengeluaran</button></div>' +
+                '<div class="kartu-judul"><span>Pengeluaran Outlet (sesi ini)</span>' +
+                    '<button class="btn btn-primary btn-kecil" onclick="bukaModalPengeluaran()">+ Tambah pengeluaran</button></div>' +
+                htmlInfoPengeluaran() +
                 (r.pengeluaran.length === 0
                     ? '<div class="empty-state" style="padding:14px 0;">Belum ada pengeluaran.</div>'
-                    : '<div class="tabel-wrap"><table><thead><tr><th>Jam</th><th>Kategori</th><th>Keterangan</th><th>Dicatat</th><th class="r">Nominal</th><th></th></tr></thead><tbody>' +
+                    : '<div class="tabel-wrap"><table><thead><tr><th>Jam</th><th>Kategori</th><th>Catatan</th><th>Bukti</th><th>Dicatat</th><th class="r">Jumlah</th><th></th></tr></thead><tbody>' +
                         r.pengeluaran.map(function (p) {
-                            return '<tr><td>' + esc(fmtJam(p._waktu)) + '</td><td>' + esc(p.kategori) + '</td><td>' + esc(p.keterangan) + '</td>' +
+                            return '<tr><td>' + esc(fmtJam(p._waktu)) + '</td><td>' + esc(p.kategori) + '</td><td>' + esc(p.keterangan || "-") + '</td>' +
+                                '<td>' + htmlLinkBukti(p) + '</td>' +
                                 '<td>' + esc(p.dibuatNama || "-") + '</td><td class="r">' + rp(p.nominal) + '</td>' +
                                 '<td class="r">' + (bolehHapus(p) ? '<button class="btn btn-kecil btn-danger" onclick="hapusPengeluaran(\'' + escJsAttr(p._id) + '\')">Hapus</button>' : '') + '</td></tr>';
                         }).join("") +
-                        '</tbody><tfoot><tr><td colspan="4">Total</td><td class="r">' + rp(r.totalPengeluaran) + '</td><td></td></tr></tfoot></table></div>') +
+                        '</tbody><tfoot><tr><td colspan="5">Total</td><td class="r">' + rp(r.totalPengeluaran) + '</td><td></td></tr></tfoot></table></div>') +
                 '</div>';
 
             // Tutup toko
@@ -566,6 +604,21 @@
             return p.sesiKasId === idBuka;
         }
 
+        function htmlInfoPengeluaran() {
+            return '<div class="info-pengeluaran"><span class="ikon">💡</span><div>' +
+                '<div class="j">Informasi Pengeluaran Outlet</div>' +
+                '<div class="d">Transaksi Pengeluaran Outlet akan mempengaruhi Total Kas Akhir Anda</div></div></div>';
+        }
+
+        function htmlLinkBukti(p) {
+            // Hanya URL dari api/foto.php milik sendiri yang ditampilkan sebagai tautan
+            if (!p.buktiUrl || !/^api\/foto\.php\?b=[0-9a-f_]+\.jpg$/.test(p.buktiUrl)) return '<span style="color:#9aa5b1;">-</span>';
+            return '<a class="link-bukti" href="' + esc(p.buktiUrl) + '" target="_blank" rel="noopener">Lihat foto</a>';
+        }
+
+        let buktiUrlForm = "";
+        let sedangUploadBukti = false;
+
         function bukaModalPengeluaran() {
             const selOut = document.getElementById("pgOutlet");
             const outletDefault = outletDipilih || daftarOutlet[0] || "";
@@ -573,29 +626,73 @@
             selOut.value = outletDefault;
             // Kasir & tab sesi: outlet sudah pasti
             document.getElementById("pgOutletWrap").style.display = (currentUser.role === "kasir" || tabAktif === "sesi") ? "none" : "block";
+            // Kasir selalu mengambil dari laci kas; admin/owner boleh mencatat pengeluaran di luar laci
+            document.getElementById("pgLaciWrap").style.display = bolehKelolaSemua() ? "block" : "none";
+            document.getElementById("pgTanggal").value = fmtTanggal(kasTanggalHariIni());
             document.getElementById("pgKategori").innerHTML = KATEGORI_PENGELUARAN.map(function (k) { return '<option>' + esc(k) + '</option>'; }).join("");
             document.getElementById("pgNominal").value = "";
             document.getElementById("pgKeterangan").value = "";
             document.getElementById("pgDariLaci").checked = true;
             document.getElementById("pgError").style.display = "none";
-            const btn = document.getElementById("pgSimpan");
-            btn.disabled = false; btn.textContent = "Simpan";
+            aturBukti("");
+            document.getElementById("pgSimpan").textContent = "Simpan";
+            cekFormPengeluaran();
             document.getElementById("modalPengeluaran").classList.add("open");
-            document.getElementById("pgNominal").focus();
+        }
+
+        function cekFormPengeluaran() {
+            document.getElementById("pgSimpan").disabled =
+                sedangUploadBukti || kasParseAngka(document.getElementById("pgNominal").value) <= 0;
+        }
+
+        function aturBukti(url) {
+            buktiUrlForm = url;
+            const kotak = document.getElementById("pgBuktiKotak");
+            kotak.innerHTML = url
+                ? '<img src="' + esc(url) + '" alt="Bukti"><button type="button" class="bukti-hapus" title="Hapus foto" onclick="event.stopPropagation(); aturBukti(\'\')">×</button>'
+                : '<span class="plus">+</span>';
+            document.getElementById("pgBuktiStatus").textContent = "";
+            document.getElementById("pgBuktiFile").value = "";
+        }
+
+        function pilihBukti() {
+            if (sedangUploadBukti || buktiUrlForm) return;
+            document.getElementById("pgBuktiFile").click();
+        }
+
+        function uploadBukti(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const status = document.getElementById("pgBuktiStatus");
+            sedangUploadBukti = true;
+            cekFormPengeluaran();
+            status.style.color = "#52606d";
+            status.textContent = "Mengupload foto...";
+            kasUploadBukti(file).then(function (url) {
+                sedangUploadBukti = false;
+                aturBukti(url);
+                status.style.color = "#1e7d32";
+                status.textContent = "Foto terupload ✓";
+            }).catch(function (e) {
+                sedangUploadBukti = false;
+                input.value = "";
+                status.style.color = "#c0392b";
+                status.textContent = "Gagal upload: " + e.message;
+            }).then(cekFormPengeluaran);
         }
 
         function simpanPengeluaran() {
             const err = document.getElementById("pgError");
             const tampilError = function (p) { err.textContent = p; err.style.display = "block"; };
             err.style.display = "none";
+            if (sedangUploadBukti) return tampilError("Tunggu foto bukti selesai diupload.");
             const outlet = (currentUser.role === "kasir") ? currentUser.outlet : document.getElementById("pgOutlet").value;
             const kategori = document.getElementById("pgKategori").value;
             const nominal = kasParseAngka(document.getElementById("pgNominal").value);
             const keterangan = document.getElementById("pgKeterangan").value.trim();
-            const dariLaci = document.getElementById("pgDariLaci").checked;
+            const dariLaci = bolehKelolaSemua() ? document.getElementById("pgDariLaci").checked : true;
             if (!outlet) return tampilError("Pilih outlet.");
-            if (nominal <= 0) return tampilError("Isi nominal pengeluaran.");
-            if (!keterangan) return tampilError("Isi keterangan (untuk apa uangnya).");
+            if (nominal <= 0) return tampilError("Isi jumlah transaksi.");
 
             const btn = document.getElementById("pgSimpan");
             btn.disabled = true; btn.textContent = "Menyimpan...";
@@ -604,10 +701,14 @@
                 ? (sesiAktif && sesiAktif.data.outlet === outlet ? Promise.resolve(sesiAktif) : kasCariSesiAktif(db, outlet))
                 : Promise.resolve(null);
             cariSesi.then(function (sesi) {
-                if (dariLaci && !sesi) throw new Error("Toko " + outlet + " belum dibuka, jadi tidak ada laci kas. Buka toko dulu di Kasir, atau hilangkan centang \"dari laci\".");
+                if (dariLaci && !sesi) {
+                    throw new Error("Toko " + outlet + " belum dibuka, jadi belum ada kas. Buka toko dulu di Kasir" +
+                        (bolehKelolaSemua() ? ", atau hilangkan centang \"dari laci\"." : "."));
+                }
                 return db.collection("pengeluaran").add({
                     outlet: outlet, tanggal: kasTanggalHariIni(),
                     kategori: kategori, nominal: nominal, keterangan: keterangan,
+                    buktiUrl: buktiUrlForm || "",
                     dariLaci: dariLaci, sesiKasId: sesi ? sesi.id : null,
                     status: "aktif",
                     dibuatUid: currentUser.uid || "", dibuatNama: currentUser.nama || "",
@@ -617,7 +718,8 @@
                 tutupModal("modalPengeluaran");
                 gantiTab(tabAktif);
             }).catch(function (error) {
-                btn.disabled = false; btn.textContent = "Simpan";
+                btn.textContent = "Simpan";
+                cekFormPengeluaran();
                 tampilError(error.message);
             });
         }
@@ -626,7 +728,7 @@
             db.collection("pengeluaran").doc(id).get().then(function (doc) {
                 if (!doc.exists) throw new Error("Data tidak ditemukan.");
                 const p = doc.data();
-                let pesan = "Hapus pengeluaran " + p.kategori + " " + rp(p.nominal) + " (" + p.keterangan + ")?";
+                let pesan = "Hapus pengeluaran " + p.kategori + " " + rp(p.nominal) + (p.keterangan ? " (" + p.keterangan + ")" : "") + "?";
                 if (p.sesiKasId && (!sesiAktif || sesiAktif.id !== p.sesiKasId)) {
                     pesan += "\n\nCatatan: sesi kasnya mungkin sudah ditutup. Angka di laporan tutup toko yang sudah tersimpan tidak ikut berubah.";
                 }
@@ -641,14 +743,15 @@
 
         function renderTabPengeluaran() {
             document.getElementById("isiTab").innerHTML =
+                htmlInfoPengeluaran() +
                 '<div class="ctrl-row">' +
                     '<div><div class="ctrl-label">Dari</div><input type="date" class="tgl-input" id="pgDari" value="' + esc(filterPengeluaran.dari) + '"></div>' +
                     '<div><div class="ctrl-label">Sampai</div><input type="date" class="tgl-input" id="pgSampai" value="' + esc(filterPengeluaran.sampai) + '"></div>' +
                     '<button class="btn" onclick="terapkanFilterPengeluaran()">Tampilkan</button>' +
-                    '<div style="flex:1;"></div>' +
-                    '<button class="btn btn-primary" onclick="bukaModalPengeluaran()">+ Catat pengeluaran</button>' +
                 '</div>' +
-                '<div id="isiPengeluaran"><div class="loading-state">Memuat pengeluaran...</div></div>';
+                '<div class="judul-bagian" id="judulPengeluaran"></div>' +
+                '<div id="isiPengeluaran"><div class="loading-state">Memuat pengeluaran...</div></div>' +
+                '<button type="button" class="fab-tambah" title="Tambah pengeluaran" onclick="bukaModalPengeluaran()">+</button>';
             muatPengeluaran();
         }
 
@@ -661,6 +764,11 @@
 
         function muatPengeluaran() {
             const tujuan = document.getElementById("isiPengeluaran");
+            const hariIni = kasTanggalHariIni();
+            document.getElementById("judulPengeluaran").textContent =
+                filterPengeluaran.dari === hariIni && filterPengeluaran.sampai === hariIni
+                    ? "Pengeluaran Outlet Hari Ini"
+                    : "Pengeluaran Outlet " + fmtTanggal(filterPengeluaran.dari) + " s/d " + fmtTanggal(filterPengeluaran.sampai);
             tujuan.innerHTML = '<div class="loading-state">Memuat pengeluaran...</div>';
             const outlet = outletDipilih;
             const muatSesiBuka = currentUser.role === "kasir"
@@ -693,7 +801,7 @@
         function renderDaftarPengeluaran(daftar) {
             const tujuan = document.getElementById("isiPengeluaran");
             if (daftar.length === 0) {
-                tujuan.innerHTML = '<div class="empty-state">Tidak ada pengeluaran di periode ini.</div>';
+                tujuan.innerHTML = '<div class="kosong-pengeluaran"><div class="ikon">🧾</div>Klik + untuk membuat<br>catatan transaksi Anda</div>';
                 return;
             }
             const perKategori = {};
@@ -717,21 +825,22 @@
                     }).join("") +
                 '</div>' +
                 '<div class="tabel-wrap"><table><thead><tr>' +
-                    '<th>Waktu</th>' + (semuaOutlet ? '<th>Outlet</th>' : '') + '<th>Kategori</th><th>Keterangan</th><th>Sumber</th><th>Dicatat</th><th class="r">Nominal</th><th></th>' +
+                    '<th>Waktu</th>' + (semuaOutlet ? '<th>Outlet</th>' : '') + '<th>Kategori</th><th>Catatan</th><th>Bukti</th><th>Sumber</th><th>Dicatat</th><th class="r">Jumlah</th><th></th>' +
                 '</tr></thead><tbody>' +
                     daftar.map(function (p) {
                         return '<tr>' +
                             '<td style="white-space:nowrap;">' + esc(fmtWaktu(p._waktu)) + '</td>' +
                             (semuaOutlet ? '<td>' + esc(p.outlet) + '</td>' : '') +
                             '<td>' + esc(p.kategori) + '</td>' +
-                            '<td>' + esc(p.keterangan) + '</td>' +
+                            '<td>' + esc(p.keterangan || "-") + '</td>' +
+                            '<td>' + htmlLinkBukti(p) + '</td>' +
                             '<td>' + (p.dariLaci ? '<span class="status-pill pill-laci">Laci kas</span>' : '<span class="status-pill pill-luar">Di luar laci</span>') + '</td>' +
                             '<td>' + esc(p.dibuatNama || "-") + '</td>' +
                             '<td class="r">' + rp(p.nominal) + '</td>' +
                             '<td class="r">' + (bolehHapus(p) ? '<button class="btn btn-kecil btn-danger" onclick="hapusPengeluaran(\'' + escJsAttr(p._id) + '\')">Hapus</button>' : '') + '</td>' +
                         '</tr>';
                     }).join("") +
-                '</tbody><tfoot><tr><td colspan="' + (semuaOutlet ? 6 : 5) + '">Total</td><td class="r">' + rp(total) + '</td><td></td></tr></tfoot></table></div>';
+                '</tbody><tfoot><tr><td colspan="' + (semuaOutlet ? 7 : 6) + '">Total</td><td class="r">' + rp(total) + '</td><td></td></tr></tfoot></table></div>';
         }
 
         /* =====================================================
@@ -862,7 +971,7 @@
             h += baris("Total penjualan", rp(r.penjualanTunai + r.penjualanNonTunai), true);
             h += '<div class="rc-hr"></div><div class="rc-sub">Pengeluaran dari laci</div>';
             if (r.pengeluaran.length === 0) h += '<div class="rc-row"><span>-</span><span></span></div>';
-            r.pengeluaran.forEach(function (p) { h += baris(esc(p.kategori) + ' <span style="color:#8A95A5;">' + esc(p.keterangan) + '</span>', rp(p.nominal)); });
+            r.pengeluaran.forEach(function (p) { h += baris(esc(p.kategori) + (p.keterangan ? ' <span style="color:#8A95A5;">' + esc(p.keterangan) + '</span>' : ''), rp(p.nominal)); });
             h += baris("Total pengeluaran", rp(r.totalPengeluaran), true);
             h += '<div class="rc-hr"></div><div class="rc-sub">Kas laci</div>' +
                 baris("Kas awal", rp(r.kasAwal)) +
