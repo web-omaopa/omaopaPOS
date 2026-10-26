@@ -14,7 +14,7 @@
    akan tampil sebagai "Segera hadir" di Beranda. */
 const HALAMAN_INFO = {
     kasir:          { href: "pos.html",            icon: "🧾", title: "Kasir",           desc: "Buat transaksi penjualan",          dibangun: true },
-    kas:            { href: "kas.html",            icon: "💰", title: "Kas & Tutup Toko", desc: "Kas awal, pengeluaran & kas akhir outlet", dibangun: true },
+    kas:            { href: "kas.html",            icon: "💰", title: "Ganti Shift / Hari", desc: "Kas awal, pengeluaran, akhiri shift & tutup toko", dibangun: true },
     stok:           { href: "stok.html",           icon: "📦", title: "Stok",            desc: "Lihat & pantau stok outlet",        dibangun: true },
     alokasi:        { href: "alokasi.html",        icon: "📋", title: "Manajemen Menu", desc: "Rencana, lapor & approval stok", dibangun: true },
     transfer:       { href: "transfer.html",       icon: "🚚", title: "Transfer",        desc: "Kirim & terima stok antar outlet",  dibangun: true },

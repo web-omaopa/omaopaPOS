@@ -16,7 +16,7 @@ Sistem kasir (POS) multi-outlet untuk Oma Opa. Situs: https://pos.omaopa.store (
 - `pengaturan.html`, `produk.html`, `user.html` : pengelolaan produk, outlet, user
 - `api/upload-foto.php`, `api/foto.php` : upload & tampil foto produk (`?f=`) dan bukti pengeluaran (`jenis=bukti`, `?b=`) di Hostinger (PHP). Disimpan di `foto_produk/` dan `bukti_pengeluaran/` di luar `public_html` supaya tidak hilang saat deploy ulang.
 - `roles.js` : sumber tunggal hak akses per role (`ROLE_PERMISSIONS`, `HALAMAN_INFO`)
-- `kas.html` + `kas.js` : sesi kas outlet (buka toko dengan kas awal di `pos.html`, pengeluaran outlet, tutup toko dengan kas akhir & selisih, riwayat)
+- `kas.html` + `kas.js` : "Ganti Shift / Hari" (mengikuti ESB): buka toko / mulai shift dengan kas awal di `pos.html`, pengeluaran outlet, rekap penjualan shift, Akhiri Shift / Tutup Toko dengan kas akhir & selisih, Detail Rekapitulasi
 - `laporan.html` : daftar laporan + Rekap penjualan & Penjualan per produk (filter, download Excel/PDF)
 - Halaman terencana tapi belum ada: `riwayat.html`
 

@@ -10,7 +10,8 @@
          jumlahTrx, penjualanPerMetode: { Tunai: Rp, QRIS: Rp, ... }   (ditambah POS tiap transaksi)
          -- diisi saat tutup --
          kasAkhir, penjualanTunai, penjualanNonTunai, totalPengeluaran,
-         kasSeharusnya, selisih, catatan, waktuTutup, ditutupUid, ditutupNama }
+         kasSeharusnya, selisih, catatan, waktuTutup, ditutupUid, ditutupNama,
+         jenisTutup: "shift" (Akhiri Shift, serah terima kasir) | "toko" (Tutup Toko, akhir hari) }
    - pengeluaran/{auto} satu dokumen per pengeluaran
        { outlet, tanggal, kategori, nominal, keterangan,
          dariLaci: bool (true = uang diambil dari laci kas, mengurangi kas seharusnya),
@@ -133,7 +134,7 @@ function kasHitungPenjualanSesi(db, sesi) {
     const tutup = kasToDate(sesi.data.waktuTutup);
     const dariCatatan = function () {
         const per = Object.assign({}, sesi.data.penjualanPerMetode || {});
-        return { perMetode: per, jumlahTrx: Number(sesi.data.jumlahTrx) || 0, sumber: "catatan" };
+        return { perMetode: per, jumlahTrx: Number(sesi.data.jumlahTrx) || 0, sumber: "catatan", transaksi: null };
     };
     if (!buka) return Promise.resolve(dariCatatan());
 
@@ -141,15 +142,18 @@ function kasHitungPenjualanSesi(db, sesi) {
     if (tutup) q = q.where("waktu", "<=", firebase.firestore.Timestamp.fromDate(tutup));
     return q.get().then(function (snap) {
         const per = {};
-        let jumlah = 0;
+        const daftar = [];
         snap.forEach(function (doc) {
-            const t = doc.data();
+            const t = doc.data({ serverTimestamps: "estimate" });
             if (t.outlet !== sesi.data.outlet || t.status === "batal") return;
             const m = t.metodeBayar || "Tunai";
             per[m] = (per[m] || 0) + (Number(t.total) || 0);
-            jumlah++;
+            t._id = doc.id;
+            t._waktu = kasToDate(t.waktu) || new Date(0);
+            daftar.push(t);
         });
-        return { perMetode: per, jumlahTrx: jumlah, sumber: "transaksi" };
+        daftar.sort(function (a, b) { return b._waktu - a._waktu; });
+        return { perMetode: per, jumlahTrx: daftar.length, sumber: "transaksi", transaksi: daftar };
     }).catch(function (e) {
         console.warn("Transaksi sesi tidak bisa dibaca, pakai catatan sesi:", e.message);
         return dariCatatan();
@@ -170,6 +174,7 @@ function kasRingkasanSesi(db, sesi) {
             perMetode: jual.perMetode,
             jumlahTrx: jual.jumlahTrx,
             sumberPenjualan: jual.sumber,
+            transaksi: jual.transaksi,     // null kalau transaksi tidak bisa dibaca
             penjualanTunai: tunai,
             penjualanNonTunai: nonTunai,
             pengeluaran: pengeluaran,
