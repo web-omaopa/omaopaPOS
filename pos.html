@@ -8,8 +8,9 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
-    <script src="roles.js?v=20261020a"></script>
+    <script src="roles.js?v=20261027a"></script>
     <script src="keuangan.js?v=20261020a"></script>
+    <script src="kas.js?v=20261027a"></script>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -232,6 +233,13 @@
         .msg-success { background: #eaf6ea; color: #1e7d32; }
 
         .denied-state { text-align: center; color: #6b7280; font-size: 12px; padding: 40px 0; }
+
+        /* ===== Buka toko (kas awal) ===== */
+        .buka-wrap { max-width: 440px; margin: 30px auto; }
+        .buka-kartu { background: #ffffff; border: 1px solid #dde3ea; border-radius: 14px; padding: 22px; }
+        .buka-judul { font-size: 17px; font-weight: 800; color: #12305C; }
+        .buka-sub { font-size: 12px; color: #6b7280; margin-top: 4px; line-height: 1.5; }
+        .buka-info { background: #F1F4F8; border-radius: 8px; padding: 9px 12px; margin-top: 12px; font-size: 11px; color: #52606d; line-height: 1.5; }
 
         .modal-overlay {
             display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -521,9 +529,9 @@
         });
 
         function logout() {
-            [stockUnsubscribe, produkUnsubscribe, toppingUnsubscribe, modeUnsubscribe, promoUnsubscribe]
+            [stockUnsubscribe, produkUnsubscribe, toppingUnsubscribe, modeUnsubscribe, promoUnsubscribe, sesiKasUnsubscribe]
                 .forEach(function (stop) { if (stop) stop(); });
-            stockUnsubscribe = produkUnsubscribe = toppingUnsubscribe = modeUnsubscribe = promoUnsubscribe = null;
+            stockUnsubscribe = produkUnsubscribe = toppingUnsubscribe = modeUnsubscribe = promoUnsubscribe = sesiKasUnsubscribe = null;
             auth.signOut().then(function () {
                 sessionStorage.removeItem("omaopa_user");
                 sessionStorage.removeItem("omaopa_outlet_kasir");
@@ -580,11 +588,187 @@
                     '<div class="empty-state" style="padding:40px 0;">Akun kasir ini belum punya outlet. Minta admin mengatur outletnya di Pengaturan &gt; User.</div>';
                 return;
             }
+            cekSesiKas();
+        }
+
+        /* =====================================================
+           SESI KAS (buka toko dengan kas awal)
+           Sebelum bisa transaksi, outlet harus punya sesi kas yang
+           "buka" (lihat kas.js). Satu sesi per outlet: kasir lain
+           yang login di outlet yang sama langsung ikut sesi itu.
+           Tutup toko (kas akhir) dilakukan di halaman kas.html.
+        ====================================================== */
+        let sesiKasAktif = null;      // { id, data }
+        let sesiKasUnsubscribe = null;
+        let posSudahDimulai = false;
+
+        function cekSesiKas() {
+            document.getElementById("mainContent").innerHTML = '<div class="loading-state">Memeriksa kas outlet...</div>';
+            kasCariSesiAktif(db, currentUser.outlet).then(function (sesi) {
+                if (sesi) { pakaiSesiKas(sesi); return; }
+                tampilkanBukaToko();
+            }).catch(function (error) {
+                document.getElementById("mainContent").innerHTML =
+                    '<div class="empty-state" style="padding:40px 0;">Gagal memeriksa kas outlet: ' + escapeHtmlAman(error.message) +
+                    '<br><button type="button" class="btn-mini navy" style="margin-top:12px;" onclick="cekSesiKas()">Coba lagi</button></div>';
+            });
+        }
+
+        /* Layar buka: kalau shift terakhir hari ini diakhiri lewat "Akhiri Shift",
+           ini pergantian shift (kas awal = kas akhir shift sebelumnya).
+           Selain itu buka toko biasa, dengan saran kas akhir tutup terakhir. */
+        function tampilkanBukaToko() {
+            const main = document.getElementById("mainContent");
+            main.innerHTML = '<div class="loading-state">Memeriksa shift terakhir...</div>';
+            kasCariSesiTerakhirTutup(db, currentUser.outlet).catch(function () { return null; }).then(function (lalu) {
+                const gantiShift = !!lalu && lalu.data.jenisTutup === "shift" && lalu.data.tanggal === hariIniStr();
+                const w = lalu ? kasToDate(lalu.data.waktuTutup) : null;
+                let info = "";
+                if (gantiShift) {
+                    info = '<div class="buka-info">Shift sebelumnya diakhiri oleh <b>' + escHtml(lalu.data.ditutupNama || "-") + '</b>' +
+                        (w ? ' pukul ' + escHtml(fmtWaktu(w).split(" ")[1]) : '') + ' dengan kas akhir <b>' + rp(lalu.data.kasAkhir) + '</b>. ' +
+                        'Kas awal sudah diisi dengan angka ini; ubah kalau uang di laci berbeda.</div>';
+                } else if (lalu) {
+                    info = '<div class="buka-info">Kas akhir saat tutup terakhir' + (w ? ' (' + escHtml(fmtWaktu(w)) + ')' : '') +
+                        ': <b>' + rp(lalu.data.kasAkhir) + '</b> · ' +
+                        '<a href="#" style="color:#12305C; font-weight:700;" onclick="isiKasAwal(' + (Number(lalu.data.kasAkhir) || 0) + '); return false;">pakai angka ini</a></div>';
+                }
+                main.innerHTML =
+                    '<div class="buka-wrap"><div class="buka-kartu">' +
+                        '<div class="buka-judul">' + (gantiShift ? 'Mulai Shift' : 'Buka Toko') + '</div>' +
+                        '<div class="buka-sub">' + (gantiShift
+                            ? 'Outlet <b>' + escapeHtmlAman(currentUser.outlet) + '</b> · ganti shift. Hitung uang di laci kas, lalu pastikan kas awal sesuai.'
+                            : 'Outlet <b>' + escapeHtmlAman(currentUser.outlet) + '</b> belum dibuka. Hitung uang di laci kas, lalu masukkan sebagai kas awal (modal kembalian).') + '</div>' +
+                        '<div class="fld-lbl" style="margin-top:16px;">Kas awal</div>' +
+                        '<div class="uang-input-wrap"><span>Rp</span><input type="text" inputmode="numeric" id="inputKasAwal" placeholder="0" autocomplete="off" oninput="kasFormatInput(this)"></div>' +
+                        '<div class="quick-row">' +
+                            NOMINAL_CEPAT_KAS.map(function (n) {
+                                return '<button type="button" class="quick-btn" onclick="isiKasAwal(' + n + ')">' + angka(n) + '</button>';
+                            }).join("") +
+                            '<button type="button" class="quick-btn" id="btnPecahanBuka" onclick="tampilPecahanBuka()">🧮 Hitung per pecahan</button>' +
+                        '</div>' +
+                        '<div id="pecahanBuka" style="display:none; margin-top:12px;"></div>' +
+                        info +
+                        '<div class="msg-box msg-error" id="bukaError" style="margin-top:12px; margin-bottom:0;"></div>' +
+                        '<button type="button" class="btn-bayar-besar" id="btnBukaToko" data-label="' + (gantiShift ? 'Mulai Shift' : 'Buka Toko') + '" style="justify-content:center; margin-top:16px;" onclick="bukaToko()">' + (gantiShift ? 'Mulai Shift' : 'Buka Toko') + '</button>' +
+                        (currentUser.role !== "kasir"
+                            ? '<button type="button" class="btn-aksi2" style="width:100%; margin-top:8px;" onclick="gantiOutletKasir()">📍 Ganti outlet</button>'
+                            : '') +
+                    '</div></div>';
+                if (gantiShift) isiKasAwal(Number(lalu.data.kasAkhir) || 0);
+                document.getElementById("inputKasAwal").focus();
+            });
+        }
+
+        /* Bantu kasir menghitung laci per lembar/koin; totalnya mengisi kas awal */
+        function tampilPecahanBuka() {
+            const el = document.getElementById("pecahanBuka");
+            const buka = el.style.display === "none";
+            el.style.display = buka ? "block" : "none";
+            document.getElementById("btnPecahanBuka").classList.toggle("on", buka);
+            if (buka && !el.innerHTML) el.innerHTML = kasHtmlPecahan("pchBuka", "saatPecahanBuka");
+        }
+
+        function saatPecahanBuka(h) {
+            const el = document.getElementById("inputKasAwal");
+            el.value = h.total ? h.total.toLocaleString("id-ID") : "0";
+        }
+
+        function isiKasAwal(n) {
+            const el = document.getElementById("inputKasAwal");
+            el.value = n ? Number(n).toLocaleString("id-ID") : "";
+            el.focus();
+        }
+
+        function bukaToko() {
+            const btn = document.getElementById("btnBukaToko");
+            const err = document.getElementById("bukaError");
+            const nilai = document.getElementById("inputKasAwal").value.trim();
+            err.style.display = "none";
+            if (nilai === "") { err.textContent = "Isi kas awal dulu (isi 0 kalau laci kosong)."; err.style.display = "block"; return; }
+            const kasAwal = kasParseAngka(nilai);
+            const label = btn.dataset.label || "Buka Toko";
+            if (!confirm(label + " " + currentUser.outlet + " dengan kas awal " + rp(kasAwal) + "?")) return;
+
+            btn.disabled = true; btn.textContent = "Membuka...";
+            // Cek sekali lagi: mungkin kasir lain baru saja membuka toko
+            kasCariSesiAktif(db, currentUser.outlet).then(function (ada) {
+                if (ada) return ada;
+                const ref = db.collection("sesi_kas").doc();
+                const data = {
+                    outlet: currentUser.outlet, tanggal: hariIniStr(), status: "buka",
+                    kasAwal: kasAwal, jumlahTrx: 0, penjualanPerMetode: {},
+                    dibukaUid: currentUser.uid || "", dibukaNama: currentUser.nama || "",
+                    waktuBuka: firebase.firestore.FieldValue.serverTimestamp()
+                };
+                return ref.set(data).then(function () { return { id: ref.id, data: Object.assign({}, data, { waktuBuka: new Date() }) }; });
+            }).then(function (sesi) {
+                pakaiSesiKas(sesi);
+            }).catch(function (error) {
+                btn.disabled = false; btn.textContent = label;
+                err.textContent = "Gagal " + label.toLowerCase() + ": " + error.message;
+                err.style.display = "block";
+            });
+        }
+
+        /* Sesi didengarkan realtime: kalau toko ditutup dari halaman Kas
+           (di perangkat lain), layar Kasir ikut berhenti menerima transaksi. */
+        function pakaiSesiKas(sesi) {
+            sesiKasAktif = sesi;
+            if (sesiKasUnsubscribe) sesiKasUnsubscribe();
+            sesiKasUnsubscribe = db.collection("sesi_kas").doc(sesi.id).onSnapshot(function (doc) {
+                if (doc.exists && doc.data().status === "buka") {
+                    sesiKasAktif = { id: doc.id, data: doc.data({ serverTimestamps: "estimate" }) };
+                    return;
+                }
+                sesiKasAktif = null;
+                if (sesiKasUnsubscribe) { sesiKasUnsubscribe(); sesiKasUnsubscribe = null; }
+                tokoSudahDitutup(doc.exists ? doc.data().jenisTutup : "");
+            }, function (error) {
+                console.warn("Sesi kas tidak bisa dipantau:", error.message);
+            });
+
+            if (posSudahDimulai) return;
+            posSudahDimulai = true;
             renderMainContent();
             loadModePenjualan();
             loadTopping();
             loadProducts();
             loadPromo();
+        }
+
+        function tokoSudahDitutup(jenisTutup) {
+            if (sedangMemproses) return; // prosesBayar akan menolak sendiri
+            // Layar produk diganti, jadi listener realtime-nya dihentikan
+            [stockUnsubscribe, produkUnsubscribe, toppingUnsubscribe, modeUnsubscribe, promoUnsubscribe]
+                .forEach(function (stop) { if (stop) stop(); });
+            stockUnsubscribe = produkUnsubscribe = toppingUnsubscribe = modeUnsubscribe = promoUnsubscribe = null;
+            ["layarBayar", "layarBerhasil"].forEach(function (id) { document.getElementById(id).classList.remove("open"); });
+            document.querySelectorAll(".modal-overlay.open").forEach(function (m) { m.classList.remove("open"); });
+            document.getElementById("mainContent").innerHTML =
+                '<div class="buka-wrap"><div class="buka-kartu" style="text-align:center;">' +
+                    (jenisTutup === "shift"
+                        ? '<div class="buka-judul">Shift sudah diakhiri</div>' +
+                          '<div class="buka-sub">Shift di outlet ' + escapeHtmlAman(currentUser.outlet) + ' sudah diakhiri. Kasir berikutnya mulai shift baru; kas awal otomatis diisi dari kas akhir shift tadi.</div>' +
+                          '<button type="button" class="btn-bayar-besar" style="justify-content:center; margin-top:16px;" onclick="window.location.reload()">Mulai shift baru</button>'
+                        : '<div class="buka-judul">Toko sudah ditutup</div>' +
+                          '<div class="buka-sub">Outlet ' + escapeHtmlAman(currentUser.outlet) + ' sudah ditutup. Transaksi baru perlu buka toko lagi dengan kas awal.</div>' +
+                          '<button type="button" class="btn-bayar-besar" style="justify-content:center; margin-top:16px;" onclick="window.location.reload()">Buka toko lagi</button>') +
+                    '<a href="kas.html" class="btn-aksi2" style="margin-top:8px; text-decoration:none; height:40px;">Lihat rekap shift</a>' +
+                '</div></div>';
+        }
+
+        /* Tambah penjualan ke catatan sesi kas (cadangan perhitungan kas
+           akhir kalau transaksi tidak bisa dibaca). Gagal tidak membatalkan
+           transaksi, sama seperti ringkasan harian. */
+        function catatPenjualanSesiKas(sesiId, metode, total) {
+            if (!sesiId) return;
+            const naik = firebase.firestore.FieldValue.increment;
+            const per = {};
+            per[metode] = naik(Number(total) || 0);
+            db.collection("sesi_kas").doc(sesiId)
+                .set({ jumlahTrx: naik(1), penjualanPerMetode: per }, { merge: true })
+                .catch(function (e) { console.warn("Penjualan belum tercatat di sesi kas:", e.message); });
         }
 
         /* Promo, mode penjualan, topping, dan produk didengarkan
@@ -1112,6 +1296,7 @@
                     (currentUser.role !== "kasir"
                         ? '<button type="button" class="btn-promo" onclick="gantiOutletKasir()" title="Ganti outlet">📍 ' + escapeHtmlAman(currentUser.outlet) + ' · ganti</button>'
                         : '') +
+                    '<a href="kas.html" class="btn-promo" style="text-decoration:none;" title="Uang di laci, pengeluaran, akhiri shift & tutup toko">💰 Shift & Kas</a>' +
                 '</div>' +
                 '<div class="kategori-tabs" id="kategoriTabs"></div>' +
                 '<div class="pos-grid">' +
@@ -1872,6 +2057,8 @@
             const r = ringkasanKeranjang();
             const bayar = hitungBayar(r.total);
             if (!bayar.cukup) { tampilErrorKonfirmasi("Uang diterima kurang dari total."); return; }
+            if (!sesiKasAktif) { tampilErrorKonfirmasi("Toko sudah ditutup. Buka toko lagi dengan kas awal sebelum transaksi."); return; }
+            const sesiKasId = sesiKasAktif.id;
 
             sedangMemproses = true;
             const btn = document.getElementById("btnProsesBayar");
@@ -1951,6 +2138,7 @@
             })
             .then(function () {
                 catatRingkasanHarian(itemsRingkasan, diskonPromo);
+                catatPenjualanSesiKas(sesiKasId, metodeBayar, total);
                 transaksiTerakhir = snapshotStruk;
                 cart = {};
                 promoDinonaktifkanManual = {};

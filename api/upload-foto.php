@@ -1,9 +1,10 @@
 <?php
 /* =========================================================
-   UPLOAD FOTO PRODUK KE HOSTINGER
-   - Dipanggil dari pengaturan.html (Tambah/Edit Produk)
-   - Hanya user yang login Firebase dengan role
-     management / admin / owner yang boleh upload
+   UPLOAD FOTO PRODUK & BUKTI PENGELUARAN KE HOSTINGER
+   - Foto produk: dari pengaturan.html (Tambah/Edit Produk),
+     hanya role management / admin / owner
+   - Bukti pengeluaran (POST jenis=bukti): dari kas.html,
+     boleh juga role kasir; disimpan di folder bukti_pengeluaran/
    - Foto disimpan DI LUAR public_html (folder foto_produk/)
      supaya tidak terhapus saat deploy ulang dari GitHub,
      lalu ditampilkan lewat api/foto.php
@@ -49,9 +50,12 @@ if (!$uid) {
 
 /* ---------- 2. Cek role dari Firestore ---------- */
 
+$jenisBukti = ($_POST['jenis'] ?? '') === 'bukti';
+$folderTujuan = $jenisBukti ? FOLDER_BUKTI : FOLDER_FOTO;
+
 $role = ambilRoleUser($uid, $token);
-if (!in_array($role, ROLE_BOLEH_UPLOAD, true)) {
-    balas(403, ['error' => 'Role Anda tidak punya izin upload foto produk.']);
+if (!in_array($role, $jenisBukti ? ROLE_BOLEH_UPLOAD_BUKTI : ROLE_BOLEH_UPLOAD, true)) {
+    balas(403, ['error' => $jenisBukti ? 'Role Anda tidak punya izin upload bukti pengeluaran.' : 'Role Anda tidak punya izin upload foto produk.']);
 }
 
 /* ---------- 3. Cek file ---------- */
@@ -69,15 +73,18 @@ if (!$info || !in_array($info[2], [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_WEBP
     balas(400, ['error' => 'File bukan gambar JPG, PNG, atau WEBP.']);
 }
 
-if (!siapkanFolderFoto()) {
+if (!siapkanFolder($folderTujuan)) {
     balas(500, ['error' => 'Folder penyimpanan foto di Hostinger tidak bisa ditulis.']);
 }
 
 /* ---------- 4. Simpan (dibuat ulang jadi JPEG bersih) ---------- */
 
 $namaAsli = preg_replace('/[^a-z0-9-]/', '', strtolower(pathinfo($_FILES['foto']['name'], PATHINFO_FILENAME)));
-$namaFile = time() . '_' . bin2hex(random_bytes(4)) . ($namaAsli !== '' ? '_' . substr($namaAsli, 0, 40) : '') . '.jpg';
-$tujuan = FOLDER_FOTO . '/' . $namaFile;
+// Nama bukti lebih acak (16 byte) karena foto.php tidak memeriksa login
+$namaFile = $jenisBukti
+    ? time() . '_' . bin2hex(random_bytes(16)) . '.jpg'
+    : time() . '_' . bin2hex(random_bytes(4)) . ($namaAsli !== '' ? '_' . substr($namaAsli, 0, 40) : '') . '.jpg';
+$tujuan = $folderTujuan . '/' . $namaFile;
 
 if (function_exists('imagecreatefromstring')) {
     $img = @imagecreatefromstring($isi);
@@ -104,7 +111,7 @@ if (!$berhasil) {
     balas(500, ['error' => 'Gagal menyimpan foto di Hostinger.']);
 }
 
-balas(200, ['url' => 'api/foto.php?f=' . $namaFile]);
+balas(200, ['url' => 'api/foto.php?' . ($jenisBukti ? 'b=' : 'f=') . $namaFile]);
 
 
 /* =========================================================

@@ -14,6 +14,7 @@
    akan tampil sebagai "Segera hadir" di Beranda. */
 const HALAMAN_INFO = {
     kasir:          { href: "pos.html",            icon: "🧾", title: "Kasir",           desc: "Buat transaksi penjualan",          dibangun: true },
+    kas:            { href: "kas.html",            icon: "💰", title: "Shift & Kas", desc: "Uang di laci, pengeluaran, akhiri shift & tutup toko", dibangun: true },
     stok:           { href: "stok.html",           icon: "📦", title: "Stok",            desc: "Lihat & pantau stok outlet",        dibangun: true },
     alokasi:        { href: "alokasi.html",        icon: "📋", title: "Manajemen Menu", desc: "Rencana, lapor & approval stok", dibangun: true },
     transfer:       { href: "transfer.html",       icon: "🚚", title: "Transfer",        desc: "Kirim & terima stok antar outlet",  dibangun: true },
@@ -27,10 +28,10 @@ const HALAMAN_INFO = {
    Contoh menambah role baru: cukup tambah baris baru di sini,
    tidak perlu ubah kode di halaman manapun. */
 const ROLE_PERMISSIONS = {
-    management: ["kasir", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
-    admin:      ["kasir", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
-    owner:      ["kasir", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
-    kasir:      ["kasir", "alokasi", "stok", "transfer"],
+    management: ["kasir", "kas", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
+    admin:      ["kasir", "kas", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
+    owner:      ["kasir", "kas", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
+    kasir:      ["kasir", "kas", "alokasi", "stok", "transfer"],
     forecaster: ["stok", "transfer", "laporan"]
 };
 
