@@ -11,7 +11,8 @@
          -- diisi saat tutup --
          kasAkhir, penjualanTunai, penjualanNonTunai, totalPengeluaran,
          kasSeharusnya, selisih, catatan, waktuTutup, ditutupUid, ditutupNama,
-         jenisTutup: "shift" (Akhiri Shift, serah terima kasir) | "toko" (Tutup Toko, akhir hari) }
+         jenisTutup: "shift" (Akhiri Shift, serah terima kasir) | "toko" (Tutup Toko, akhir hari),
+         rincianPecahan: { "100000": lembar, ... } (kalau dihitung per pecahan) }
    - pengeluaran/{auto} satu dokumen per pengeluaran
        { outlet, tanggal, kategori, nominal, keterangan,
          dariLaci: bool (true = uang diambil dari laci kas, mengurangi kas seharusnya),
@@ -232,4 +233,66 @@ function kasUploadBukti(file) {
         if (e && e.message === "Failed to fetch") throw new Error("Koneksi terputus saat upload. Coba lagi.");
         throw e;
     });
+}
+
+/* =====================================================================
+   KALKULATOR PECAHAN UANG
+   Dipakai saat buka toko / mulai shift (pos.html) dan saat menghitung
+   kas akhir (kas.html). Kasir mengisi jumlah lembar/koin, total dihitung
+   otomatis. Gaya dipasang sekali lewat kasPasangGayaPecahan().
+========================================================================= */
+const PECAHAN_UANG = [100000, 50000, 20000, 10000, 5000, 2000, 1000, 500, 200, 100];
+
+function kasPasangGayaPecahan() {
+    if (document.getElementById("gayaPecahan")) return;
+    const st = document.createElement("style");
+    st.id = "gayaPecahan";
+    st.textContent =
+        ".pch-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px}" +
+        "@media(max-width:520px){.pch-grid{grid-template-columns:1fr}}" +
+        ".pch-row{display:flex;align-items:center;gap:8px;background:#F4F6FA;border-radius:10px;padding:6px 8px}" +
+        ".pch-nom{flex:1;font-size:12.5px;font-weight:800;color:#12305C}" +
+        ".pch-nom small{display:block;font-size:9.5px;font-weight:600;color:#8A95A5}" +
+        ".pch-btn{width:30px;height:30px;border-radius:8px;border:1px solid #d1d9e6;background:#fff;font-size:16px;font-weight:700;color:#12305C;cursor:pointer;line-height:1;font-family:inherit}" +
+        ".pch-btn:active{background:#E8EEF9}" +
+        ".pch-in{width:46px;height:30px;border:1px solid #d1d9e6;border-radius:8px;text-align:center;font-size:13px;font-weight:700;font-family:inherit}" +
+        ".pch-sub{width:78px;text-align:right;font-size:11px;color:#52606d}";
+    document.head.appendChild(st);
+}
+
+/* HTML kalkulator. id = awalan id elemen; onUbah = nama fungsi global
+   yang dipanggil setiap jumlah berubah. */
+function kasHtmlPecahan(id, onUbah) {
+    kasPasangGayaPecahan();
+    return '<div class="pch-grid">' + PECAHAN_UANG.map(function (n) {
+        const koin = n < 1000;
+        return '<div class="pch-row">' +
+            '<div class="pch-nom">' + n.toLocaleString("id-ID") + '<small>' + (koin ? "koin" : "lembar") + '</small></div>' +
+            '<button type="button" class="pch-btn" onclick="kasUbahPecahan(\'' + id + '\',' + n + ',-1,\'' + onUbah + '\')">−</button>' +
+            '<input type="text" inputmode="numeric" class="pch-in" id="' + id + '_' + n + '" value="0" oninput="this.value=this.value.replace(/[^0-9]/g,\'\'); kasUbahPecahan(\'' + id + '\',' + n + ',0,\'' + onUbah + '\')">' +
+            '<button type="button" class="pch-btn" onclick="kasUbahPecahan(\'' + id + '\',' + n + ',1,\'' + onUbah + '\')">+</button>' +
+            '<div class="pch-sub" id="' + id + '_' + n + '_sub">0</div>' +
+        '</div>';
+    }).join("") + '</div>';
+}
+
+function kasUbahPecahan(id, nominal, delta, onUbah) {
+    const el = document.getElementById(id + "_" + nominal);
+    if (!el) return;
+    const jumlah = Math.max(0, (parseInt(el.value, 10) || 0) + delta);
+    if (delta !== 0 || el.value !== "") el.value = jumlah;
+    document.getElementById(id + "_" + nominal + "_sub").textContent = (jumlah * nominal).toLocaleString("id-ID");
+    if (onUbah && typeof window[onUbah] === "function") window[onUbah](kasTotalPecahan(id));
+}
+
+/* { total, rincian: { "100000": 3, ... } } (hanya pecahan yang terisi) */
+function kasTotalPecahan(id) {
+    let total = 0;
+    const rincian = {};
+    PECAHAN_UANG.forEach(function (n) {
+        const el = document.getElementById(id + "_" + n);
+        const j = el ? (parseInt(el.value, 10) || 0) : 0;
+        if (j > 0) { rincian[String(n)] = j; total += j * n; }
+    });
+    return { total: total, rincian: rincian };
 }

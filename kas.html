@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Oma Opa POS - Ganti Shift / Hari</title>
+    <title>Oma Opa POS - Shift & Kas</title>
 
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
-    <script src="roles.js?v=20261026b"></script>
-    <script src="kas.js?v=20261026c"></script>
+    <script src="roles.js?v=20261027a"></script>
+    <script src="kas.js?v=20261027a"></script>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -36,179 +36,226 @@
         .sidebar .user-role { font-size: 10px; color: #8AA0C7; margin-bottom: 8px; }
         .sidebar .logout-link { font-size: 11px; color: #FF8A80; background: none; border: none; cursor: pointer; padding: 0; }
 
-        .content { flex: 1; min-width: 0; padding: 24px 28px 60px; max-width: 1180px; }
+        .content { flex: 1; min-width: 0; padding: 22px 26px 80px; background: #F4F6FA; }
+        .wrap { max-width: 1120px; }
+        @media (max-width: 800px) { .content { padding: 16px 14px 80px; } }
 
-        .header-row { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 14px; gap: 12px; flex-wrap: wrap; }
-        .header-row h2 { font-size: 16px; font-weight: 700; }
-        .header-sub { font-size: 11.5px; color: #6b7280; margin-top: 3px; }
-
-        .ctrl-label { font-size: 10px; font-weight: 700; color: #6b7280; margin-bottom: 3px; }
-        .ctrl-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 14px; }
-        select.outlet-select, input.tgl-input {
-            height: 34px; border: 1px solid #d1d5db; border-radius: 6px;
-            padding: 0 10px; font-size: 12px; background: #ffffff; font-family: inherit;
+        /* ===== Header & tab ===== */
+        .top-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+        .top-bar h2 { font-size: 18px; font-weight: 800; color: #12305C; }
+        .top-sub { font-size: 11.5px; color: #6b7280; margin-top: 3px; }
+        .seg { display: inline-flex; background: #E3E8F0; border-radius: 12px; padding: 4px; gap: 2px; }
+        .seg button {
+            border: none; background: none; padding: 9px 16px; border-radius: 9px; font-size: 12.5px; font-weight: 700;
+            color: #52606d; cursor: pointer; font-family: inherit; white-space: nowrap;
+        }
+        .seg button.on { background: #ffffff; color: #12305C; box-shadow: 0 1px 4px rgba(18,48,92,0.15); }
+        @media (max-width: 640px) {
+            .top-bar > div { width: 100%; }
+            .seg { width: 100%; overflow-x: auto; }
+            .seg button { flex: 1; padding: 9px 10px; }
+            .tile-row { grid-template-columns: 1fr 1fr; }
+            .tile .v { font-size: 16px; }
+            .hero { padding: 18px; }
+            .hero-aksi { width: 100%; }
+            .hero-aksi .btn-hero { flex: 1; justify-content: center; padding: 0 12px; }
+        }
+        select.outlet-select, input.tgl-input, .cari-input {
+            height: 36px; border: 1px solid #d1d9e6; border-radius: 9px; padding: 0 10px; font-size: 12px; background: #ffffff; font-family: inherit;
         }
 
-        table { width: 100%; border-collapse: collapse; background: #ffffff; border: 1px solid #dde3ea; font-size: 12px; }
-        thead th { text-align: left; padding: 9px 12px; background: #f1f4f8; color: #52606d; font-weight: 700; font-size: 11px; white-space: nowrap; }
-        tbody td, tfoot td { padding: 9px 12px; border-top: 1px solid #e8ecf1; vertical-align: top; }
-        tfoot td { font-weight: 800; background: #F7F8FA; }
-        .tabel-wrap { border: 1px solid #dde3ea; border-radius: 10px; overflow-x: auto; }
-        .tabel-wrap table { border: none; }
-        .r { text-align: right; white-space: nowrap; }
-        .kecil { font-size: 10.5px; color: #8A95A5; margin-top: 2px; }
-
+        /* ===== Umum ===== */
+        .panel { background: #ffffff; border-radius: 16px; padding: 18px; box-shadow: 0 1px 3px rgba(18,48,92,0.08); }
+        .panel-judul { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 14px; }
+        .panel-judul h3 { font-size: 14px; font-weight: 800; color: #1f2937; }
+        .panel-judul .sub { font-size: 11px; color: #8A95A5; font-weight: 400; margin-left: 6px; }
+        .dua-kolom { display: grid; grid-template-columns: 1.15fr 1fr; gap: 16px; margin-top: 16px; }
+        @media (max-width: 1000px) { .dua-kolom { grid-template-columns: 1fr; } }
         .loading-state, .empty-state { text-align: center; color: #6b7280; font-size: 12px; padding: 30px 0; }
         .hint-text { font-size: 10.5px; color: #8A95A5; margin-top: 8px; line-height: 1.5; }
+        .kecil { font-size: 10.5px; color: #8A95A5; margin-top: 2px; }
 
         .btn {
-            height: 34px; padding: 0 14px; border-radius: 8px; font-size: 12px; font-weight: 700;
-            cursor: pointer; font-family: inherit; border: 1px solid #dde3ea; background: #ffffff; color: #52606d;
+            height: 36px; padding: 0 14px; border-radius: 10px; font-size: 12px; font-weight: 700;
+            cursor: pointer; font-family: inherit; border: 1px solid #d1d9e6; background: #ffffff; color: #52606d;
             display: inline-flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none;
         }
         .btn-primary { background: #12305C; border-color: #12305C; color: #ffffff; }
         .btn-danger { color: #B03A2E; }
-        .btn-kecil { height: 26px; padding: 0 9px; font-size: 10.5px; border-radius: 7px; }
+        .btn-kecil { height: 28px; padding: 0 10px; font-size: 11px; border-radius: 8px; }
         .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
-        .kartu { background: #ffffff; border: 1px solid #dde3ea; border-radius: 12px; padding: 16px 18px; margin-bottom: 16px; }
-        .kartu-judul { font-size: 13.5px; font-weight: 800; color: #1f2937; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+        /* ===== Hero laci kas ===== */
+        .hero {
+            background: linear-gradient(135deg, #12305C 0%, #1D4C8F 100%); border-radius: 20px; padding: 22px 24px; color: #ffffff;
+            box-shadow: 0 10px 28px rgba(18,48,92,0.25);
+        }
+        .hero-status { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; color: #C9D6EC; }
+        .titik { width: 9px; height: 9px; border-radius: 50%; background: #4ADE80; box-shadow: 0 0 0 4px rgba(74,222,128,0.25); animation: denyut 1.8s infinite; }
+        @keyframes denyut { 50% { box-shadow: 0 0 0 7px rgba(74,222,128,0.05); } }
+        .hero-status b { color: #ffffff; }
+        .hero-isi { display: flex; justify-content: space-between; align-items: flex-end; gap: 18px; flex-wrap: wrap; margin-top: 14px; }
+        .hero-label { font-size: 12.5px; color: #C9D6EC; }
+        .hero-angka { font-size: 40px; font-weight: 800; letter-spacing: -0.5px; margin-top: 2px; }
+        @media (max-width: 560px) { .hero-angka { font-size: 32px; } }
+        .rumus { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+        .rumus .bagian { background: rgba(255,255,255,0.12); border-radius: 10px; padding: 8px 12px; }
+        .rumus .bagian .k { font-size: 10px; color: #C9D6EC; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+        .rumus .bagian .v { font-size: 15px; font-weight: 800; margin-top: 2px; }
+        .rumus .op { font-size: 18px; font-weight: 800; color: #9FB4D6; }
+        .hero-aksi { display: flex; gap: 10px; flex-wrap: wrap; }
+        .btn-hero {
+            height: 46px; padding: 0 20px; border-radius: 12px; font-size: 13px; font-weight: 800; cursor: pointer; font-family: inherit;
+            display: inline-flex; align-items: center; gap: 8px;
+        }
+        .btn-hero.putih { background: #ffffff; color: #12305C; border: none; }
+        .btn-hero.merah { background: #E5534B; color: #ffffff; border: none; }
+        .btn-hero.garis { background: transparent; color: #ffffff; border: 1.5px solid rgba(255,255,255,0.5); }
+        .btn-hero:hover { filter: brightness(1.05); }
 
-        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-bottom: 16px; }
-        .stat { border: 1px solid #dde3ea; border-radius: 10px; padding: 12px 14px; background: #ffffff; }
-        .stat .k { font-size: 10.5px; font-weight: 700; color: #8A95A5; }
-        .stat .v { font-size: 19px; font-weight: 800; margin-top: 4px; color: #1f2937; }
-        .stat .s { font-size: 10px; color: #8A95A5; margin-top: 3px; }
-        .stat.utama { background: #12305C; border-color: #12305C; }
-        .stat.utama .k, .stat.utama .s { color: #B8C7E0; }
-        .stat.utama .v { color: #ffffff; }
+        /* ===== Penjualan ===== */
+        .angka-besar { font-size: 26px; font-weight: 800; color: #1f2937; }
+        .meta-row { display: flex; gap: 16px; flex-wrap: wrap; font-size: 11.5px; color: #6b7280; margin-top: 4px; }
+        .meta-row b { color: #1f2937; }
+        .bar-list { margin-top: 16px; }
+        .bar-item { margin-bottom: 12px; }
+        .bar-head { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px; }
+        .bar-head span:first-child { font-weight: 700; color: #374151; }
+        .bar-head .laci { font-size: 9.5px; font-weight: 800; color: #9A6B1C; background: #FFF1D6; padding: 2px 6px; border-radius: 6px; margin-left: 6px; }
+        .bar-track { height: 9px; background: #EEF1F5; border-radius: 6px; overflow: hidden; }
+        .bar-fill { height: 100%; border-radius: 6px; }
+        .sub-judul { font-size: 11px; font-weight: 800; color: #8A95A5; text-transform: uppercase; letter-spacing: 0.04em; margin: 18px 0 8px; }
+        .top-produk { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid #F0F2F6; font-size: 12.5px; }
+        .top-produk:first-of-type { border-top: none; }
+        .rank { width: 22px; height: 22px; border-radius: 7px; background: #E8EEF9; color: #12305C; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .top-produk .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .top-produk .q { font-weight: 800; color: #12305C; }
 
-        .status-pill { display: inline-block; font-size: 10px; font-weight: 800; padding: 3px 9px; border-radius: 10px; }
-        .pill-buka { background: #E7F6ED; color: #1E7D32; }
-        .pill-tutup { background: #EEF0F3; color: #52606d; }
-        .pill-laci { background: #FFF1D6; color: #9A6B1C; }
-        .pill-luar { background: #E8EEF9; color: #12305C; }
+        /* ===== Pengeluaran ===== */
+        .pg-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid #F0F2F6; }
+        .pg-item:first-child { border-top: none; }
+        .pg-ikon { width: 36px; height: 36px; border-radius: 10px; background: #FFF1E6; display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
+        .pg-info { flex: 1; min-width: 0; }
+        .pg-info .t { font-size: 12.5px; font-weight: 700; color: #1f2937; }
+        .pg-info .m { font-size: 10.5px; color: #8A95A5; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .pg-nominal { font-size: 13px; font-weight: 800; color: #C2410C; white-space: nowrap; }
+        .pg-aksi { display: flex; gap: 6px; align-items: center; }
+        .link-bukti { color: #2F6FD6; font-weight: 700; text-decoration: none; font-size: 13px; }
+        .btn-ikon { width: 28px; height: 28px; border-radius: 8px; border: 1px solid #E5E7EB; background: #fff; color: #B03A2E; cursor: pointer; font-size: 13px; }
+        .kosong { text-align: center; color: #9aa5b1; font-size: 12px; padding: 26px 0; line-height: 1.6; }
+        .kosong .ikon { font-size: 34px; opacity: 0.5; }
+        .kat-bar { display: grid; grid-template-columns: 150px 1fr 90px; gap: 10px; align-items: center; font-size: 12px; margin-bottom: 8px; }
+        @media (max-width: 560px) { .kat-bar { grid-template-columns: 110px 1fr 80px; } }
+        .kat-bar .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #374151; }
+        .kat-bar .v { text-align: right; font-weight: 800; }
+        .fab-tambah {
+            position: fixed; right: 26px; bottom: 26px; height: 52px; padding: 0 20px; border-radius: 26px; border: none;
+            background: #E0761A; color: #ffffff; font-size: 13.5px; font-weight: 800; cursor: pointer; z-index: 10;
+            box-shadow: 0 8px 20px rgba(224,118,26,0.4); font-family: inherit; display: flex; align-items: center; gap: 8px;
+        }
+        .fab-tambah span { font-size: 22px; line-height: 1; }
 
-        .selisih-plus { color: #1E7D32; font-weight: 800; }
-        .selisih-min { color: #B03A2E; font-weight: 800; }
-        .selisih-pas { color: #52606d; font-weight: 800; }
+        /* ===== Filter chips ===== */
+        .filter-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+        .chip-f { height: 32px; padding: 0 13px; border-radius: 16px; border: 1px solid #d1d9e6; background: #ffffff; font-size: 12px; font-weight: 700; color: #52606d; cursor: pointer; font-family: inherit; }
+        .chip-f.on { background: #12305C; border-color: #12305C; color: #ffffff; }
 
-        .uang-input-wrap { height: 50px; border: 2px solid #12305C; border-radius: 10px; display: flex; align-items: center; padding: 0 14px; gap: 8px; max-width: 360px; }
-        .uang-input-wrap span { font-size: 12px; color: #8A95A5; }
-        .uang-input-wrap input { flex: 1; border: none; outline: none; font-size: 22px; font-weight: 800; text-align: right; font-family: inherit; min-width: 0; color: #1f2937; }
-        .tutup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-        @media (max-width: 800px) { .tutup-grid { grid-template-columns: 1fr; } .content { padding: 18px 16px 60px; } }
-        .hasil-box { background: #F1F4F8; border-radius: 10px; padding: 12px 14px; }
-        .hasil-row { display: flex; justify-content: space-between; font-size: 12.5px; padding: 5px 0; color: #52606d; }
-        .hasil-row b { color: #1f2937; }
-        .hasil-row.besar { font-size: 15px; border-top: 1px solid #dde3ea; margin-top: 4px; padding-top: 9px; }
+        /* ===== Rekap shift ===== */
+        .tile-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px; }
+        .tile { background: #ffffff; border-radius: 14px; padding: 14px 16px; box-shadow: 0 1px 3px rgba(18,48,92,0.08); }
+        .tile .k { font-size: 10.5px; font-weight: 800; color: #8A95A5; text-transform: uppercase; letter-spacing: 0.03em; }
+        .tile .v { font-size: 20px; font-weight: 800; margin-top: 6px; color: #1f2937; }
+        .tile .s { font-size: 10.5px; color: #8A95A5; margin-top: 3px; }
+        .hari { margin-bottom: 16px; }
+        .hari-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 0 4px 8px; flex-wrap: wrap; }
+        .hari-head .tg { font-size: 13px; font-weight: 800; color: #12305C; }
+        .hari-head .rs { font-size: 11px; color: #6b7280; }
+        .shift-card { background: #ffffff; border-radius: 14px; box-shadow: 0 1px 3px rgba(18,48,92,0.08); margin-bottom: 8px; overflow: hidden; }
+        .shift-row { display: grid; grid-template-columns: 120px 1.3fr 1fr 1fr 1fr 130px 24px; gap: 10px; align-items: center; padding: 13px 16px; cursor: pointer; }
+        .shift-row:hover { background: #F8FAFD; }
+        @media (max-width: 900px) {
+            .shift-row { grid-template-columns: 1fr 1fr; }
+            .shift-row .col-hide { display: none; }
+        }
+        .shift-row .jam { font-size: 13px; font-weight: 800; color: #1f2937; }
+        .shift-row .lbl { font-size: 10px; color: #8A95A5; font-weight: 700; text-transform: uppercase; }
+        .shift-row .val { font-size: 12.5px; font-weight: 700; color: #1f2937; margin-top: 2px; }
+        .badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 800; padding: 5px 10px; border-radius: 10px; white-space: nowrap; }
+        .b-pas { background: #E7F6ED; color: #1E7D32; }
+        .b-kurang { background: #FDEAEA; color: #B03A2E; }
+        .b-lebih { background: #FFF1D6; color: #9A6B1C; }
+        .b-jalan { background: #E8EEF9; color: #1F4FC9; }
+        .tag { display: inline-block; font-size: 9.5px; font-weight: 800; padding: 2px 7px; border-radius: 6px; margin-left: 6px; vertical-align: middle; }
+        .tag-shift { background: #E8EEF9; color: #1F4FC9; }
+        .tag-toko { background: #12305C; color: #ffffff; }
+        .shift-detail { display: none; border-top: 1px solid #F0F2F6; padding: 14px 16px 16px; background: #FBFCFE; }
+        .shift-card.buka .shift-detail { display: block; }
+        .chev { color: #8A95A5; transition: transform 0.15s; font-size: 16px; text-align: center; }
+        .shift-card.buka .chev { transform: rotate(90deg); }
+        .detail-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+        @media (max-width: 800px) { .detail-grid { grid-template-columns: 1fr; } }
+        .dl-row { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding: 4px 0; color: #52606d; }
+        .dl-row b { color: #1f2937; white-space: nowrap; }
 
-        .fld-in, .fld-sel { width: 100%; height: 38px; border: 1px solid #d1d5db; border-radius: 8px; padding: 0 12px; font-size: 12px; font-family: inherit; background: #ffffff; }
-        textarea.fld-in { height: 60px; padding: 8px 12px; resize: vertical; }
-        .fld-lbl { font-size: 11px; font-weight: 700; color: #1f2937; margin: 12px 0 5px; }
+        /* ===== Modal ===== */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(18, 48, 92, 0.4); align-items: center; justify-content: center; z-index: 20; padding: 16px;
+        }
+        .modal-overlay.open { display: flex; }
+        .modal-box { background: #ffffff; border-radius: 18px; padding: 22px; width: 100%; max-width: 440px; max-height: 92vh; overflow: auto; }
+        .modal-box.lebar { max-width: 640px; }
+        .modal-box h3 { font-size: 16px; margin-bottom: 4px; color: #12305C; }
+        .modal-sub { font-size: 11.5px; color: #6b7280; margin-bottom: 6px; line-height: 1.5; }
+        .modal-actions { display: flex; gap: 8px; margin-top: 18px; }
+        .modal-actions .btn { flex: 1; height: 44px; font-size: 13px; }
+        .fld-in, .fld-sel { width: 100%; height: 40px; border: 1px solid #d1d9e6; border-radius: 10px; padding: 0 12px; font-size: 12.5px; font-family: inherit; background: #ffffff; }
+        textarea.fld-in { height: 64px; padding: 9px 12px; resize: vertical; }
+        .fld-lbl { font-size: 11.5px; font-weight: 700; color: #1f2937; margin: 12px 0 5px; }
         .cek-row { display: flex; gap: 8px; align-items: flex-start; font-size: 11.5px; color: #374151; margin-top: 12px; line-height: 1.45; cursor: pointer; }
         .cek-row input { width: 16px; height: 16px; accent-color: #12305C; margin-top: 1px; flex-shrink: 0; }
-
-        .msg-box { font-size: 11px; padding: 8px 10px; border-radius: 6px; margin-top: 10px; display: none; }
+        .msg-box { font-size: 11.5px; padding: 9px 11px; border-radius: 8px; margin-top: 10px; display: none; }
         .msg-error { background: #fdeaea; color: #c0392b; }
-        .msg-success { background: #eaf6ea; color: #1e7d32; }
-
-        .chip-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
-        .chip { font-size: 11px; padding: 5px 10px; border-radius: 14px; background: #F1F4F8; color: #52606d; }
-        .chip b { color: #1f2937; }
-
-        /* Pengeluaran outlet (mengikuti tampilan ESB) */
-        .info-pengeluaran {
-            display: flex; gap: 12px; align-items: center; background: #FBEBDC; border: 1px solid #F0B27A;
-            border-radius: 10px; padding: 12px 16px; margin-bottom: 14px; max-width: 640px;
-        }
-        .info-pengeluaran .ikon { font-size: 22px; }
-        .info-pengeluaran .j { font-size: 12px; font-weight: 800; color: #1f2937; }
-        .info-pengeluaran .d { font-size: 12px; color: #374151; margin-top: 2px; }
-        .judul-bagian { font-size: 15px; color: #1f2937; padding-bottom: 8px; border-bottom: 1px solid #dde3ea; margin-bottom: 12px; }
-        .kosong-pengeluaran { text-align: center; color: #9aa5b1; font-size: 12px; padding: 50px 0 40px; line-height: 1.5; }
-        .kosong-pengeluaran .ikon { font-size: 44px; opacity: 0.45; margin-bottom: 8px; }
-        .fab-tambah {
-            position: fixed; right: 28px; bottom: 28px; width: 56px; height: 56px; border-radius: 50%; border: none;
-            background: #E0522A; color: #ffffff; font-size: 30px; line-height: 1; cursor: pointer; z-index: 10;
-            box-shadow: 0 6px 18px rgba(224, 82, 42, 0.4); font-family: inherit;
-        }
-        .fab-tambah:hover { background: #C8441F; }
-        .fld-in[readonly] { background: #EEF0F3; color: #52606d; }
+        .kat-pilih { display: flex; flex-wrap: wrap; gap: 6px; max-height: 128px; overflow: auto; padding: 2px; }
+        .kat-pilih button { height: 30px; padding: 0 11px; border-radius: 15px; border: 1px solid #d1d9e6; background: #fff; font-size: 11.5px; color: #374151; cursor: pointer; font-family: inherit; }
+        .kat-pilih button.on { background: #12305C; border-color: #12305C; color: #fff; font-weight: 700; }
+        .uang-input { height: 54px; border: 2px solid #12305C; border-radius: 12px; display: flex; align-items: center; padding: 0 14px; gap: 8px; }
+        .uang-input span { font-size: 13px; color: #8A95A5; font-weight: 700; }
+        .uang-input input { flex: 1; border: none; outline: none; font-size: 24px; font-weight: 800; text-align: right; font-family: inherit; min-width: 0; color: #1f2937; background: none; }
         .bukti-kotak {
-            width: 92px; height: 82px; border: 1.5px dashed #2F6FD6; border-radius: 8px; background: #ffffff;
+            width: 92px; height: 82px; border: 1.5px dashed #2F6FD6; border-radius: 10px; background: #ffffff;
             display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; overflow: hidden;
+            flex-direction: column; gap: 4px; font-size: 10px; color: #2F6FD6; font-weight: 700;
         }
-        .bukti-kotak .plus { width: 24px; height: 24px; border-radius: 50%; background: #2F6FD6; color: #ffffff; font-size: 18px; line-height: 24px; text-align: center; font-weight: 700; }
+        .bukti-kotak .plus { font-size: 22px; line-height: 1; }
         .bukti-kotak img { width: 100%; height: 100%; object-fit: cover; }
         .bukti-hapus { position: absolute; top: 3px; right: 3px; width: 20px; height: 20px; border-radius: 50%; border: none; background: rgba(0,0,0,0.6); color: #fff; font-size: 12px; cursor: pointer; line-height: 20px; padding: 0; }
         .bukti-status { font-size: 10.5px; color: #52606d; margin-top: 6px; }
-        .link-bukti { color: #2F6FD6; font-weight: 700; text-decoration: none; font-size: 11px; }
 
-        /* ===== Ganti Shift / Hari (mengikuti tampilan ESB) ===== */
-        .shift-layout { display: grid; grid-template-columns: 250px 1fr; gap: 18px; align-items: start; }
-        @media (max-width: 900px) {
-            .shift-layout { grid-template-columns: 1fr; }
-            .menu-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-            .menu-list .menu-shift { margin-bottom: 0; padding: 12px 8px; font-size: 11.5px; }
-        }
-        .shift-kiri { background: #F4F6FA; border-radius: 14px; padding: 14px; }
-        .aksi-shift { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
-        .btn-akhiri, .btn-tutup-toko {
-            height: 44px; border-radius: 10px; font-size: 12.5px; font-weight: 800; cursor: pointer; font-family: inherit;
-        }
-        .btn-akhiri { background: #ffffff; border: 1.5px solid #D9534F; color: #C0392B; }
-        .btn-tutup-toko { background: #D9534F; border: 1.5px solid #D9534F; color: #ffffff; }
-        .btn-akhiri:disabled, .btn-tutup-toko:disabled { opacity: 0.4; cursor: not-allowed; }
-        .menu-shift {
-            display: block; width: 100%; text-align: center; padding: 18px 10px; margin-bottom: 8px; border-radius: 12px;
-            border: 1px solid #e4e8ee; background: #ffffff; color: #52606d; font-size: 12.5px; cursor: pointer; font-family: inherit; line-height: 1.4;
-        }
-        .menu-shift:hover { border-color: #b9c6dc; }
-        .menu-shift.active { background: #D6E2FB; border-color: #D6E2FB; color: #1F4FC9; font-weight: 800; }
-        .shift-kanan { min-width: 0; }
-        .judul-shift { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; }
-        .judul-shift h3 { font-size: 15px; font-weight: 700; color: #1f2937; }
-        .link-aksi { background: none; border: none; color: #1F4FC9; font-size: 11.5px; font-weight: 700; cursor: pointer; font-family: inherit; }
-        .kelola-bar {
-            display: flex; justify-content: space-between; align-items: center; gap: 10px; background: #F4EFE6;
-            border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; font-size: 13px; font-weight: 700; color: #1f2937;
-        }
-        .btn-kelola { background: #E0761A; color: #ffffff; border: none; border-radius: 8px; height: 30px; padding: 0 14px; font-size: 11.5px; font-weight: 800; cursor: pointer; font-family: inherit; }
-        .kartu-warna-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
-        @media (max-width: 560px) { .kartu-warna-grid { grid-template-columns: 1fr; } }
-        .kartu-warna { border-radius: 14px; padding: 16px 18px 18px; color: #ffffff; min-height: 104px; }
-        .kartu-warna .k { font-size: 12px; font-weight: 700; opacity: 0.95; display: flex; align-items: center; gap: 6px; }
-        .kartu-warna .v { font-size: 26px; font-weight: 800; text-align: center; margin-top: 12px; }
-        .kw-hijau { background: linear-gradient(120deg, #22B04B, #6CCB3E); }
-        .kw-merah { background: linear-gradient(120deg, #E8761E, #E0464E); }
-        .kw-oranye { background: linear-gradient(120deg, #E3A21A, #E0761A); }
-        .kw-biru { background: linear-gradient(120deg, #2E9C7A, #2F5FD6 55%); }
-        .info-shift-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
-        @media (max-width: 560px) { .info-shift-grid { grid-template-columns: 1fr; } }
-        .info-shift-grid .lbl { font-size: 11.5px; color: #52606d; margin-bottom: 4px; }
-        .info-shift-grid .val { background: #EEF2F8; border-radius: 8px; padding: 10px 12px; font-size: 12.5px; font-weight: 700; color: #1f2937; }
-        .cari-input { height: 34px; border: 1px solid #d1d5db; border-radius: 6px; padding: 0 10px; font-size: 12px; font-family: inherit; min-width: 220px; }
-        .tgl-tanggal { color: #1F4FC9; font-weight: 700; }
-        .berlangsung { color: #D97706; font-weight: 700; }
-        .pill-shift { background: #E8EEF9; color: #1F4FC9; }
-        .pill-toko { background: #FDEAEA; color: #B03A2E; }
-        .btn-chevron { background: none; border: none; color: #52606d; font-size: 16px; cursor: pointer; padding: 0 4px; }
-        .angka-kartu-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+        /* Langkah tutup kas */
+        .langkah { display: flex; gap: 6px; margin: 12px 0 16px; }
+        .langkah div { flex: 1; height: 5px; border-radius: 3px; background: #E3E8F0; }
+        .langkah div.on { background: #12305C; }
+        .mode-hitung { display: inline-flex; background: #EEF1F5; border-radius: 10px; padding: 3px; margin-bottom: 12px; }
+        .mode-hitung button { border: none; background: none; padding: 7px 14px; border-radius: 8px; font-size: 12px; font-weight: 700; color: #52606d; cursor: pointer; font-family: inherit; }
+        .mode-hitung button.on { background: #fff; color: #12305C; box-shadow: 0 1px 3px rgba(18,48,92,0.15); }
+        .total-hitung { display: flex; justify-content: space-between; align-items: center; background: #12305C; color: #fff; border-radius: 12px; padding: 12px 16px; margin-top: 12px; }
+        .total-hitung .k { font-size: 11.5px; color: #C9D6EC; }
+        .total-hitung .v { font-size: 22px; font-weight: 800; }
+        .hasil-cek { border-radius: 16px; padding: 18px; text-align: center; }
+        .hasil-cek .ikon { font-size: 34px; }
+        .hasil-cek .j { font-size: 18px; font-weight: 800; margin-top: 4px; }
+        .hasil-cek .d { font-size: 12px; margin-top: 4px; }
+        .hc-pas { background: #E7F6ED; color: #1E7D32; }
+        .hc-kurang { background: #FDEAEA; color: #B03A2E; }
+        .hc-lebih { background: #FFF1D6; color: #9A6B1C; }
+        .banding { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+        .banding > div { background: #F4F6FA; border-radius: 12px; padding: 12px; }
+        .banding .k { font-size: 10.5px; color: #8A95A5; font-weight: 700; }
+        .banding .v { font-size: 17px; font-weight: 800; margin-top: 3px; }
 
-        .modal-overlay {
-            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(18, 48, 92, 0.35); align-items: center; justify-content: center; z-index: 20; padding: 16px;
-        }
-        .modal-overlay.open { display: flex; }
-        .modal-box { background: #ffffff; border-radius: 14px; padding: 22px; width: 100%; max-width: 420px; max-height: 90vh; overflow: auto; }
-        .modal-box h3 { font-size: 15px; margin-bottom: 4px; }
-        .modal-sub { font-size: 11px; color: #6b7280; margin-bottom: 6px; line-height: 1.5; }
-        .modal-actions { display: flex; gap: 8px; margin-top: 18px; }
-        .modal-actions .btn { flex: 1; height: 40px; }
-
-        /* Laporan tutup toko (detail & cetak) */
-        .lap-kertas { background: #F7F8FA; border: 1px solid #e8ecf1; border-radius: 8px; padding: 14px; }
+        /* Laporan (detail & cetak) */
+        .lap-kertas { background: #F7F8FA; border: 1px solid #e8ecf1; border-radius: 10px; padding: 14px; }
         .rc-row { display: flex; justify-content: space-between; gap: 8px; font-size: 11.5px; color: #374151; padding: 2.5px 0; }
         .rc-row.tebal { font-weight: 800; color: #1f2937; }
         .rc-hr { border-top: 1px dashed #b8c0cc; margin: 8px 0; }
@@ -218,7 +265,7 @@
 
         #areaCetak { display: none; }
         @media print {
-            body.mode-cetak .app-layout, body.mode-cetak .modal-overlay { display: none !important; }
+            body.mode-cetak .app-layout, body.mode-cetak .modal-overlay, body.mode-cetak .fab-tambah { display: none !important; }
             body.mode-cetak #areaCetak { display: block !important; width: 58mm; padding: 2mm; font-family: Arial, Helvetica, sans-serif; }
             body.mode-cetak #areaCetak * { color: #000 !important; background: none !important; }
             body.mode-cetak #areaCetak .rc-row { font-size: 10px; }
@@ -235,74 +282,60 @@
         </div>
     </div>
 
-    <!-- Tambah transaksi pengeluaran -->
+    <!-- Catat pengeluaran -->
     <div class="modal-overlay" id="modalPengeluaran">
         <div class="modal-box">
-            <h3>Tambah Transaksi</h3>
-            <div class="modal-sub">Pengeluaran outlet akan mempengaruhi total kas akhir.</div>
+            <h3>Catat Pengeluaran</h3>
+            <div class="modal-sub" id="pgSub">Mengurangi uang di laci kas shift ini.</div>
             <div id="pgOutletWrap">
                 <div class="fld-lbl">Outlet</div>
                 <select class="fld-sel" id="pgOutlet"></select>
             </div>
-            <div class="fld-lbl">Tanggal</div>
-            <input type="text" class="fld-in" id="pgTanggal" readonly>
-            <div class="fld-lbl">Kategori Pengeluaran</div>
-            <select class="fld-sel" id="pgKategori"></select>
-            <div class="fld-lbl">Catatan</div>
-            <input type="text" class="fld-in" id="pgKeterangan" maxlength="120" placeholder="Masukkan Catatan">
             <div class="fld-lbl">Jumlah<span style="color:#B03A2E;">*</span></div>
-            <input type="text" inputmode="numeric" class="fld-in" id="pgNominal" placeholder="Masukkan Jumlah Transaksi" autocomplete="off" oninput="kasFormatInput(this); cekFormPengeluaran()">
-            <div class="fld-lbl">Bukti / Lampiran Transaksi</div>
-            <div class="bukti-kotak" id="pgBuktiKotak" onclick="pilihBukti()"><span class="plus">+</span></div>
+            <div class="uang-input"><span>Rp</span><input type="text" inputmode="numeric" id="pgNominal" placeholder="0" autocomplete="off" oninput="kasFormatInput(this); cekFormPengeluaran()"></div>
+            <div class="fld-lbl">Kategori</div>
+            <div class="kat-pilih" id="pgKategoriPilih"></div>
+            <div class="fld-lbl">Catatan</div>
+            <input type="text" class="fld-in" id="pgKeterangan" maxlength="120" placeholder="Contoh: beli es batu 2 bungkus">
+            <div class="fld-lbl">Foto bukti / nota <span style="font-weight:400; color:#8A95A5;">(opsional)</span></div>
+            <div class="bukti-kotak" id="pgBuktiKotak" onclick="pilihBukti()"><span class="plus">📷</span>Tambah foto</div>
             <input type="file" id="pgBuktiFile" accept="image/*" style="display:none;" onchange="uploadBukti(this)">
             <div class="bukti-status" id="pgBuktiStatus"></div>
             <div id="pgLaciWrap">
                 <label class="cek-row"><input type="checkbox" id="pgDariLaci" checked>
-                    <span><b>Uang diambil dari laci kas</b><br><span style="color:#6b7280;">Mengurangi kas seharusnya saat tutup toko. Hilangkan centang kalau dibayar di luar laci (transfer, dll).</span></span></label>
+                    <span><b>Uang diambil dari laci kas</b><br><span style="color:#6b7280;">Hilangkan centang kalau dibayar di luar laci (transfer, dll).</span></span></label>
             </div>
             <div class="msg-box msg-error" id="pgError"></div>
             <div class="modal-actions">
-                <button class="btn btn-danger" style="border-color:#E0522A;" onclick="tutupModal('modalPengeluaran')">Batal</button>
-                <button class="btn btn-primary" id="pgSimpan" onclick="simpanPengeluaran()" disabled>Simpan</button>
+                <button class="btn" onclick="tutupModal('modalPengeluaran')">Batal</button>
+                <button class="btn btn-primary" id="pgSimpan" style="flex:1.4;" onclick="simpanPengeluaran()" disabled>Simpan</button>
             </div>
         </div>
     </div>
 
-    <!-- Akhiri Shift / Tutup Toko -->
+    <!-- Akhiri shift / tutup toko (3 langkah) -->
     <div class="modal-overlay" id="modalTutup">
-        <div class="modal-box">
-            <h3 id="tutupJudul">Tutup Toko</h3>
-            <div class="modal-sub" id="tutupSub"></div>
-            <div class="hasil-box" style="margin-top:10px;">
-                <div class="hasil-row"><span>Kas awal</span><b id="tutupKasAwal">-</b></div>
-                <div class="hasil-row"><span>+ Pembayaran tunai</span><b id="tutupTunai">-</b></div>
-                <div class="hasil-row"><span>− Pengeluaran outlet</span><b id="tutupKeluar">-</b></div>
-                <div class="hasil-row besar"><span>Total Kas Akhir (sistem)</span><b id="tutupSeharusnya">-</b></div>
+        <div class="modal-box lebar">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
+                <div><h3 id="tutupJudul">Tutup Toko</h3><div class="modal-sub" id="tutupSub" style="margin:0;"></div></div>
+                <button class="btn btn-kecil" style="width:30px; padding:0; font-size:15px;" onclick="batalTutup()">&times;</button>
             </div>
-            <div class="fld-lbl">Kas Akhir Oleh Kasir<span style="color:#B03A2E;">*</span> <span style="font-weight:400; color:#8A95A5;">(hitung uang fisik di laci)</span></div>
-            <div class="uang-input-wrap" style="max-width:none;"><span>Rp</span><input type="text" inputmode="numeric" id="inputKasAkhir" placeholder="0" autocomplete="off" oninput="kasFormatInput(this); hitungSelisih()"></div>
-            <div class="hasil-row besar" style="padding:10px 2px 0; border-top:none;"><span>Selisih</span><span id="hasilSelisih">-</span></div>
-            <div class="fld-lbl">Catatan <span style="font-weight:400; color:#8A95A5;">(wajib kalau ada selisih)</span></div>
-            <textarea class="fld-in" id="inputCatatanTutup" maxlength="300" placeholder="Contoh: kurang Rp 2.000 karena kembalian receh"></textarea>
-            <div class="msg-box msg-error" id="tutupError"></div>
-            <div class="modal-actions">
-                <button class="btn" onclick="tutupModal('modalTutup')">Batal</button>
-                <button class="btn" id="btnKonfirmasiTutup" style="flex:1.3; background:#D9534F; border-color:#D9534F; color:#fff;" onclick="konfirmasiTutup()">Tutup Toko</button>
-            </div>
+            <div class="langkah"><div id="lk1"></div><div id="lk2"></div><div id="lk3"></div></div>
+            <div id="tutupIsi"></div>
         </div>
     </div>
 
-    <!-- Detail / laporan tutup toko -->
+    <!-- Laporan shift -->
     <div class="modal-overlay" id="modalDetailSesi">
         <div class="modal-box">
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
-                <h3 style="margin:0;" id="detailSesiJudul">Laporan Tutup Toko</h3>
-                <button class="btn btn-kecil" style="width:28px; height:28px; padding:0; font-size:14px;" onclick="tutupModal('modalDetailSesi')">&times;</button>
+                <h3 style="margin:0;" id="detailSesiJudul">Laporan Shift</h3>
+                <button class="btn btn-kecil" style="width:30px; padding:0; font-size:15px;" onclick="tutupModal('modalDetailSesi')">&times;</button>
             </div>
             <div id="detailSesiIsi"></div>
             <div class="modal-actions">
                 <button class="btn" onclick="tutupModal('modalDetailSesi')">Tutup</button>
-                <button class="btn btn-primary" style="flex:1.3;" onclick="cetakLaporanSesi()">Cetak</button>
+                <button class="btn btn-primary" style="flex:1.3;" onclick="cetakLaporanSesi()">🖨 Cetak</button>
             </div>
         </div>
     </div>
@@ -325,17 +358,26 @@
 
         let currentUser = null;
         let daftarOutlet = [];
-        let outletDipilih = "";        // "" = semua outlet (hanya untuk tab Pengeluaran & Riwayat)
-        let tabAktif = "sesi";         // sesi | rekap | metode | rincian | pengeluaran | riwayat
+        let outletDipilih = "";        // "" = semua outlet (hanya untuk tab Pengeluaran & Rekap)
+        let tabAktif = "shift";        // shift | pengeluaran | rekap
         let tokenMuat = 0;             // mencegah hasil muat lama menimpa tampilan baru
-        const VIEW_SHIFT = ["sesi", "rekap", "metode", "rincian"];
 
-        let sesiAktif = null;          // sesi buka di outlet terpilih: { id, data }
+        let sesiAktif = null;          // shift berjalan di outlet terpilih: { id, data }
         let ringkasanAktif = null;     // hasil kasRingkasanSesi untuk sesiAktif
-        let sedangMenutup = false;
-        let laporanTerbuka = null;     // { sesi, ringkasan } untuk modal detail & cetak
+        let pantauSesi = null;         // onSnapshot dokumen sesi (angka ikut berubah saat ada penjualan)
+        let pantauPengeluaran = null;
+        let jedaMuatUlang = null;
+        let laporanTerbuka = null;     // { sesi, ringkasan } untuk modal laporan & cetak
 
         const KUNCI_OUTLET_KASIR = "omaopa_outlet_kasir";
+        const WARNA_METODE = { "Tunai": "#1E9E5A", "QRIS": "#2F6FD6", "Debit/EDC": "#8B5CF6" };
+        const IKON_KATEGORI = {
+            "Salah Nota": "🧾", "Kompensasi Customer": "🤝", "Marketing": "📣", "Biaya Operasional": "⚙️",
+            "Biaya Kebersihan": "🧽", "Pengeluaran Reward": "🎁", "Bensin TVS": "⛽", "Upgrading": "⬆️",
+            "Biaya Listrik": "💡", "Biaya Air PAM": "🚰", "Pengiriman dari Pabrik": "🚚", "Biaya Transfer Kue": "📦",
+            "Perbaikan dan Pemeliharaan": "🔧", "Biaya Alat Tulis": "✏️", "Telekomunikasi": "📱", "Konsumsi Rapat": "☕",
+            "Utilitis": "🔌", "Pengiriman Kue ke Customer": "🛵", "Biaya Backup Kasir": "👥", "Reward Sniby": "⭐"
+        };
 
         auth.onAuthStateChanged(function (user) {
             if (!user) { window.location.href = "index.html"; return; }
@@ -359,6 +401,7 @@
         });
 
         function logout() {
+            hentikanPantau();
             auth.signOut().then(function () {
                 sessionStorage.removeItem("omaopa_user");
                 sessionStorage.removeItem(KUNCI_OUTLET_KASIR);
@@ -366,39 +409,47 @@
             });
         }
 
+        /* ---------- Bantuan format ---------- */
         function esc(t) { return escapeHtmlAman(t); }
         function angka(n) { return Number(n || 0).toLocaleString("id-ID"); }
         function rp(n) { return (Number(n) < 0 ? "-Rp " : "Rp ") + angka(Math.abs(Number(n) || 0)); }
+        function pad2(x) { return String(x).padStart(2, "0"); }
         function fmtWaktu(d) {
             if (!d) return "-";
-            const p = function (x) { return String(x).padStart(2, "0"); };
-            return p(d.getDate()) + "-" + p(d.getMonth() + 1) + "-" + d.getFullYear() + " " + p(d.getHours()) + "." + p(d.getMinutes());
+            return pad2(d.getDate()) + "-" + pad2(d.getMonth() + 1) + "-" + d.getFullYear() + " " + pad2(d.getHours()) + "." + pad2(d.getMinutes());
         }
-        function fmtJam(d) {
-            if (!d) return "-";
-            return String(d.getHours()).padStart(2, "0") + "." + String(d.getMinutes()).padStart(2, "0");
-        }
+        function fmtJam(d) { return d ? pad2(d.getHours()) + "." + pad2(d.getMinutes()) : "-"; }
         function fmtTanggal(iso) {
             const b = String(iso || "").split("-");
             return b.length === 3 ? b[2] + "-" + b[1] + "-" + b[0] : (iso || "-");
         }
-        function tanggalMundur(hari) {
-            const d = new Date();
-            d.setDate(d.getDate() - hari);
-            return keuTanggal(d);
+        function fmtHariPanjang(iso) {
+            const d = new Date(iso + "T00:00:00");
+            return isNaN(d) ? iso : d.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
         }
-        function keuTanggal(d) {
-            return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2);
+        function isoDari(d) { return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); }
+        function tanggalMundur(hari) { const d = new Date(); d.setDate(d.getDate() - hari); return isoDari(d); }
+        function lamaSejak(d) {
+            if (!d) return "";
+            const menit = Math.max(0, Math.round((Date.now() - d.getTime()) / 60000));
+            const j = Math.floor(menit / 60), m = menit % 60;
+            return j > 0 ? j + " jam " + m + " mnt" : m + " mnt";
         }
-        function teksSelisih(n) {
+        function infoSelisih(n) {
             n = Number(n) || 0;
-            if (n === 0) return '<span class="selisih-pas">Pas</span>';
-            if (n > 0) return '<span class="selisih-plus">Lebih ' + rp(n) + '</span>';
-            return '<span class="selisih-min">Kurang ' + rp(-n) + '</span>';
+            if (n === 0) return { kelas: "b-pas", teks: "✓ Pas" };
+            if (n < 0) return { kelas: "b-kurang", teks: "Kurang " + rp(-n) };
+            return { kelas: "b-lebih", teks: "Lebih " + rp(n) };
         }
+        function badgeSelisih(n) { const s = infoSelisih(n); return '<span class="badge ' + s.kelas + '">' + s.teks + '</span>'; }
         function bolehKelolaSemua() { return currentUser.role !== "kasir"; }
-
         function tutupModal(id) { document.getElementById(id).classList.remove("open"); }
+
+        function hentikanPantau() {
+            if (pantauSesi) { pantauSesi(); pantauSesi = null; }
+            if (pantauPengeluaran) { pantauPengeluaran(); pantauPengeluaran = null; }
+            clearTimeout(jedaMuatUlang);
+        }
 
         /* ---------- MULAI ---------- */
         function mulaiHalaman() {
@@ -430,37 +481,23 @@
         }
 
         function renderKerangka() {
-            const pilihOutlet = currentUser.role === "kasir"
-                ? ''
-                : '<div><div class="ctrl-label">Outlet</div><select class="outlet-select" id="selOutlet" onchange="gantiOutlet(this.value)"></select></div>';
-            const menu = [
-                ["sesi", "Shift Saat Ini"],
-                ["rekap", "Rekapitulasi Penjualan"],
-                ["metode", "Penjualan Berdasarkan<br>Metode Pembayaran"],
-                ["rincian", "Rincian Penjualan"],
-                ["pengeluaran", "Pengeluaran Outlet"],
-                ["riwayat", "Detail Rekapitulasi"]
-            ];
             document.getElementById("mainContent").innerHTML =
-                '<div class="header-row">' +
-                    '<div><h2>Ganti Shift / Hari</h2><div class="header-sub">' +
-                        (currentUser.role === "kasir" ? 'Outlet <b>' + esc(currentUser.outlet) + '</b> · ' : '') +
-                        esc(new Date().toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "short", year: "numeric" })) + '</div></div>' +
-                    pilihOutlet +
-                '</div>' +
-                '<div class="shift-layout">' +
-                    '<div class="shift-kiri">' +
-                        '<div class="aksi-shift">' +
-                            '<button class="btn-akhiri" id="btnAkhiriShift" onclick="bukaModalTutup(\'shift\')" disabled>Akhiri Shift</button>' +
-                            '<button class="btn-tutup-toko" id="btnTutupToko" onclick="bukaModalTutup(\'toko\')" disabled>Tutup Toko</button>' +
-                        '</div>' +
-                        '<div class="menu-list">' +
-                            menu.map(function (m) {
-                                return '<button class="menu-shift" data-tab="' + m[0] + '" onclick="gantiTab(\'' + m[0] + '\')">' + m[1] + '</button>';
-                            }).join("") +
+                '<div class="wrap">' +
+                    '<div class="top-bar">' +
+                        '<div><h2>Shift & Kas</h2><div class="top-sub">' +
+                            (currentUser.role === "kasir" ? 'Outlet <b>' + esc(currentUser.outlet) + '</b> · ' : '') +
+                            esc(new Date().toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" })) +
+                        '</div></div>' +
+                        '<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">' +
+                            (currentUser.role === "kasir" ? '' : '<select class="outlet-select" id="selOutlet" onchange="gantiOutlet(this.value)"></select>') +
+                            '<div class="seg">' +
+                                '<button data-tab="shift" onclick="gantiTab(\'shift\')">Shift Sekarang</button>' +
+                                '<button data-tab="pengeluaran" onclick="gantiTab(\'pengeluaran\')">Pengeluaran</button>' +
+                                '<button data-tab="rekap" onclick="gantiTab(\'rekap\')">Rekap Shift</button>' +
+                            '</div>' +
                         '</div>' +
                     '</div>' +
-                    '<div class="shift-kanan" id="isiTab"></div>' +
+                    '<div id="isiTab"></div>' +
                 '</div>';
             gantiTab(tabAktif);
         }
@@ -468,7 +505,7 @@
         function isiPilihanOutlet() {
             const sel = document.getElementById("selOutlet");
             if (!sel) return;
-            const bolehSemua = tabAktif === "pengeluaran" || tabAktif === "riwayat";
+            const bolehSemua = tabAktif !== "shift";
             if (!bolehSemua && !outletDipilih) outletDipilih = daftarOutlet[0] || "";
             sel.innerHTML = (bolehSemua ? '<option value="">Semua outlet</option>' : '') +
                 daftarOutlet.map(function (o) { return '<option value="' + esc(o) + '">' + esc(o) + '</option>'; }).join("");
@@ -480,57 +517,78 @@
             gantiTab(tabAktif);
         }
 
-        function aturTombolShift() {
-            const ada = !!sesiAktif;
-            ["btnAkhiriShift", "btnTutupToko"].forEach(function (id) {
-                const b = document.getElementById(id);
-                if (b) { b.disabled = !ada; b.title = ada ? "" : "Belum ada shift berjalan di outlet ini"; }
+        function gantiTab(t) {
+            tabAktif = t;
+            hentikanPantau();
+            document.querySelectorAll(".seg button").forEach(function (el) { el.classList.toggle("on", el.dataset.tab === t); });
+            isiPilihanOutlet();
+            const lama = document.querySelector(".fab-tambah");
+            if (lama) lama.remove();
+            if (t === "shift") muatShift();
+            else if (t === "pengeluaran") renderTabPengeluaran();
+            else renderTabRekap();
+        }
+
+        /* =====================================================
+           SHIFT SEKARANG
+           Satu layar: uang di laci, penjualan, pengeluaran, dan
+           tombol akhiri shift / tutup toko. Dokumen sesi & pengeluaran
+           dipantau realtime, jadi angka ikut berubah saat kasir
+           berjualan di layar Kasir tanpa perlu muat ulang.
+        ====================================================== */
+        function muatShift() {
+            const isi = document.getElementById("isiTab");
+            isi.innerHTML = '<div class="loading-state">Memuat shift...</div>';
+            const token = ++tokenMuat;
+            const outlet = outletDipilih;
+            kasCariSesiAktif(db, outlet).then(function (sesi) {
+                if (token !== tokenMuat) return;
+                sesiAktif = sesi; ringkasanAktif = null;
+                if (!sesi) { renderBelumBuka(); return; }
+                hitungUlangShift(token);
+                // Pantau perubahan: penjualan (counter di dokumen sesi) & pengeluaran shift ini
+                let pertama = true, pertamaPg = true;
+                pantauSesi = db.collection("sesi_kas").doc(sesi.id).onSnapshot(function (doc) {
+                    if (pertama) { pertama = false; return; }
+                    if (!doc.exists || doc.data().status !== "buka") { if (tabAktif === "shift" && !document.getElementById("modalTutup").classList.contains("open")) muatShift(); return; }
+                    sesiAktif = { id: doc.id, data: doc.data({ serverTimestamps: "estimate" }) };
+                    jadwalHitungUlang(token);
+                }, function () {});
+                pantauPengeluaran = db.collection("pengeluaran").where("sesiKasId", "==", sesi.id).onSnapshot(function () {
+                    if (pertamaPg) { pertamaPg = false; return; }
+                    jadwalHitungUlang(token);
+                }, function () {});
+            }).catch(function (error) {
+                if (token === tokenMuat) isi.innerHTML = '<div class="empty-state">Gagal memuat shift: ' + esc(error.message) + '</div>';
             });
         }
 
-        /* Setiap ganti menu: cek ulang shift yang berjalan di outlet terpilih
-           (supaya tombol Akhiri Shift / Tutup Toko dan angkanya selalu baru),
-           lalu tampilkan isi menu. */
-        function gantiTab(t) {
-            tabAktif = t;
-            document.querySelectorAll(".menu-shift").forEach(function (el) { el.classList.toggle("active", el.dataset.tab === t); });
-            isiPilihanOutlet();
-            const isi = document.getElementById("isiTab");
-            isi.innerHTML = '<div class="loading-state">Memuat...</div>';
-            const token = ++tokenMuat;
-            const outlet = outletDipilih;
-            const perluRingkasan = VIEW_SHIFT.indexOf(t) !== -1;
+        function jadwalHitungUlang(token) {
+            clearTimeout(jedaMuatUlang);
+            jedaMuatUlang = setTimeout(function () { hitungUlangShift(token); }, 400);
+        }
 
-            const cari = outlet ? kasCariSesiAktif(db, outlet) : Promise.resolve(null);
-            cari.then(function (sesi) {
-                if (token !== tokenMuat) return null;
-                sesiAktif = sesi; ringkasanAktif = null;
-                aturTombolShift();
-                if (!sesi || !perluRingkasan) return null;
-                return kasRingkasanSesi(db, sesi).then(function (r) { if (token === tokenMuat) ringkasanAktif = r; });
-            }).then(function () {
-                if (token !== tokenMuat) return;
-                if (t === "pengeluaran") return renderTabPengeluaran();
-                if (t === "riwayat") return renderTabRiwayat();
-                if (!sesiAktif) return renderBelumBuka();
-                if (t === "sesi") return renderSesiAktif();
-                if (t === "rekap") return renderRekap();
-                if (t === "metode") return renderMetode();
-                renderRincian();
+        function hitungUlangShift(token) {
+            if (!sesiAktif) return;
+            kasRingkasanSesi(db, sesiAktif).then(function (r) {
+                if (token !== tokenMuat || tabAktif !== "shift") return;
+                ringkasanAktif = r;
+                renderShift();
             }).catch(function (error) {
-                if (token === tokenMuat) isi.innerHTML = '<div class="empty-state">Gagal memuat: ' + esc(error.message) + '</div>';
+                if (token === tokenMuat) document.getElementById("isiTab").innerHTML = '<div class="empty-state">Gagal menghitung kas: ' + esc(error.message) + '</div>';
             });
         }
 
         function renderBelumBuka() {
             document.getElementById("isiTab").innerHTML =
-                '<div class="kartu" style="text-align:center; padding:34px 28px;">' +
-                    '<div style="font-size:15px; font-weight:800; color:#12305C;">Belum ada shift berjalan</div>' +
-                    '<div class="hint-text" style="font-size:12px; margin-top:6px;">Outlet <b>' + esc(outletDipilih) + '</b> belum dibuka. ' +
+                '<div class="panel" style="text-align:center; padding:44px 24px;">' +
+                    '<div style="font-size:40px;">🏪</div>' +
+                    '<div style="font-size:16px; font-weight:800; color:#12305C; margin-top:8px;">Belum ada shift berjalan</div>' +
+                    '<div class="hint-text" style="font-size:12.5px; margin-top:6px;">Outlet <b>' + esc(outletDipilih) + '</b> belum dibuka. ' +
                     'Shift dimulai dari layar Kasir dengan mengisi kas awal.</div>' +
-                    '<div style="display:flex; gap:8px; justify-content:center; margin-top:16px; flex-wrap:wrap;">' +
-                        '<button class="btn btn-primary" onclick="keKasir()">Buka di Kasir</button>' +
-                        '<button class="btn" onclick="gantiTab(\'riwayat\')">Lihat Detail Rekapitulasi</button>' +
+                    '<div style="display:flex; gap:8px; justify-content:center; margin-top:18px; flex-wrap:wrap;">' +
+                        '<button class="btn btn-primary" style="height:42px; padding:0 20px;" onclick="keKasir()">Buka di Kasir</button>' +
+                        '<button class="btn" style="height:42px;" onclick="gantiTab(\'rekap\')">Lihat rekap shift</button>' +
                     '</div>' +
                 '</div>';
         }
@@ -540,219 +598,274 @@
             window.location.href = "pos.html";
         }
 
-        function htmlCatatanSumber(r) {
-            return r.sumberPenjualan === "catatan"
-                ? '<div class="hint-text" style="margin:0 0 12px;">Penjualan diambil dari catatan shift di layar Kasir (data transaksi tidak bisa dibaca akun ini).</div>'
-                : '';
-        }
-
-        /* ---------- Shift Saat Ini ---------- */
-        function renderSesiAktif() {
+        function renderShift() {
             const s = sesiAktif.data, r = ringkasanAktif;
-            const nonTunai = Object.keys(r.perMetode).filter(function (m) { return m !== "Tunai" && r.perMetode[m]; });
-            const ikon = function (t) { return '<span style="display:inline-flex; width:18px; height:18px; border:1.5px solid #fff; border-radius:4px; align-items:center; justify-content:center; font-size:9px;">' + t + '</span>'; };
+            const buka = kasToDate(s.waktuBuka);
+            const totalJual = r.penjualanTunai + r.penjualanNonTunai;
 
-            document.getElementById("isiTab").innerHTML =
-                '<div class="judul-shift"><h3>Shift Saat Ini</h3>' +
-                    '<span><button class="link-aksi" onclick="gantiTab(\'sesi\')">↻ Muat ulang</button> &nbsp; ' +
-                    '<button class="link-aksi" onclick="cetakShiftBerjalan()">🖨 Cetak Shift</button></span></div>' +
-                '<div class="kelola-bar"><span>Kelola Pengeluaran Outlet</span><button class="btn-kelola" onclick="gantiTab(\'pengeluaran\')">Kelola ›</button></div>' +
-                '<div class="kartu-warna-grid">' +
-                    '<div class="kartu-warna kw-hijau"><div class="k">' + ikon("✎") + ' Kas Awal</div><div class="v">' + angka(r.kasAwal) + '</div></div>' +
-                    '<div class="kartu-warna kw-merah"><div class="k">' + ikon("Rp") + ' Pembayaran Tunai</div><div class="v">' + angka(r.penjualanTunai) + '</div></div>' +
-                    '<div class="kartu-warna kw-oranye"><div class="k">' + ikon("Rp") + ' Pengeluaran Outlet</div><div class="v">' + angka(r.totalPengeluaran) + '</div></div>' +
-                    '<div class="kartu-warna kw-biru"><div class="k">' + ikon("▭") + ' Total Kas Akhir</div><div class="v">' + angka(r.kasSeharusnya) + '</div></div>' +
-                '</div>' +
-                htmlCatatanSumber(r) +
-                '<div class="info-shift-grid">' +
-                    '<div><div class="lbl">Outlet</div><div class="val">' + esc(s.outlet) + '</div></div>' +
-                    '<div><div class="lbl">Mulai shift</div><div class="val">' + esc(fmtWaktu(kasToDate(s.waktuBuka))) + '</div></div>' +
-                    '<div><div class="lbl">Nama kasir</div><div class="val">' + esc(s.dibukaNama || "-") + '</div></div>' +
-                    '<div><div class="lbl">Jumlah transaksi</div><div class="val">' + angka(r.jumlahTrx) + ' transaksi</div></div>' +
-                '</div>' +
-                (nonTunai.length > 0
-                    ? '<div class="chip-row" style="margin-top:14px;"><span class="chip">Non-tunai (tidak masuk laci): <b>' + rp(r.penjualanNonTunai) + '</b></span>' +
-                        nonTunai.map(function (m) { return '<span class="chip">' + esc(m) + ': <b>' + rp(r.perMetode[m]) + '</b></span>'; }).join("") + '</div>'
-                    : '') +
-                '<div class="hint-text">Total Kas Akhir = Kas Awal + Pembayaran Tunai − Pengeluaran Outlet. ' +
-                    '<b>Akhiri Shift</b> untuk serah terima ke kasir berikutnya (kas akhir jadi kas awal shift baru); <b>Tutup Toko</b> di akhir hari.</div>';
-        }
+            // Penjualan per metode (bar)
+            const metode = Object.keys(r.perMetode).filter(function (m) { return r.perMetode[m]; })
+                .sort(function (a, b) { return a === "Tunai" ? -1 : b === "Tunai" ? 1 : r.perMetode[b] - r.perMetode[a]; });
+            const bar = metode.length === 0
+                ? '<div class="kosong" style="padding:14px 0;">Belum ada penjualan di shift ini.</div>'
+                : metode.map(function (m) {
+                    const v = Number(r.perMetode[m]) || 0;
+                    const pct = totalJual ? Math.round(v * 100 / totalJual) : 0;
+                    return '<div class="bar-item"><div class="bar-head"><span>' + esc(m) + (m === "Tunai" ? '<span class="laci">MASUK LACI</span>' : '') + '</span>' +
+                        '<span><b>' + rp(v) + '</b> <span class="kecil" style="display:inline;">· ' + pct + '%</span></span></div>' +
+                        '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%; background:' + (WARNA_METODE[m] || "#E0761A") + ';"></div></div></div>';
+                }).join("");
 
-        /* ---------- Rekapitulasi Penjualan ---------- */
-        function pesanTanpaTransaksi() {
-            return '<div class="kartu"><div class="empty-state" style="padding:16px 0;">Rincian per transaksi tidak bisa dibaca dengan akun ini ' +
-                '(aturan Firestore untuk koleksi transactions). Ringkasan per metode bayar tetap ada di menu ' +
-                '<a href="#" onclick="gantiTab(\'metode\'); return false;">Penjualan Berdasarkan Metode Pembayaran</a>.</div></div>';
-        }
-
-        function renderRekap() {
-            const r = ringkasanAktif, isi = document.getElementById("isiTab");
-            const judul = '<div class="judul-shift"><h3>Rekapitulasi Penjualan</h3><span class="kecil">Shift mulai ' + esc(fmtWaktu(kasToDate(sesiAktif.data.waktuBuka))) + '</span></div>';
-            if (!r.transaksi) { isi.innerHTML = judul + pesanTanpaTransaksi(); return; }
-            let kotor = 0, diskon = 0, bersih = 0, item = 0;
-            const perMode = {};
-            r.transaksi.forEach(function (t) {
-                kotor += Number(t.subtotal) || 0;
-                diskon += Number(t.diskonPromo) || 0;
-                bersih += Number(t.total) || 0;
-                (t.items || []).forEach(function (it) { item += Number(it.qty) || 0; });
-                const m = t.modePenjualan || "Offline";
-                if (!perMode[m]) perMode[m] = { trx: 0, total: 0 };
-                perMode[m].trx++; perMode[m].total += Number(t.total) || 0;
-            });
-            const n = r.transaksi.length;
-            const stat = function (k, v) { return '<div class="stat"><div class="k">' + k + '</div><div class="v">' + v + '</div></div>'; };
-            isi.innerHTML = judul +
-                '<div class="angka-kartu-grid">' +
-                    stat("JUMLAH TRANSAKSI", angka(n)) +
-                    stat("ITEM TERJUAL", angka(item)) +
-                    stat("PENJUALAN KOTOR", rp(kotor)) +
-                    stat("DISKON", rp(diskon)) +
-                    stat("PENJUALAN BERSIH", rp(bersih)) +
-                    stat("RATA-RATA / TRANSAKSI", rp(n ? Math.round(bersih / n) : 0)) +
-                '</div>' +
-                '<div class="tabel-wrap"><table><thead><tr><th>Mode Penjualan</th><th class="r">Transaksi</th><th class="r">Total</th></tr></thead><tbody>' +
-                    (Object.keys(perMode).length === 0 ? '<tr><td colspan="3" class="empty-state">Belum ada transaksi.</td></tr>' :
-                    Object.keys(perMode).sort().map(function (m) {
-                        return '<tr><td>' + esc(m) + '</td><td class="r">' + angka(perMode[m].trx) + '</td><td class="r">' + rp(perMode[m].total) + '</td></tr>';
-                    }).join("")) +
-                '</tbody><tfoot><tr><td>Total</td><td class="r">' + angka(n) + '</td><td class="r">' + rp(bersih) + '</td></tr></tfoot></table></div>';
-        }
-
-        /* ---------- Penjualan Berdasarkan Metode Pembayaran ---------- */
-        function renderMetode() {
-            const r = ringkasanAktif;
-            const jumlahPer = {};
-            (r.transaksi || []).forEach(function (t) { const m = t.metodeBayar || "Tunai"; jumlahPer[m] = (jumlahPer[m] || 0) + 1; });
-            const metode = Object.keys(r.perMetode).sort(function (a, b) { return a === "Tunai" ? -1 : b === "Tunai" ? 1 : a.localeCompare(b); });
-            const total = r.penjualanTunai + r.penjualanNonTunai;
-            document.getElementById("isiTab").innerHTML =
-                '<div class="judul-shift"><h3>Penjualan Berdasarkan Metode Pembayaran</h3></div>' +
-                htmlCatatanSumber(r) +
-                '<div class="tabel-wrap"><table><thead><tr><th>Metode Pembayaran</th>' + (r.transaksi ? '<th class="r">Transaksi</th>' : '') + '<th class="r">Total</th><th class="r">Porsi</th></tr></thead><tbody>' +
-                    (metode.length === 0 ? '<tr><td colspan="4" class="empty-state">Belum ada transaksi.</td></tr>' :
-                    metode.map(function (m) {
-                        const v = Number(r.perMetode[m]) || 0;
-                        return '<tr><td>' + esc(m) + (m === "Tunai" ? ' <span class="status-pill pill-laci">masuk laci</span>' : '') + '</td>' +
-                            (r.transaksi ? '<td class="r">' + angka(jumlahPer[m] || 0) + '</td>' : '') +
-                            '<td class="r">' + rp(v) + '</td><td class="r">' + (total ? Math.round(v * 100 / total) : 0) + '%</td></tr>';
-                    }).join("")) +
-                '</tbody><tfoot><tr><td>Total</td>' + (r.transaksi ? '<td class="r">' + angka(r.jumlahTrx) + '</td>' : '') + '<td class="r">' + rp(total) + '</td><td></td></tr></tfoot></table></div>';
-        }
-
-        /* ---------- Rincian Penjualan ---------- */
-        function renderRincian() {
-            const r = ringkasanAktif, isi = document.getElementById("isiTab");
-            const judul = '<div class="judul-shift"><h3>Rincian Penjualan</h3></div>';
-            if (!r.transaksi) { isi.innerHTML = judul + pesanTanpaTransaksi(); return; }
-            const perProduk = {};
-            r.transaksi.forEach(function (t) {
-                (t.items || []).forEach(function (it) {
-                    const nama = it.nama || "-";
-                    if (!perProduk[nama]) perProduk[nama] = { qty: 0, nilai: 0 };
-                    perProduk[nama].qty += Number(it.qty) || 0;
-                    perProduk[nama].nilai += (Number(it.harga) || 0) * (Number(it.qty) || 0);
+            // Produk terlaris
+            let produkHtml = "";
+            if (r.transaksi) {
+                const per = {};
+                r.transaksi.forEach(function (t) {
+                    (t.items || []).forEach(function (it) { per[it.nama || "-"] = (per[it.nama || "-"] || 0) + (Number(it.qty) || 0); });
                 });
-            });
-            const produk = Object.keys(perProduk).sort(function (a, b) { return perProduk[b].qty - perProduk[a].qty || a.localeCompare(b); });
-            let totQty = 0, totNilai = 0;
-            produk.forEach(function (p) { totQty += perProduk[p].qty; totNilai += perProduk[p].nilai; });
-            isi.innerHTML = judul +
-                '<div class="kartu-judul" style="margin-bottom:8px;"><span>Per produk</span></div>' +
-                '<div class="tabel-wrap" style="margin-bottom:18px;"><table><thead><tr><th>Produk</th><th class="r">Qty</th><th class="r">Nilai (sebelum diskon)</th></tr></thead><tbody>' +
-                    (produk.length === 0 ? '<tr><td colspan="3" class="empty-state">Belum ada transaksi.</td></tr>' :
-                    produk.map(function (p) { return '<tr><td>' + esc(p) + '</td><td class="r">' + angka(perProduk[p].qty) + '</td><td class="r">' + rp(perProduk[p].nilai) + '</td></tr>'; }).join("")) +
-                '</tbody><tfoot><tr><td>Total</td><td class="r">' + angka(totQty) + '</td><td class="r">' + rp(totNilai) + '</td></tr></tfoot></table></div>' +
-                '<div class="kartu-judul" style="margin-bottom:8px;"><span>Per transaksi</span></div>' +
-                '<div class="tabel-wrap"><table><thead><tr><th>Jam</th><th>No. Nota</th><th>Item</th><th>Metode</th><th class="r">Total</th></tr></thead><tbody>' +
-                    (r.transaksi.length === 0 ? '<tr><td colspan="5" class="empty-state">Belum ada transaksi.</td></tr>' :
-                    r.transaksi.map(function (t) {
-                        const ringkas = (t.items || []).map(function (it) { return it.qty + " " + it.nama; }).join(", ");
-                        return '<tr><td>' + esc(fmtJam(t._waktu)) + '</td><td>' + esc(t.noNota || "-") + '</td><td>' + esc(ringkas) + '</td>' +
-                            '<td>' + esc(t.metodeBayar || "Tunai") + '</td><td class="r">' + rp(t.total) + '</td></tr>';
-                    }).join("")) +
-                '</tbody></table></div>';
+                const top = Object.keys(per).sort(function (a, b) { return per[b] - per[a]; }).slice(0, 5);
+                if (top.length) {
+                    produkHtml = '<div class="sub-judul">Produk terlaris shift ini</div>' +
+                        top.map(function (n, i) {
+                            return '<div class="top-produk"><span class="rank">' + (i + 1) + '</span><span class="nm">' + esc(n) + '</span><span class="q">' + angka(per[n]) + ' pcs</span></div>';
+                        }).join("");
+                }
+            }
+
+            // Pengeluaran shift ini
+            const pgHtml = r.pengeluaran.length === 0
+                ? '<div class="kosong"><div class="ikon">🧾</div>Belum ada pengeluaran.<br>Catat setiap uang yang keluar dari laci supaya kas akhir cocok.</div>'
+                : r.pengeluaran.map(function (p) { return htmlItemPengeluaran(p, false); }).join("");
+
+            document.getElementById("isiTab").innerHTML =
+                '<div class="hero">' +
+                    '<div class="hero-status"><span class="titik"></span><span>SHIFT BERJALAN</span> · ' +
+                        '<span>Kasir <b>' + esc(s.dibukaNama || "-") + '</b></span> · <span>Mulai <b>' + esc(fmtJam(buka)) + '</b> (' + esc(lamaSejak(buka)) + ')</span></div>' +
+                    '<div class="hero-isi">' +
+                        '<div>' +
+                            '<div class="hero-label">Uang di laci seharusnya</div>' +
+                            '<div class="hero-angka" id="angkaLaci">' + rp(r.kasSeharusnya) + '</div>' +
+                            '<div class="rumus">' +
+                                '<div class="bagian"><div class="k">Kas awal</div><div class="v">' + angka(r.kasAwal) + '</div></div><span class="op">+</span>' +
+                                '<div class="bagian"><div class="k">Tunai masuk</div><div class="v">' + angka(r.penjualanTunai) + '</div></div><span class="op">−</span>' +
+                                '<div class="bagian"><div class="k">Pengeluaran</div><div class="v">' + angka(r.totalPengeluaran) + '</div></div>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="hero-aksi">' +
+                            '<button class="btn-hero garis" onclick="cetakShiftBerjalan()" title="Cetak laporan shift sementara">🖨</button>' +
+                            '<button class="btn-hero putih" id="btnAkhiriShift" onclick="bukaTutup(\'shift\')">⇄ Akhiri Shift</button>' +
+                            '<button class="btn-hero merah" id="btnTutupToko" onclick="bukaTutup(\'toko\')">🔒 Tutup Toko</button>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="dua-kolom">' +
+                    '<div class="panel">' +
+                        '<div class="panel-judul"><h3>Penjualan shift ini</h3></div>' +
+                        '<div class="angka-besar">' + rp(totalJual) + '</div>' +
+                        '<div class="meta-row"><span><b>' + angka(r.jumlahTrx) + '</b> transaksi</span>' +
+                            '<span>Rata-rata <b>' + rp(r.jumlahTrx ? Math.round(totalJual / r.jumlahTrx) : 0) + '</b></span>' +
+                            '<span>Non-tunai <b>' + rp(r.penjualanNonTunai) + '</b></span></div>' +
+                        '<div class="bar-list">' + bar + '</div>' +
+                        produkHtml +
+                        (r.sumberPenjualan === "catatan" ? '<div class="hint-text">Angka dari catatan shift di layar Kasir (detail transaksi tidak bisa dibaca akun ini).</div>' : '') +
+                    '</div>' +
+                    '<div class="panel">' +
+                        '<div class="panel-judul"><h3>Pengeluaran shift ini<span class="sub">' + rp(r.totalPengeluaran) + '</span></h3>' +
+                            '<button class="btn btn-primary btn-kecil" onclick="bukaModalPengeluaran()">+ Catat</button></div>' +
+                        pgHtml +
+                    '</div>' +
+                '</div>';
         }
 
-        /* ---------- Akhiri Shift / Tutup Toko ---------- */
-        let jenisTutupDipilih = "toko";
-        let ringkasanTutup = null;
+        function htmlItemPengeluaran(p, tampilOutlet) {
+            const ikon = IKON_KATEGORI[p.kategori] || "💸";
+            const meta = [];
+            if (tampilOutlet) meta.push(p.outlet);
+            meta.push(fmtJam(p._waktu), p.dibuatNama || "-");
+            if (p.keterangan) meta.push(p.keterangan);
+            return '<div class="pg-item"><div class="pg-ikon">' + ikon + '</div>' +
+                '<div class="pg-info"><div class="t">' + esc(p.kategori) + (p.dariLaci === false ? ' <span class="tag tag-shift">di luar laci</span>' : '') + '</div>' +
+                    '<div class="m">' + esc(meta.join(" · ")) + '</div></div>' +
+                '<div class="pg-aksi">' + htmlLinkBukti(p) +
+                    '<span class="pg-nominal">−' + angka(p.nominal) + '</span>' +
+                    (bolehHapus(p) ? '<button class="btn-ikon" title="Hapus" onclick="hapusPengeluaran(\'' + escJsAttr(p._id) + '\')">🗑</button>' : '') +
+                '</div></div>';
+        }
 
-        function bukaModalTutup(jenis) {
+        function cetakShiftBerjalan() {
+            if (sesiAktif && ringkasanAktif) tampilDetailSesi(sesiAktif, ringkasanAktif);
+        }
+
+        /* =====================================================
+           AKHIRI SHIFT / TUTUP TOKO (3 langkah)
+           1. Hitung uang (ketik total atau per pecahan)
+           2. Cek selisih + catatan
+           3. Selesai: laporan & cetak
+        ====================================================== */
+        let tutup = null;   // { jenis, ringkasan, mode, kasAkhir, rincian, catatan, sedang }
+
+        function bukaTutup(jenis) {
             if (!sesiAktif) return;
-            jenisTutupDipilih = jenis;
             const shift = jenis === "shift";
+            tutup = { jenis: jenis, ringkasan: null, mode: "total", kasAkhir: null, rincian: null, catatan: "", sedang: false };
             document.getElementById("tutupJudul").textContent = shift ? "Akhiri Shift" : "Tutup Toko";
             document.getElementById("tutupSub").textContent = shift
-                ? "Hitung uang di laci untuk serah terima. Kas akhir ini otomatis jadi kas awal shift berikutnya."
-                : "Hitung uang di laci sebelum menutup toko hari ini.";
-            const btn = document.getElementById("btnKonfirmasiTutup");
-            btn.textContent = shift ? "Akhiri Shift" : "Tutup Toko";
-            btn.disabled = true;
-            document.getElementById("inputKasAkhir").value = "";
-            document.getElementById("inputCatatanTutup").value = "";
-            document.getElementById("hasilSelisih").textContent = "-";
-            document.getElementById("tutupError").style.display = "none";
-            ["tutupKasAwal", "tutupTunai", "tutupKeluar", "tutupSeharusnya"].forEach(function (id) { document.getElementById(id).textContent = "…"; });
+                ? "Serah terima ke kasir berikutnya. Kas akhir otomatis jadi kas awal shift baru."
+                : "Menutup toko hari ini. Besok dibuka lagi dengan kas awal baru.";
+            document.getElementById("tutupIsi").innerHTML = '<div class="loading-state">Menghitung kas terbaru...</div>';
+            aturLangkah(1);
             document.getElementById("modalTutup").classList.add("open");
-            // Hitung ulang supaya transaksi & pengeluaran terbaru ikut
             kasRingkasanSesi(db, sesiAktif).then(function (r) {
-                ringkasanTutup = r;
-                document.getElementById("tutupKasAwal").textContent = rp(r.kasAwal);
-                document.getElementById("tutupTunai").textContent = rp(r.penjualanTunai);
-                document.getElementById("tutupKeluar").textContent = rp(r.totalPengeluaran);
-                document.getElementById("tutupSeharusnya").textContent = rp(r.kasSeharusnya);
-                btn.disabled = false;
-                hitungSelisih();
-                document.getElementById("inputKasAkhir").focus();
+                tutup.ringkasan = r;
+                renderLangkahHitung();
             }).catch(function (e) {
-                const err = document.getElementById("tutupError");
-                err.textContent = "Gagal menghitung kas: " + e.message; err.style.display = "block";
+                document.getElementById("tutupIsi").innerHTML = '<div class="msg-box msg-error" style="display:block;">Gagal menghitung kas: ' + esc(e.message) + '</div>';
             });
         }
 
-        function hitungSelisih() {
-            const nilai = document.getElementById("inputKasAkhir").value.trim();
-            if (nilai === "" || !ringkasanTutup) { document.getElementById("hasilSelisih").textContent = "-"; return; }
-            document.getElementById("hasilSelisih").innerHTML = teksSelisih(kasParseAngka(nilai) - ringkasanTutup.kasSeharusnya);
+        function batalTutup() {
+            if (tutup && tutup.sedang) return;
+            tutupModal("modalTutup");
+        }
+
+        function aturLangkah(n) {
+            [1, 2, 3].forEach(function (i) { document.getElementById("lk" + i).classList.toggle("on", i <= n); });
+        }
+
+        function renderLangkahHitung() {
+            aturLangkah(1);
+            const pecahan = tutup.mode === "pecahan";
+            document.getElementById("tutupIsi").innerHTML =
+                '<div style="font-size:13.5px; font-weight:800; color:#1f2937; margin-bottom:10px;">① Hitung uang fisik di laci</div>' +
+                '<div class="mode-hitung">' +
+                    '<button class="' + (pecahan ? '' : 'on') + '" onclick="gantiModeHitung(\'total\')">Ketik total</button>' +
+                    '<button class="' + (pecahan ? 'on' : '') + '" onclick="gantiModeHitung(\'pecahan\')">Hitung per pecahan</button>' +
+                '</div>' +
+                (pecahan
+                    ? kasHtmlPecahan("pchTutup", "saatPecahanTutup") +
+                      '<div class="total-hitung"><span class="k">Total uang di laci</span><span class="v" id="totalPecahanTutup">Rp 0</span></div>'
+                    : '<div class="uang-input"><span>Rp</span><input type="text" inputmode="numeric" id="inputKasAkhir" placeholder="0" autocomplete="off" oninput="kasFormatInput(this)"></div>' +
+                      '<div class="hint-text">Tip: pakai "Hitung per pecahan" supaya tidak salah jumlah saat menghitung banyak lembar.</div>') +
+                '<div class="msg-box msg-error" id="tutupError"></div>' +
+                '<div class="modal-actions">' +
+                    '<button class="btn" onclick="batalTutup()">Batal</button>' +
+                    '<button class="btn btn-primary" id="btnLanjutCek" style="flex:1.5;" onclick="keLangkahCek()">Lanjut: cek selisih ›</button>' +
+                '</div>';
+            if (pecahan) {
+                // Isi ulang kalau sebelumnya sudah dihitung
+                if (tutup.rincian) Object.keys(tutup.rincian).forEach(function (n) {
+                    const el = document.getElementById("pchTutup_" + n);
+                    if (el) { el.value = tutup.rincian[n]; kasUbahPecahan("pchTutup", Number(n), 0, "saatPecahanTutup"); }
+                });
+            } else {
+                const el = document.getElementById("inputKasAkhir");
+                if (tutup.kasAkhir !== null) el.value = angka(tutup.kasAkhir);
+                el.focus();
+            }
+        }
+
+        function saatPecahanTutup(h) {
+            document.getElementById("totalPecahanTutup").textContent = rp(h.total);
+        }
+
+        function gantiModeHitung(mode) {
+            simpanHitungan();
+            tutup.mode = mode;
+            renderLangkahHitung();
+        }
+
+        function simpanHitungan() {
+            if (tutup.mode === "pecahan") {
+                if (!document.getElementById("pchTutup_100000")) return;
+                const h = kasTotalPecahan("pchTutup");
+                tutup.rincian = h.rincian;
+                tutup.kasAkhir = Object.keys(h.rincian).length ? h.total : null;
+            } else {
+                const el = document.getElementById("inputKasAkhir");
+                if (!el) return;
+                tutup.kasAkhir = el.value.trim() === "" ? null : kasParseAngka(el.value);
+            }
+        }
+
+        function keLangkahCek() {
+            simpanHitungan();
+            if (tutup.kasAkhir === null) {
+                const err = document.getElementById("tutupError");
+                err.textContent = "Isi jumlah uang di laci dulu (isi 0 kalau laci kosong).";
+                err.style.display = "block";
+                return;
+            }
+            renderLangkahCek();
+        }
+
+        function renderLangkahCek() {
+            aturLangkah(2);
+            const r = tutup.ringkasan;
+            const selisih = tutup.kasAkhir - r.kasSeharusnya;
+            const hc = selisih === 0
+                ? { k: "hc-pas", i: "✅", j: "Kas pas!", d: "Uang di laci sama dengan hitungan sistem." }
+                : selisih < 0
+                    ? { k: "hc-kurang", i: "⚠️", j: "Kurang " + rp(-selisih), d: "Uang di laci lebih sedikit dari seharusnya. Cek lagi atau tulis penyebabnya." }
+                    : { k: "hc-lebih", i: "ℹ️", j: "Lebih " + rp(selisih), d: "Uang di laci lebih banyak dari seharusnya. Tulis penyebabnya." };
+            const shift = tutup.jenis === "shift";
+            document.getElementById("tutupIsi").innerHTML =
+                '<div style="font-size:13.5px; font-weight:800; color:#1f2937; margin-bottom:10px;">② Cek selisih</div>' +
+                '<div class="hasil-cek ' + hc.k + '"><div class="ikon">' + hc.i + '</div><div class="j">' + hc.j + '</div><div class="d">' + hc.d + '</div></div>' +
+                '<div class="banding">' +
+                    '<div><div class="k">Seharusnya (sistem)</div><div class="v">' + rp(r.kasSeharusnya) + '</div>' +
+                        '<div class="kecil">' + angka(r.kasAwal) + ' + ' + angka(r.penjualanTunai) + ' − ' + angka(r.totalPengeluaran) + '</div></div>' +
+                    '<div><div class="k">Dihitung kasir</div><div class="v">' + rp(tutup.kasAkhir) + '</div>' +
+                        '<div class="kecil">' + (tutup.mode === "pecahan" ? 'dihitung per pecahan' : 'diketik total') + '</div></div>' +
+                '</div>' +
+                '<div class="fld-lbl">Catatan ' + (selisih !== 0 ? '<span style="color:#B03A2E;">* wajib karena ada selisih</span>' : '<span style="font-weight:400; color:#8A95A5;">(opsional)</span>') + '</div>' +
+                '<textarea class="fld-in" id="inputCatatanTutup" maxlength="300" placeholder="' + (selisih !== 0 ? 'Contoh: kembalian salah ke pelanggan' : 'Catatan untuk shift berikutnya / admin') + '"></textarea>' +
+                '<div class="msg-box msg-error" id="tutupError"></div>' +
+                '<div class="modal-actions">' +
+                    '<button class="btn" onclick="renderLangkahHitung()">‹ Hitung ulang</button>' +
+                    '<button class="btn" id="btnKonfirmasiTutup" style="flex:1.5; background:' + (shift ? '#12305C' : '#E5534B') + '; border-color:transparent; color:#fff;" onclick="konfirmasiTutup()">' +
+                        (shift ? '⇄ Akhiri Shift' : '🔒 Tutup Toko') + '</button>' +
+                '</div>';
+            document.getElementById("inputCatatanTutup").value = tutup.catatan || "";
         }
 
         function konfirmasiTutup() {
-            if (sedangMenutup || !sesiAktif || !ringkasanTutup) return;
-            const shift = jenisTutupDipilih === "shift";
+            if (tutup.sedang || !sesiAktif) return;
+            const shift = tutup.jenis === "shift";
             const err = document.getElementById("tutupError");
             err.style.display = "none";
-            const nilai = document.getElementById("inputKasAkhir").value.trim();
             const catatan = document.getElementById("inputCatatanTutup").value.trim();
-            if (nilai === "") { err.textContent = "Isi kas akhir oleh kasir dulu (hitung uang di laci)."; err.style.display = "block"; return; }
-            const kasAkhir = kasParseAngka(nilai);
-
+            tutup.catatan = catatan;
+            if (tutup.kasAkhir - tutup.ringkasan.kasSeharusnya !== 0 && !catatan) {
+                err.textContent = "Tulis catatan penyebab selisih dulu.";
+                err.style.display = "block";
+                return;
+            }
             const btn = document.getElementById("btnKonfirmasiTutup");
-            const labelBtn = shift ? "Akhiri Shift" : "Tutup Toko";
-            sedangMenutup = true;
-            btn.disabled = true; btn.textContent = "Menghitung ulang...";
+            const labelBtn = btn.innerHTML;
+            tutup.sedang = true;
+            btn.disabled = true; btn.textContent = "Menyimpan...";
 
             const sesi = sesiAktif;
+            // Hitung ulang sekali lagi supaya transaksi terakhir ikut
             kasRingkasanSesi(db, sesi).then(function (r) {
-                ringkasanTutup = r;
-                document.getElementById("tutupSeharusnya").textContent = rp(r.kasSeharusnya);
-                const selisih = kasAkhir - r.kasSeharusnya;
-                if (selisih !== 0 && !catatan) {
-                    hitungSelisih();
-                    throw new Error("Ada selisih " + (selisih > 0 ? "lebih " : "kurang ") + rp(Math.abs(selisih)) + ". Tulis catatan penyebabnya dulu.");
+                if (r.kasSeharusnya !== tutup.ringkasan.kasSeharusnya) {
+                    // Ada transaksi/pengeluaran baru sejak dicek: tampilkan angka baru dulu
+                    tutup.ringkasan = r;
+                    tutup.sedang = false;
+                    renderLangkahCek();
+                    const e2 = document.getElementById("tutupError");
+                    e2.textContent = "Ada transaksi atau pengeluaran baru, angka seharusnya sudah diperbarui. Cek lagi lalu tekan tombol sekali lagi.";
+                    e2.style.display = "block";
+                    throw null;
                 }
-                const pesan = labelBtn + " " + sesi.data.outlet + "?\n\n" +
-                    "Total kas akhir (sistem) : " + rp(r.kasSeharusnya) + "\n" +
-                    "Kas akhir oleh kasir     : " + rp(kasAkhir) + "\n" +
-                    "Selisih                  : " + (selisih === 0 ? "Pas" : (selisih > 0 ? "Lebih " : "Kurang ") + rp(Math.abs(selisih)));
-                if (!confirm(pesan)) throw null;
-
-                btn.textContent = shift ? "Mengakhiri..." : "Menutup...";
+                tutup.ringkasan = r;
+                const selisih = tutup.kasAkhir - r.kasSeharusnya;
                 const ref = db.collection("sesi_kas").doc(sesi.id);
                 const dataTutup = {
                     status: "tutup",
                     jenisTutup: shift ? "shift" : "toko",
-                    kasAkhir: kasAkhir,
+                    kasAkhir: tutup.kasAkhir,
+                    rincianPecahan: tutup.mode === "pecahan" ? (tutup.rincian || {}) : null,
                     penjualanTunai: r.penjualanTunai,
                     penjualanNonTunai: r.penjualanNonTunai,
                     penjualanPerMetodeAkhir: r.perMetode,
@@ -773,50 +886,61 @@
                         tx.update(ref, dataTutup);
                     });
                 }).then(function () {
-                    tutupModal("modalTutup");
+                    tutup.sedang = false;
                     const sesiTutup = { id: sesi.id, data: Object.assign({}, sesi.data, dataTutup, { waktuTutup: new Date() }) };
-                    tampilDetailSesi(sesiTutup, r);
-                    gantiTab("sesi");
+                    renderLangkahSelesai(sesiTutup, r);
+                    gantiTab("shift");
                 });
             }).catch(function (error) {
-                if (error) { err.textContent = error.message; err.style.display = "block"; }
-            }).then(function () {
-                sedangMenutup = false;
-                btn.disabled = false; btn.textContent = labelBtn;
+                if (!error) return;
+                tutup.sedang = false;
+                const b = document.getElementById("btnKonfirmasiTutup");
+                if (b) { b.disabled = false; b.innerHTML = labelBtn; }
+                const e3 = document.getElementById("tutupError");
+                if (e3) { e3.textContent = error.message; e3.style.display = "block"; }
             });
         }
 
-        function cetakShiftBerjalan() {
-            if (!sesiAktif || !ringkasanAktif) return;
-            tampilDetailSesi(sesiAktif, ringkasanAktif);
+        function renderLangkahSelesai(sesi, r) {
+            aturLangkah(3);
+            laporanTerbuka = { sesi: sesi, ringkasan: r };
+            const shift = sesi.data.jenisTutup === "shift";
+            document.getElementById("tutupIsi").innerHTML =
+                '<div style="text-align:center; padding:6px 0 14px;">' +
+                    '<div style="width:64px; height:64px; border-radius:32px; background:#1E9E5A; color:#fff; font-size:32px; display:flex; align-items:center; justify-content:center; margin:0 auto;">✓</div>' +
+                    '<div style="font-size:17px; font-weight:800; margin-top:12px;" id="judulSelesai">' + (shift ? 'Shift berhasil diakhiri' : 'Toko berhasil ditutup') + '</div>' +
+                    '<div class="hint-text" style="font-size:12px;">' + (shift
+                        ? 'Kasir berikutnya mulai shift di layar Kasir. Kas awal otomatis ' + rp(sesi.data.kasAkhir) + '.'
+                        : 'Sampai jumpa besok! Laporan bisa dilihat lagi di tab Rekap Shift.') + '</div>' +
+                '</div>' +
+                '<div class="lap-kertas" style="max-height:300px; overflow:auto;">' + htmlLaporanSesi(sesi, r) + '</div>' +
+                '<div class="modal-actions">' +
+                    '<button class="btn" onclick="cetakLaporanSesi()">🖨 Cetak laporan</button>' +
+                    '<button class="btn btn-primary" style="flex:1.3;" onclick="tutupModal(\'modalTutup\')">Selesai</button>' +
+                '</div>';
         }
 
         /* =====================================================
            PENGELUARAN
         ====================================================== */
-        let filterPengeluaran = { dari: kasTanggalHariIni(), sampai: kasTanggalHariIni() };
+        let filterPengeluaran = { preset: "hari", dari: kasTanggalHariIni(), sampai: kasTanggalHariIni() };
         let sesiBukaPerOutlet = {};    // outlet -> id sesi buka (untuk izin hapus kasir)
+        let kategoriDipilih = KATEGORI_PENGELUARAN[0];
 
         function bolehHapus(p) {
             if (p.status === "dihapus") return false;
             if (bolehKelolaSemua()) return true;
-            // Kasir: hanya catatannya sendiri, hari ini, dan sesi laci yang masih buka
+            // Kasir: hanya catatannya sendiri, hari ini, dan shift yang masih berjalan
             if (p.dibuatUid !== currentUser.uid || p.tanggal !== kasTanggalHariIni()) return false;
             if (!p.sesiKasId) return true;
             const idBuka = sesiAktif ? sesiAktif.id : sesiBukaPerOutlet[p.outlet];
             return p.sesiKasId === idBuka;
         }
 
-        function htmlInfoPengeluaran() {
-            return '<div class="info-pengeluaran"><span class="ikon">💡</span><div>' +
-                '<div class="j">Informasi Pengeluaran Outlet</div>' +
-                '<div class="d">Transaksi Pengeluaran Outlet akan mempengaruhi Total Kas Akhir Anda</div></div></div>';
-        }
-
         function htmlLinkBukti(p) {
             // Hanya URL dari api/foto.php milik sendiri yang ditampilkan sebagai tautan
-            if (!p.buktiUrl || !/^api\/foto\.php\?b=[0-9a-f_]+\.jpg$/.test(p.buktiUrl)) return '<span style="color:#9aa5b1;">-</span>';
-            return '<a class="link-bukti" href="' + esc(p.buktiUrl) + '" target="_blank" rel="noopener">Lihat foto</a>';
+            if (!p.buktiUrl || !/^api\/foto\.php\?b=[0-9a-f_]+\.jpg$/.test(p.buktiUrl)) return '';
+            return '<a class="link-bukti" href="' + esc(p.buktiUrl) + '" target="_blank" rel="noopener" title="Lihat foto bukti">📎</a>';
         }
 
         let buktiUrlForm = "";
@@ -824,15 +948,15 @@
 
         function bukaModalPengeluaran() {
             const selOut = document.getElementById("pgOutlet");
-            const outletDefault = outletDipilih || daftarOutlet[0] || "";
             selOut.innerHTML = daftarOutlet.map(function (o) { return '<option value="' + esc(o) + '">' + esc(o) + '</option>'; }).join("");
-            selOut.value = outletDefault;
-            // Kasir & tab sesi: outlet sudah pasti
+            selOut.value = outletDipilih || daftarOutlet[0] || "";
+            // Outlet hanya dipilih di tab Pengeluaran oleh admin/owner
             document.getElementById("pgOutletWrap").style.display = (currentUser.role === "kasir" || tabAktif !== "pengeluaran") ? "none" : "block";
-            // Kasir selalu mengambil dari laci kas; admin/owner boleh mencatat pengeluaran di luar laci
+            // Kasir selalu dari laci; admin/owner boleh mencatat pengeluaran di luar laci
             document.getElementById("pgLaciWrap").style.display = bolehKelolaSemua() ? "block" : "none";
-            document.getElementById("pgTanggal").value = fmtTanggal(kasTanggalHariIni());
-            document.getElementById("pgKategori").innerHTML = KATEGORI_PENGELUARAN.map(function (k) { return '<option>' + esc(k) + '</option>'; }).join("");
+            document.getElementById("pgSub").textContent = "Tanggal " + fmtTanggal(kasTanggalHariIni()) + " · mengurangi uang di laci kas shift berjalan.";
+            kategoriDipilih = KATEGORI_PENGELUARAN[0];
+            renderPilihKategori();
             document.getElementById("pgNominal").value = "";
             document.getElementById("pgKeterangan").value = "";
             document.getElementById("pgDariLaci").checked = true;
@@ -841,7 +965,16 @@
             document.getElementById("pgSimpan").textContent = "Simpan";
             cekFormPengeluaran();
             document.getElementById("modalPengeluaran").classList.add("open");
+            document.getElementById("pgNominal").focus();
         }
+
+        function renderPilihKategori() {
+            document.getElementById("pgKategoriPilih").innerHTML = KATEGORI_PENGELUARAN.map(function (k, i) {
+                return '<button type="button" class="' + (k === kategoriDipilih ? 'on' : '') + '" onclick="pilihKategori(' + i + ')">' + (IKON_KATEGORI[k] || "💸") + ' ' + esc(k) + '</button>';
+            }).join("");
+        }
+
+        function pilihKategori(i) { kategoriDipilih = KATEGORI_PENGELUARAN[i]; renderPilihKategori(); }
 
         function cekFormPengeluaran() {
             document.getElementById("pgSimpan").disabled =
@@ -850,10 +983,9 @@
 
         function aturBukti(url) {
             buktiUrlForm = url;
-            const kotak = document.getElementById("pgBuktiKotak");
-            kotak.innerHTML = url
+            document.getElementById("pgBuktiKotak").innerHTML = url
                 ? '<img src="' + esc(url) + '" alt="Bukti"><button type="button" class="bukti-hapus" title="Hapus foto" onclick="event.stopPropagation(); aturBukti(\'\')">×</button>'
-                : '<span class="plus">+</span>';
+                : '<span class="plus">📷</span>Tambah foto';
             document.getElementById("pgBuktiStatus").textContent = "";
             document.getElementById("pgBuktiFile").value = "";
         }
@@ -889,13 +1021,13 @@
             const tampilError = function (p) { err.textContent = p; err.style.display = "block"; };
             err.style.display = "none";
             if (sedangUploadBukti) return tampilError("Tunggu foto bukti selesai diupload.");
-            const outlet = (currentUser.role === "kasir") ? currentUser.outlet : document.getElementById("pgOutlet").value;
-            const kategori = document.getElementById("pgKategori").value;
+            const outlet = (currentUser.role === "kasir") ? currentUser.outlet
+                : (tabAktif === "pengeluaran" ? document.getElementById("pgOutlet").value : outletDipilih);
             const nominal = kasParseAngka(document.getElementById("pgNominal").value);
             const keterangan = document.getElementById("pgKeterangan").value.trim();
             const dariLaci = bolehKelolaSemua() ? document.getElementById("pgDariLaci").checked : true;
             if (!outlet) return tampilError("Pilih outlet.");
-            if (nominal <= 0) return tampilError("Isi jumlah transaksi.");
+            if (nominal <= 0) return tampilError("Isi jumlah pengeluaran.");
 
             const btn = document.getElementById("pgSimpan");
             btn.disabled = true; btn.textContent = "Menyimpan...";
@@ -905,12 +1037,12 @@
                 : Promise.resolve(null);
             cariSesi.then(function (sesi) {
                 if (dariLaci && !sesi) {
-                    throw new Error("Toko " + outlet + " belum dibuka, jadi belum ada kas. Buka toko dulu di Kasir" +
+                    throw new Error("Belum ada shift berjalan di " + outlet + ", jadi belum ada laci kas. Buka dulu di layar Kasir" +
                         (bolehKelolaSemua() ? ", atau hilangkan centang \"dari laci\"." : "."));
                 }
                 return db.collection("pengeluaran").add({
                     outlet: outlet, tanggal: kasTanggalHariIni(),
-                    kategori: kategori, nominal: nominal, keterangan: keterangan,
+                    kategori: kategoriDipilih, nominal: nominal, keterangan: keterangan,
                     buktiUrl: buktiUrlForm || "",
                     dariLaci: dariLaci, sesiKasId: sesi ? sesi.id : null,
                     status: "aktif",
@@ -919,7 +1051,8 @@
                 });
             }).then(function () {
                 tutupModal("modalPengeluaran");
-                gantiTab(tabAktif);
+                // Tab Shift Sekarang diperbarui otomatis oleh pemantau pengeluaran
+                if (tabAktif !== "shift") gantiTab(tabAktif);
             }).catch(function (error) {
                 btn.textContent = "Simpan";
                 cekFormPengeluaran();
@@ -933,50 +1066,74 @@
                 const p = doc.data();
                 let pesan = "Hapus pengeluaran " + p.kategori + " " + rp(p.nominal) + (p.keterangan ? " (" + p.keterangan + ")" : "") + "?";
                 if (p.sesiKasId && (!sesiAktif || sesiAktif.id !== p.sesiKasId)) {
-                    pesan += "\n\nCatatan: sesi kasnya mungkin sudah ditutup. Angka di laporan tutup toko yang sudah tersimpan tidak ikut berubah.";
+                    pesan += "\n\nCatatan: shift-nya mungkin sudah diakhiri. Angka di laporan shift yang sudah tersimpan tidak ikut berubah.";
                 }
                 if (!confirm(pesan)) return;
                 return doc.ref.update({
                     status: "dihapus",
                     dihapusUid: currentUser.uid || "", dihapusNama: currentUser.nama || "",
                     waktuHapus: firebase.firestore.FieldValue.serverTimestamp()
-                }).then(function () { gantiTab(tabAktif); });
+                }).then(function () { if (tabAktif !== "shift") gantiTab(tabAktif); });
             }).catch(function (error) { alert("Gagal menghapus: " + error.message); });
+        }
+
+        /* Filter tanggal cepat, dipakai tab Pengeluaran & Rekap */
+        function rentangPreset(preset) {
+            const hariIni = kasTanggalHariIni();
+            if (preset === "hari") return { dari: hariIni, sampai: hariIni };
+            if (preset === "7") return { dari: tanggalMundur(6), sampai: hariIni };
+            if (preset === "30") return { dari: tanggalMundur(29), sampai: hariIni };
+            if (preset === "bulan") return { dari: hariIni.slice(0, 8) + "01", sampai: hariIni };
+            return null;
+        }
+
+        function htmlFilterTanggal(f, fnPreset, fnCustom) {
+            const preset = [["hari", "Hari ini"], ["7", "7 hari"], ["30", "30 hari"], ["bulan", "Bulan ini"], ["custom", "Pilih tanggal"]];
+            return preset.map(function (p) {
+                return '<button class="chip-f' + (f.preset === p[0] ? ' on' : '') + '" onclick="' + fnPreset + '(\'' + p[0] + '\')">' + p[1] + '</button>';
+            }).join("") +
+            (f.preset === "custom"
+                ? '<input type="date" class="tgl-input" id="fDari" value="' + esc(f.dari) + '"> – <input type="date" class="tgl-input" id="fSampai" value="' + esc(f.sampai) + '">' +
+                  '<button class="btn btn-kecil btn-primary" onclick="' + fnCustom + '()">Terapkan</button>'
+                : '');
+        }
+
+        function ambilTanggalCustom(f) {
+            const dari = document.getElementById("fDari").value, sampai = document.getElementById("fSampai").value;
+            if (!dari || !sampai || dari > sampai) { alert("Tanggal \"dari\" harus sebelum atau sama dengan \"sampai\"."); return false; }
+            f.dari = dari; f.sampai = sampai;
+            return true;
         }
 
         function renderTabPengeluaran() {
             document.getElementById("isiTab").innerHTML =
-                '<div class="judul-shift"><h3>Pengeluaran Outlet</h3></div>' +
-                htmlInfoPengeluaran() +
-                '<div class="ctrl-row">' +
-                    '<div><div class="ctrl-label">Dari</div><input type="date" class="tgl-input" id="pgDari" value="' + esc(filterPengeluaran.dari) + '"></div>' +
-                    '<div><div class="ctrl-label">Sampai</div><input type="date" class="tgl-input" id="pgSampai" value="' + esc(filterPengeluaran.sampai) + '"></div>' +
-                    '<button class="btn" onclick="terapkanFilterPengeluaran()">Tampilkan</button>' +
-                '</div>' +
-                '<div class="judul-bagian" id="judulPengeluaran"></div>' +
-                '<div id="isiPengeluaran"><div class="loading-state">Memuat pengeluaran...</div></div>' +
-                '<button type="button" class="fab-tambah" title="Tambah pengeluaran" onclick="bukaModalPengeluaran()">+</button>';
+                '<div class="filter-row">' + htmlFilterTanggal(filterPengeluaran, "presetPengeluaran", "customPengeluaran") + '</div>' +
+                '<div id="isiPengeluaran"><div class="loading-state">Memuat pengeluaran...</div></div>';
+            if (!document.querySelector(".fab-tambah")) {
+                const fab = document.createElement("button");
+                fab.className = "fab-tambah"; fab.type = "button";
+                fab.innerHTML = '<span>+</span> Catat pengeluaran';
+                fab.onclick = bukaModalPengeluaran;
+                document.body.appendChild(fab);
+            }
             muatPengeluaran();
         }
 
-        function terapkanFilterPengeluaran() {
-            const dari = document.getElementById("pgDari").value, sampai = document.getElementById("pgSampai").value;
-            if (!dari || !sampai || dari > sampai) { alert("Tanggal \"dari\" harus sebelum atau sama dengan \"sampai\"."); return; }
-            filterPengeluaran = { dari: dari, sampai: sampai };
-            muatPengeluaran();
+        function presetPengeluaran(p) {
+            filterPengeluaran.preset = p;
+            const r = rentangPreset(p);
+            if (r) { filterPengeluaran.dari = r.dari; filterPengeluaran.sampai = r.sampai; }
+            renderTabPengeluaran();
         }
+        function customPengeluaran() { if (ambilTanggalCustom(filterPengeluaran)) muatPengeluaran(); }
 
         function muatPengeluaran() {
             const tujuan = document.getElementById("isiPengeluaran");
-            const hariIni = kasTanggalHariIni();
-            document.getElementById("judulPengeluaran").textContent =
-                filterPengeluaran.dari === hariIni && filterPengeluaran.sampai === hariIni
-                    ? "Pengeluaran Outlet Hari Ini"
-                    : "Pengeluaran Outlet " + fmtTanggal(filterPengeluaran.dari) + " s/d " + fmtTanggal(filterPengeluaran.sampai);
             tujuan.innerHTML = '<div class="loading-state">Memuat pengeluaran...</div>';
             const outlet = outletDipilih;
-            const muatSesiBuka = currentUser.role === "kasir"
-                ? kasCariSesiAktif(db, currentUser.outlet).then(function (s) { sesiBukaPerOutlet[currentUser.outlet] = s ? s.id : null; }).catch(function () {})
+            const token = ++tokenMuat;
+            const muatSesiBuka = outlet
+                ? kasCariSesiAktif(db, outlet).then(function (s) { sesiAktif = s; sesiBukaPerOutlet[outlet] = s ? s.id : null; }).catch(function () {})
                 : Promise.resolve();
             Promise.all([
                 db.collection("pengeluaran")
@@ -985,7 +1142,7 @@
                     .get(),
                 muatSesiBuka
             ]).then(function (h) {
-                if (tabAktif !== "pengeluaran" || outlet !== outletDipilih) return;
+                if (token !== tokenMuat) return;
                 const daftar = [];
                 h[0].forEach(function (doc) {
                     const d = doc.data({ serverTimestamps: "estimate" });
@@ -998,14 +1155,14 @@
                 daftar.sort(function (a, b) { return b._waktu - a._waktu; });
                 renderDaftarPengeluaran(daftar);
             }).catch(function (error) {
-                tujuan.innerHTML = '<div class="empty-state">Gagal memuat pengeluaran: ' + esc(error.message) + '</div>';
+                if (token === tokenMuat) tujuan.innerHTML = '<div class="empty-state">Gagal memuat pengeluaran: ' + esc(error.message) + '</div>';
             });
         }
 
         function renderDaftarPengeluaran(daftar) {
             const tujuan = document.getElementById("isiPengeluaran");
             if (daftar.length === 0) {
-                tujuan.innerHTML = '<div class="kosong-pengeluaran"><div class="ikon">🧾</div>Klik + untuk membuat<br>catatan transaksi Anda</div>';
+                tujuan.innerHTML = '<div class="panel"><div class="kosong" style="padding:44px 0;"><div class="ikon">🧾</div>Belum ada pengeluaran di periode ini.<br>Tekan <b>+ Catat pengeluaran</b> di kanan bawah.</div></div>';
                 return;
             }
             const perKategori = {};
@@ -1016,164 +1173,256 @@
                 total += n;
                 if (p.dariLaci) totalLaci += n;
             });
+            const kat = Object.keys(perKategori).sort(function (a, b) { return perKategori[b] - perKategori[a]; });
+            const maks = perKategori[kat[0]] || 1;
             const semuaOutlet = !outletDipilih;
+
+            // Kelompokkan per tanggal
+            const perTanggal = {};
+            daftar.forEach(function (p) { (perTanggal[p.tanggal] = perTanggal[p.tanggal] || []).push(p); });
+
             tujuan.innerHTML =
-                '<div class="chip-row">' +
-                    '<span class="chip">Total: <b>' + rp(total) + '</b></span>' +
-                    '<span class="chip">Dari laci: <b>' + rp(totalLaci) + '</b></span>' +
-                    '<span class="chip">Di luar laci: <b>' + rp(total - totalLaci) + '</b></span>' +
+                '<div class="tile-row">' +
+                    '<div class="tile"><div class="k">Total pengeluaran</div><div class="v" style="color:#C2410C;">' + rp(total) + '</div><div class="s">' + angka(daftar.length) + ' catatan</div></div>' +
+                    '<div class="tile"><div class="k">Dari laci kas</div><div class="v">' + rp(totalLaci) + '</div><div class="s">Mengurangi kas akhir</div></div>' +
+                    '<div class="tile"><div class="k">Di luar laci</div><div class="v">' + rp(total - totalLaci) + '</div><div class="s">Transfer / lainnya</div></div>' +
                 '</div>' +
-                '<div class="chip-row">' +
-                    Object.keys(perKategori).sort(function (a, b) { return perKategori[b] - perKategori[a]; }).map(function (k) {
-                        return '<span class="chip">' + esc(k) + ': <b>' + rp(perKategori[k]) + '</b></span>';
-                    }).join("") +
-                '</div>' +
-                '<div class="tabel-wrap"><table><thead><tr>' +
-                    '<th>Waktu</th>' + (semuaOutlet ? '<th>Outlet</th>' : '') + '<th>Kategori</th><th>Catatan</th><th>Bukti</th><th>Sumber</th><th>Dicatat</th><th class="r">Jumlah</th><th></th>' +
-                '</tr></thead><tbody>' +
-                    daftar.map(function (p) {
-                        return '<tr>' +
-                            '<td style="white-space:nowrap;">' + esc(fmtWaktu(p._waktu)) + '</td>' +
-                            (semuaOutlet ? '<td>' + esc(p.outlet) + '</td>' : '') +
-                            '<td>' + esc(p.kategori) + '</td>' +
-                            '<td>' + esc(p.keterangan || "-") + '</td>' +
-                            '<td>' + htmlLinkBukti(p) + '</td>' +
-                            '<td>' + (p.dariLaci ? '<span class="status-pill pill-laci">Laci kas</span>' : '<span class="status-pill pill-luar">Di luar laci</span>') + '</td>' +
-                            '<td>' + esc(p.dibuatNama || "-") + '</td>' +
-                            '<td class="r">' + rp(p.nominal) + '</td>' +
-                            '<td class="r">' + (bolehHapus(p) ? '<button class="btn btn-kecil btn-danger" onclick="hapusPengeluaran(\'' + escJsAttr(p._id) + '\')">Hapus</button>' : '') + '</td>' +
-                        '</tr>';
-                    }).join("") +
-                '</tbody><tfoot><tr><td colspan="' + (semuaOutlet ? 7 : 6) + '">Total</td><td class="r">' + rp(total) + '</td><td></td></tr></tfoot></table></div>';
+                '<div class="dua-kolom" style="margin-top:0;">' +
+                    '<div class="panel">' +
+                        '<div class="panel-judul"><h3>Daftar pengeluaran</h3></div>' +
+                        Object.keys(perTanggal).sort().reverse().map(function (tg) {
+                            const sub = perTanggal[tg].reduce(function (a, p) { return a + (Number(p.nominal) || 0); }, 0);
+                            return '<div class="sub-judul" style="display:flex; justify-content:space-between;"><span>' + esc(fmtHariPanjang(tg)) + '</span><span>' + rp(sub) + '</span></div>' +
+                                perTanggal[tg].map(function (p) { return htmlItemPengeluaran(p, semuaOutlet); }).join("");
+                        }).join("") +
+                    '</div>' +
+                    '<div class="panel" style="align-self:start;">' +
+                        '<div class="panel-judul"><h3>Per kategori</h3></div>' +
+                        kat.map(function (k) {
+                            return '<div class="kat-bar"><span class="nm">' + (IKON_KATEGORI[k] || "💸") + ' ' + esc(k) + '</span>' +
+                                '<div class="bar-track"><div class="bar-fill" style="width:' + Math.round(perKategori[k] * 100 / maks) + '%; background:#E0761A;"></div></div>' +
+                                '<span class="v">' + angka(perKategori[k]) + '</span></div>';
+                        }).join("") +
+                    '</div>' +
+                '</div>';
         }
 
         /* =====================================================
-           DETAIL REKAPITULASI (riwayat shift / tutup toko)
+           REKAP SHIFT
+           Ringkasan periode + daftar shift per hari. Klik satu shift
+           untuk melihat detailnya tanpa pindah halaman.
         ====================================================== */
-        let filterRiwayat = { dari: tanggalMundur(15), sampai: kasTanggalHariIni(), cari: "" };
-        let daftarRiwayat = [];
+        let filterRekap = { preset: "7", dari: tanggalMundur(6), sampai: kasTanggalHariIni(), cari: "", hanyaSelisih: false };
+        let daftarRekap = [];
 
-        function renderTabRiwayat() {
+        function renderTabRekap() {
             document.getElementById("isiTab").innerHTML =
-                '<div class="judul-shift"><h3>Detail Rekapitulasi</h3></div>' +
-                '<div class="ctrl-row">' +
-                    '<div><div class="ctrl-label">Dari</div><input type="date" class="tgl-input" id="rwDari" value="' + esc(filterRiwayat.dari) + '"></div>' +
-                    '<div><div class="ctrl-label">Sampai</div><input type="date" class="tgl-input" id="rwSampai" value="' + esc(filterRiwayat.sampai) + '"></div>' +
-                    '<button class="btn" onclick="terapkanFilterRiwayat()">Tampilkan</button>' +
-                    '<div style="flex:1; min-width:200px;"><div class="ctrl-label">Cari</div><input type="text" class="cari-input" id="rwCari" style="width:100%;" placeholder="🔍 Cari shift berdasarkan Kasir Awal dan Kasir Akhir" value="' + esc(filterRiwayat.cari) + '" oninput="filterRiwayat.cari = this.value; renderRiwayat()"></div>' +
+                '<div class="filter-row">' + htmlFilterTanggal(filterRekap, "presetRekap", "customRekap") + '</div>' +
+                '<div class="filter-row">' +
+                    '<input type="text" class="cari-input" id="rkCari" style="flex:1; min-width:200px;" placeholder="🔍 Cari nama kasir..." value="' + esc(filterRekap.cari) + '" oninput="filterRekap.cari = this.value; renderRekap()">' +
+                    '<button class="chip-f' + (filterRekap.hanyaSelisih ? ' on' : '') + '" onclick="filterRekap.hanyaSelisih = !filterRekap.hanyaSelisih; this.classList.toggle(\'on\'); renderRekap()">Hanya yang ada selisih</button>' +
+                    '<button class="btn btn-kecil" style="height:32px;" onclick="unduhRekapCsv()">⬇ Unduh Excel (CSV)</button>' +
                 '</div>' +
-                '<div id="isiRiwayat"><div class="loading-state">Memuat riwayat...</div></div>';
-            muatRiwayat();
+                '<div id="isiRekap"><div class="loading-state">Memuat rekap...</div></div>';
+            muatRekap();
         }
 
-        function terapkanFilterRiwayat() {
-            const dari = document.getElementById("rwDari").value, sampai = document.getElementById("rwSampai").value;
-            if (!dari || !sampai || dari > sampai) { alert("Tanggal \"dari\" harus sebelum atau sama dengan \"sampai\"."); return; }
-            filterRiwayat.dari = dari; filterRiwayat.sampai = sampai;
-            muatRiwayat();
+        function presetRekap(p) {
+            filterRekap.preset = p;
+            const r = rentangPreset(p);
+            if (r) { filterRekap.dari = r.dari; filterRekap.sampai = r.sampai; }
+            renderTabRekap();
         }
+        function customRekap() { if (ambilTanggalCustom(filterRekap)) muatRekap(); }
 
-        function muatRiwayat() {
-            const tujuan = document.getElementById("isiRiwayat");
+        function muatRekap() {
+            const tujuan = document.getElementById("isiRekap");
             const outlet = outletDipilih;
+            const token = ++tokenMuat;
             db.collection("sesi_kas")
-                .where("tanggal", ">=", filterRiwayat.dari)
-                .where("tanggal", "<=", filterRiwayat.sampai)
+                .where("tanggal", ">=", filterRekap.dari)
+                .where("tanggal", "<=", filterRekap.sampai)
                 .get()
                 .then(function (snap) {
-                    if (tabAktif !== "riwayat" || outlet !== outletDipilih) return;
+                    if (token !== tokenMuat) return;
                     const daftar = [];
                     snap.forEach(function (doc) {
                         const d = doc.data({ serverTimestamps: "estimate" });
                         if (outlet && d.outlet !== outlet) return;
-                        daftar.push({ id: doc.id, data: d, _buka: kasToDate(d.waktuBuka) || new Date(0) });
+                        daftar.push({ id: doc.id, data: d, _buka: kasToDate(d.waktuBuka) || new Date(0), _tutup: kasToDate(d.waktuTutup) });
                     });
                     daftar.sort(function (a, b) { return b._buka - a._buka; });
-                    daftarRiwayat = daftar;
-                    renderRiwayat();
+                    daftarRekap = daftar;
+                    renderRekap();
                 }).catch(function (error) {
-                    tujuan.innerHTML = '<div class="empty-state">Gagal memuat riwayat: ' + esc(error.message) + '</div>';
+                    if (token === tokenMuat) tujuan.innerHTML = '<div class="empty-state">Gagal memuat rekap: ' + esc(error.message) + '</div>';
                 });
         }
 
-        function fmtTglJam(d) {
-            if (!d) return "-";
-            return '<span class="tgl-tanggal">' + esc(d.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })) + '</span><br>' + esc(fmtJam(d));
+        function rekapTersaring() {
+            const kunci = filterRekap.cari.trim().toLowerCase();
+            return daftarRekap.filter(function (s) {
+                if (filterRekap.hanyaSelisih && !(s.data.status === "tutup" && Number(s.data.selisih))) return false;
+                if (!kunci) return true;
+                return ((s.data.dibukaNama || "") + " " + (s.data.ditutupNama || "")).toLowerCase().indexOf(kunci) !== -1;
+            });
         }
 
-        function renderRiwayat() {
-            const tujuan = document.getElementById("isiRiwayat");
+        function renderRekap() {
+            const tujuan = document.getElementById("isiRekap");
             if (!tujuan) return;
-            const kunci = filterRiwayat.cari.trim().toLowerCase();
-            const tampil = daftarRiwayat.map(function (s, i) { return { s: s, i: i }; }).filter(function (x) {
-                if (!kunci) return true;
-                return ((x.s.data.dibukaNama || "") + " " + (x.s.data.ditutupNama || "")).toLowerCase().indexOf(kunci) !== -1;
+            const daftar = rekapTersaring();
+            const selesai = daftar.filter(function (s) { return s.data.status === "tutup"; });
+            let tunai = 0, keluar = 0, selisih = 0, bermasalah = 0, kurang = 0;
+            selesai.forEach(function (s) {
+                tunai += Number(s.data.penjualanTunai) || 0;
+                keluar += Number(s.data.totalPengeluaran) || 0;
+                const x = Number(s.data.selisih) || 0;
+                selisih += x;
+                if (x !== 0) bermasalah++;
+                if (x < 0) kurang += -x;
             });
-            if (tampil.length === 0) {
-                tujuan.innerHTML = '<div class="empty-state">' + (daftarRiwayat.length ? 'Tidak ada shift yang cocok dengan pencarian.' : 'Belum ada shift di periode ini.') + '</div>';
+            const sTotal = infoSelisih(selisih);
+
+            let html =
+                '<div class="tile-row">' +
+                    '<div class="tile"><div class="k">Jumlah shift</div><div class="v">' + angka(daftar.length) + '</div><div class="s">' + angka(selesai.length) + ' selesai · ' + angka(daftar.length - selesai.length) + ' berjalan</div></div>' +
+                    '<div class="tile"><div class="k">Penjualan tunai</div><div class="v">' + rp(tunai) + '</div><div class="s">Shift yang sudah selesai</div></div>' +
+                    '<div class="tile"><div class="k">Pengeluaran</div><div class="v" style="color:#C2410C;">' + rp(keluar) + '</div><div class="s">Dari laci kas</div></div>' +
+                    '<div class="tile"><div class="k">Total selisih</div><div class="v"><span class="badge ' + sTotal.kelas + '" style="font-size:14px;">' + sTotal.teks + '</span></div>' +
+                        '<div class="s">' + (bermasalah ? angka(bermasalah) + ' shift ada selisih' + (kurang ? ' · kurang total ' + rp(kurang) : '') : 'Semua shift pas 👍') + '</div></div>' +
+                '</div>';
+
+            if (daftar.length === 0) {
+                tujuan.innerHTML = html + '<div class="panel"><div class="kosong" style="padding:40px 0;"><div class="ikon">📋</div>' +
+                    (daftarRekap.length ? 'Tidak ada shift yang cocok dengan filter.' : 'Belum ada shift di periode ini.') + '</div></div>';
                 return;
             }
+
             const semuaOutlet = !outletDipilih;
-            const baris = tampil.map(function (x) {
-                const s = x.s, d = s.data, tutup = d.status === "tutup";
-                const jenis = !tutup ? '' : (d.jenisTutup === "shift"
-                    ? '<br><span class="status-pill pill-shift">Akhir shift</span>'
-                    : '<br><span class="status-pill pill-toko">Tutup toko</span>');
-                return '<tr>' +
-                    '<td>' + fmtTglJam(s._buka) + '</td>' +
-                    (semuaOutlet ? '<td>' + esc(d.outlet) + '</td>' : '') +
-                    '<td>' + esc(d.dibukaNama || "-") + '</td>' +
-                    '<td class="r">' + angka(d.kasAwal) + '</td>' +
-                    '<td>' + (tutup ? fmtTglJam(kasToDate(d.waktuTutup)) + jenis : '<span class="berlangsung">Sedang<br>Berlangsung</span>') + '</td>' +
-                    '<td>' + (tutup ? esc(d.ditutupNama || "-") : '-') + '</td>' +
-                    '<td class="r">' + (tutup ? angka(d.kasSeharusnya) : '-') + '</td>' +
-                    '<td class="r">' + (tutup ? angka(d.totalPengeluaran) : '-') + '</td>' +
-                    '<td class="r">' + (tutup ? angka(d.kasAkhir) : '-') + '</td>' +
-                    '<td class="r">' + (tutup ? teksSelisih(d.selisih) : '-') + '</td>' +
-                    '<td class="r">' + (tutup ? '<button class="btn-chevron" title="Detail" onclick="bukaDetailRiwayat(' + x.i + ')">›</button>' : '') + '</td>' +
-                '</tr>';
-            }).join("");
-            tujuan.innerHTML =
-                '<div class="tabel-wrap"><table><thead><tr>' +
-                    '<th>Shift Awal</th>' + (semuaOutlet ? '<th>Outlet</th>' : '') + '<th>Kasir Awal</th><th class="r">Kas Awal</th><th>Shift Akhir</th><th>Kasir Akhir</th>' +
-                    '<th class="r">Ekspektasi<br>Penjualan Akhir</th><th class="r">Total<br>Pengeluaran</th><th class="r">Kas Akhir<br>Oleh Kasir</th><th class="r">Selisih</th><th></th>' +
-                '</tr></thead><tbody>' + baris + '</tbody></table></div>' +
-                '<div class="hint-text">Ekspektasi Penjualan Akhir = Kas Awal + Pembayaran Tunai − Pengeluaran Outlet. Selisih = Kas Akhir Oleh Kasir − Ekspektasi.</div>';
+            const perTanggal = {};
+            daftar.forEach(function (s) { (perTanggal[s.data.tanggal] = perTanggal[s.data.tanggal] || []).push(s); });
+            Object.keys(perTanggal).sort().reverse().forEach(function (tg) {
+                const isi = perTanggal[tg];
+                let selHari = 0;
+                isi.forEach(function (s) { if (s.data.status === "tutup") selHari += Number(s.data.selisih) || 0; });
+                html += '<div class="hari"><div class="hari-head"><span class="tg">' + esc(fmtHariPanjang(tg)) + '</span>' +
+                    '<span class="rs">' + angka(isi.length) + ' shift · selisih ' + badgeSelisih(selHari) + '</span></div>' +
+                    isi.map(function (s) { return htmlKartuShift(s, semuaOutlet); }).join("") + '</div>';
+            });
+            tujuan.innerHTML = html;
         }
 
-        function bukaDetailRiwayat(i) {
-            const s = daftarRiwayat[i];
-            if (!s) return;
-            document.getElementById("detailSesiIsi").innerHTML = '<div class="loading-state">Memuat...</div>';
-            document.getElementById("modalDetailSesi").classList.add("open");
+        function htmlKartuShift(s, semuaOutlet) {
+            const d = s.data, selesai = d.status === "tutup";
+            const idx = daftarRekap.indexOf(s);
+            const jenis = !selesai ? '' : (d.jenisTutup === "shift" ? '<span class="tag tag-shift">Ganti shift</span>' : '<span class="tag tag-toko">Tutup toko</span>');
+            const kasir = (d.dibukaNama || "-") + (selesai && d.ditutupNama && d.ditutupNama !== d.dibukaNama ? " → " + d.ditutupNama : "");
+            return '<div class="shift-card" id="kartu_' + idx + '">' +
+                '<div class="shift-row" onclick="bukaTutupDetail(' + idx + ')">' +
+                    '<div><div class="jam">' + esc(fmtJam(s._buka)) + ' – ' + (selesai ? esc(fmtJam(s._tutup)) : '…') + '</div>' +
+                        '<div class="kecil">' + (semuaOutlet ? esc(d.outlet) : (selesai ? 'Selesai' : 'Berjalan')) + '</div></div>' +
+                    '<div><div class="lbl">Kasir</div><div class="val">' + esc(kasir) + jenis + '</div></div>' +
+                    '<div class="col-hide"><div class="lbl">Kas awal</div><div class="val">' + angka(d.kasAwal) + '</div></div>' +
+                    '<div class="col-hide"><div class="lbl">Seharusnya</div><div class="val">' + (selesai ? angka(d.kasSeharusnya) : '-') + '</div></div>' +
+                    '<div class="col-hide"><div class="lbl">Dihitung kasir</div><div class="val">' + (selesai ? angka(d.kasAkhir) : '-') + '</div></div>' +
+                    '<div>' + (selesai ? badgeSelisih(d.selisih) : '<span class="badge b-jalan">● Berjalan</span>') + '</div>' +
+                    '<div class="chev">›</div>' +
+                '</div>' +
+                '<div class="shift-detail" id="detail_' + idx + '"></div>' +
+            '</div>';
+        }
+
+        function bukaTutupDetail(idx) {
+            const kartu = document.getElementById("kartu_" + idx);
+            const s = daftarRekap[idx];
+            if (!kartu || !s) return;
+            if (kartu.classList.toggle("buka") === false) return;
+            const tempat = document.getElementById("detail_" + idx);
+            tempat.innerHTML = '<div class="loading-state" style="padding:10px 0;">Memuat detail...</div>';
             kasMuatPengeluaranSesi(db, s.id).catch(function () { return []; }).then(function (pengeluaran) {
-                const d = s.data;
-                const r = {
-                    kasAwal: Number(d.kasAwal) || 0,
-                    perMetode: d.penjualanPerMetodeAkhir || d.penjualanPerMetode || {},
-                    jumlahTrx: d.jumlahTrxAkhir !== undefined ? d.jumlahTrxAkhir : d.jumlahTrx,
-                    penjualanTunai: Number(d.penjualanTunai) || 0,
-                    penjualanNonTunai: Number(d.penjualanNonTunai) || 0,
-                    pengeluaran: pengeluaran,
-                    totalPengeluaran: Number(d.totalPengeluaran) || 0,
-                    kasSeharusnya: Number(d.kasSeharusnya) || 0
-                };
-                tampilDetailSesi(s, r);
+                const d = s.data, selesai = d.status === "tutup";
+                const r = ringkasanDariDokumen(s, pengeluaran);
+                const per = r.perMetode;
+                const metode = Object.keys(per).filter(function (m) { return per[m]; });
+                const totalPg = selesai ? r.totalPengeluaran : pengeluaran.reduce(function (a, p) { return a + (Number(p.nominal) || 0); }, 0);
+                tempat.innerHTML =
+                    '<div class="detail-grid">' +
+                        '<div><div class="sub-judul" style="margin-top:0;">Kas laci</div>' +
+                            '<div class="dl-row"><span>Kas awal</span><b>' + rp(r.kasAwal) + '</b></div>' +
+                            '<div class="dl-row"><span>+ Tunai masuk</span><b>' + (selesai ? rp(r.penjualanTunai) : '-') + '</b></div>' +
+                            '<div class="dl-row"><span>− Pengeluaran</span><b>' + rp(totalPg) + '</b></div>' +
+                            '<div class="dl-row"><span>Seharusnya</span><b>' + (selesai ? rp(r.kasSeharusnya) : '-') + '</b></div>' +
+                            '<div class="dl-row"><span>Dihitung kasir</span><b>' + (selesai ? rp(d.kasAkhir) : '-') + '</b></div>' +
+                            (d.rincianPecahan ? '<div class="kecil">Per pecahan: ' + esc(Object.keys(d.rincianPecahan).sort(function (a, b) { return b - a; }).map(function (n) { return d.rincianPecahan[n] + "×" + angka(n); }).join(", ")) + '</div>' : '') +
+                        '</div>' +
+                        '<div><div class="sub-judul" style="margin-top:0;">Penjualan (' + angka(r.jumlahTrx) + ' trx)</div>' +
+                            (metode.length ? metode.map(function (m) { return '<div class="dl-row"><span>' + esc(m) + '</span><b>' + rp(per[m]) + '</b></div>'; }).join("") : '<div class="kecil">Belum ada penjualan.</div>') +
+                        '</div>' +
+                        '<div><div class="sub-judul" style="margin-top:0;">Pengeluaran</div>' +
+                            (pengeluaran.length ? pengeluaran.map(function (p) {
+                                return '<div class="dl-row"><span>' + esc(p.kategori) + (p.keterangan ? ' <span class="kecil" style="display:inline;">' + esc(p.keterangan) + '</span>' : '') + '</span><b>' + angka(p.nominal) + '</b></div>';
+                            }).join("") : '<div class="kecil">Tidak ada.</div>') +
+                        '</div>' +
+                    '</div>' +
+                    (d.catatan ? '<div class="hint-text" style="font-size:12px; color:#374151; background:#F4F6FA; border-radius:8px; padding:8px 10px;">📝 ' + esc(d.catatan) + '</div>' : '') +
+                    (selesai ? '<div style="margin-top:12px;"><button class="btn btn-kecil" onclick="cetakDariRekap(' + idx + ')">🖨 Cetak laporan</button></div>' : '');
+                s._pengeluaran = pengeluaran;
             });
         }
 
-        /* ---------- Laporan tutup toko (modal & cetak) ---------- */
+        function ringkasanDariDokumen(s, pengeluaran) {
+            const d = s.data;
+            return {
+                kasAwal: Number(d.kasAwal) || 0,
+                perMetode: d.penjualanPerMetodeAkhir || d.penjualanPerMetode || {},
+                jumlahTrx: d.jumlahTrxAkhir !== undefined ? d.jumlahTrxAkhir : (Number(d.jumlahTrx) || 0),
+                penjualanTunai: Number(d.penjualanTunai) || 0,
+                penjualanNonTunai: Number(d.penjualanNonTunai) || 0,
+                pengeluaran: pengeluaran || [],
+                totalPengeluaran: Number(d.totalPengeluaran) || 0,
+                kasSeharusnya: Number(d.kasSeharusnya) || 0
+            };
+        }
+
+        function cetakDariRekap(idx) {
+            const s = daftarRekap[idx];
+            if (s) tampilDetailSesi(s, ringkasanDariDokumen(s, s._pengeluaran));
+        }
+
+        function unduhRekapCsv() {
+            const daftar = rekapTersaring();
+            if (daftar.length === 0) { alert("Tidak ada data untuk diunduh."); return; }
+            const kol = ["Tanggal", "Outlet", "Mulai", "Selesai", "Jenis", "Kasir awal", "Kasir akhir", "Kas awal", "Penjualan tunai",
+                "Penjualan non-tunai", "Pengeluaran", "Kas seharusnya", "Kas akhir (dihitung)", "Selisih", "Catatan"];
+            const sel = function (v) { v = String(v == null ? "" : v); return /[";\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+            const baris = daftar.slice().reverse().map(function (s) {
+                const d = s.data, selesai = d.status === "tutup";
+                return [d.tanggal, d.outlet, fmtWaktu(s._buka), selesai ? fmtWaktu(s._tutup) : "Berjalan",
+                    selesai ? (d.jenisTutup === "shift" ? "Ganti shift" : "Tutup toko") : "",
+                    d.dibukaNama || "", selesai ? (d.ditutupNama || "") : "", d.kasAwal || 0,
+                    selesai ? d.penjualanTunai : "", selesai ? d.penjualanNonTunai : "", selesai ? d.totalPengeluaran : "",
+                    selesai ? d.kasSeharusnya : "", selesai ? d.kasAkhir : "", selesai ? d.selisih : "", d.catatan || ""].map(sel).join(";");
+            });
+            const isi = "﻿" + kol.join(";") + "\n" + baris.join("\n");
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(new Blob([isi], { type: "text/csv;charset=utf-8" }));
+            a.download = "rekap-shift_" + (outletDipilih || "semua-outlet").replace(/[^a-zA-Z0-9-]/g, "-") + "_" + filterRekap.dari + "_" + filterRekap.sampai + ".csv";
+            document.body.appendChild(a); a.click(); a.remove();
+        }
+
+        /* ---------- Laporan shift (modal & cetak 58mm) ---------- */
         function htmlLaporanSesi(sesi, r) {
             const d = sesi.data;
+            const selesai = d.status === "tutup";
+            const judul = !selesai ? "LAPORAN SHIFT (BERJALAN)" : (d.jenisTutup === "shift" ? "LAPORAN AKHIR SHIFT" : "LAPORAN TUTUP TOKO");
             const baris = function (k, v, tebal) { return '<div class="rc-row' + (tebal ? ' tebal' : '') + '"><span>' + k + '</span><span>' + v + '</span></div>'; };
-            const tutup = d.status === "tutup";
-            const judul = !tutup ? "LAPORAN SHIFT (BERJALAN)" : (d.jenisTutup === "shift" ? "LAPORAN AKHIR SHIFT" : "LAPORAN TUTUP TOKO");
             let h = '<div class="rc-judul">Oma Opa ' + esc(d.outlet) + '</div>' +
                 '<div class="rc-tengah">' + judul + '</div>' +
                 '<div class="rc-hr"></div>' +
                 baris("Tanggal", esc(fmtTanggal(d.tanggal))) +
-                baris("Buka", esc(fmtWaktu(kasToDate(d.waktuBuka))) + " · " + esc(d.dibukaNama || "-")) +
-                (tutup ? baris(d.jenisTutup === "shift" ? "Akhir shift" : "Tutup", esc(fmtWaktu(kasToDate(d.waktuTutup))) + " · " + esc(d.ditutupNama || "-")) : baris("Dicetak", esc(fmtWaktu(new Date())))) +
+                baris("Mulai", esc(fmtWaktu(kasToDate(d.waktuBuka))) + " · " + esc(d.dibukaNama || "-")) +
+                (selesai ? baris(d.jenisTutup === "shift" ? "Akhir shift" : "Tutup", esc(fmtWaktu(kasToDate(d.waktuTutup))) + " · " + esc(d.ditutupNama || "-")) : baris("Dicetak", esc(fmtWaktu(new Date())))) +
                 baris("Jumlah transaksi", angka(r.jumlahTrx)) +
                 '<div class="rc-hr"></div>' +
                 '<div class="rc-sub">Penjualan</div>';
@@ -1181,17 +1430,17 @@
             if (metode.length === 0) h += baris("Tunai", rp(0));
             metode.forEach(function (m) { h += baris(esc(m), rp(r.perMetode[m])); });
             h += baris("Total penjualan", rp(r.penjualanTunai + r.penjualanNonTunai), true);
-            h += '<div class="rc-hr"></div><div class="rc-sub">Pengeluaran outlet</div>';
+            h += '<div class="rc-hr"></div><div class="rc-sub">Pengeluaran</div>';
             if (r.pengeluaran.length === 0) h += '<div class="rc-row"><span>-</span><span></span></div>';
             r.pengeluaran.forEach(function (p) { h += baris(esc(p.kategori) + (p.keterangan ? ' <span style="color:#8A95A5;">' + esc(p.keterangan) + '</span>' : ''), rp(p.nominal)); });
             h += baris("Total pengeluaran", rp(r.totalPengeluaran), true);
             h += '<div class="rc-hr"></div><div class="rc-sub">Kas laci</div>' +
                 baris("Kas awal", rp(r.kasAwal)) +
-                baris("+ Pembayaran tunai", rp(r.penjualanTunai)) +
-                baris("− Pengeluaran outlet", rp(r.totalPengeluaran)) +
-                baris("Total kas akhir (sistem)", rp(r.kasSeharusnya), true);
-            if (tutup) {
-                h += baris("Kas akhir oleh kasir", rp(d.kasAkhir), true) +
+                baris("+ Tunai masuk", rp(r.penjualanTunai)) +
+                baris("− Pengeluaran", rp(r.totalPengeluaran)) +
+                baris("Seharusnya", rp(r.kasSeharusnya), true);
+            if (selesai) {
+                h += baris("Dihitung kasir", rp(d.kasAkhir), true) +
                     baris("Selisih", Number(d.selisih) === 0 ? "Pas" : (Number(d.selisih) > 0 ? "Lebih " : "Kurang ") + rp(Math.abs(Number(d.selisih) || 0)), true);
             }
             if (d.catatan) h += '<div class="rc-hr"></div><div class="rc-row"><span>Catatan: ' + esc(d.catatan) + '</span></div>';
