@@ -14,13 +14,14 @@
    akan tampil sebagai "Segera hadir" di Beranda. */
 const HALAMAN_INFO = {
     kasir:          { href: "pos.html",            icon: "🧾", title: "Kasir",           desc: "Buat transaksi penjualan",          dibangun: true },
-    kas:            { href: "kas.html",            icon: "💰", title: "Shift & Kas", desc: "Uang di laci, pengeluaran, akhiri shift & tutup toko", dibangun: true },
     stok:           { href: "stok.html",           icon: "📦", title: "Stok",            desc: "Lihat & pantau stok outlet",        dibangun: true },
     alokasi:        { href: "alokasi.html",        icon: "📋", title: "Manajemen Menu", desc: "Rencana, lapor & approval stok", dibangun: true },
     transfer:       { href: "transfer.html",       icon: "🚚", title: "Transfer",        desc: "Kirim & terima stok antar outlet",  dibangun: true },
     riwayat:        { href: "riwayat.html",        icon: "🕘", title: "Riwayat",         desc: "Riwayat transaksi & transfer",      dibangun: false },
     laporan:        { href: "laporan.html",        icon: "📊", title: "Laporan",         desc: "Rekap & download laporan penjualan",         dibangun: true },
-    pengaturan:     { href: "pengaturan.html",     icon: "⚙️", title: "Pengaturan",      desc: "Kelola produk, outlet, & user",     dibangun: true }
+    pengaturan:     { href: "pengaturan.html",     icon: "⚙️", title: "Pengaturan",      desc: "Kelola produk, outlet, & user",     dibangun: true },
+    // Shift & Kas sengaja paling bawah di menu
+    kas:            { href: "kas.html",            icon: "💰", title: "Shift & Kas", desc: "Uang di laci, pengeluaran, akhiri shift & tutup toko", dibangun: true }
 };
 
 /* Daftar role dan halaman apa saja yang boleh mereka akses.
@@ -119,7 +120,7 @@ function getHalamanUntukRole(role) {
    activeKey: "beranda" | "kasir" | "stok" | "pengaturan" | dst */
 function renderSidebar(currentUser, activeKey) {
     const halamanDiizinkan = getHalamanUntukRole(currentUser.role);
-    // Urutan HALAMAN_INFO menaruh Pengaturan di akhir menu yang sudah ada
+    // Urutan mengikuti HALAMAN_INFO (Pengaturan, lalu Shift & Kas paling bawah)
     const sudahDibangun = halamanDiizinkan.filter(function (h) { return h.dibangun; });
     const belumDibangun = halamanDiizinkan.filter(function (h) { return !h.dibangun; });
 
