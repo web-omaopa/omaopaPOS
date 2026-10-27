@@ -10,7 +10,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
     <script src="roles.js?v=20261027a"></script>
     <script src="keuangan.js?v=20261020a"></script>
-    <script src="kas.js?v=20261027a"></script>
+    <script src="kas.js?v=20261027b"></script>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -239,8 +239,9 @@
         .buka-kartu { background: #ffffff; border: 1px solid #dde3ea; border-radius: 14px; padding: 22px; }
         /* Selama toko belum dibuka: tanpa sidebar, kartu di tengah layar seperti halaman login */
         body.layar-buka .sidebar { display: none; }
-        body.layar-buka .content { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #f0f3f7; padding: 20px 16px; }
-        body.layar-buka .buka-wrap { width: 100%; margin: 0 auto; }
+        /* margin:auto (bukan align-items:center) supaya kartu yang panjang tidak terpotong di atas */
+        body.layar-buka .content { display: flex; min-height: 100vh; background: #f0f3f7; padding: 20px 16px; }
+        body.layar-buka .buka-wrap { width: 100%; margin: auto; }
         body.layar-buka .buka-kartu { box-shadow: 0 2px 8px rgba(80, 50, 30, 0.05); }
         .buka-logo { display: block; width: 100%; max-width: 150px; height: auto; margin: 0 auto 14px; }
         .buka-akun { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 16px; padding-top: 12px; border-top: 1px solid #e8ecf1; font-size: 11px; color: #6b7280; }
@@ -689,7 +690,7 @@
             const buka = el.style.display === "none";
             el.style.display = buka ? "block" : "none";
             document.getElementById("btnPecahanBuka").classList.toggle("on", buka);
-            if (buka && !el.innerHTML) el.innerHTML = kasHtmlPecahan("pchBuka", "saatPecahanBuka");
+            if (buka && !el.innerHTML) el.innerHTML = kasHtmlPecahan("pchBuka", "saatPecahanBuka", true);
         }
 
         function saatPecahanBuka(h) {

@@ -248,7 +248,7 @@ function kasPasangGayaPecahan() {
     const st = document.createElement("style");
     st.id = "gayaPecahan";
     st.textContent =
-        ".pch-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px}" +
+        ".pch-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px 14px}" +
         "@media(max-width:520px){.pch-grid{grid-template-columns:1fr}}" +
         ".pch-row{display:flex;align-items:center;gap:8px;background:#F4F6FA;border-radius:10px;padding:6px 8px}" +
         ".pch-nom{flex:1;font-size:12.5px;font-weight:800;color:#12305C}" +
@@ -256,15 +256,23 @@ function kasPasangGayaPecahan() {
         ".pch-btn{width:30px;height:30px;border-radius:8px;border:1px solid #d1d9e6;background:#fff;font-size:16px;font-weight:700;color:#12305C;cursor:pointer;line-height:1;font-family:inherit}" +
         ".pch-btn:active{background:#E8EEF9}" +
         ".pch-in{width:46px;height:30px;border:1px solid #d1d9e6;border-radius:8px;text-align:center;font-size:13px;font-weight:700;font-family:inherit}" +
-        ".pch-sub{width:78px;text-align:right;font-size:11px;color:#52606d}";
+        ".pch-sub{width:78px;text-align:right;font-size:11px;color:#52606d}" +
+        // Versi ringkas untuk kartu sempit (layar Buka Toko): tanpa subtotal per baris
+        ".pch-ringkas{gap:6px 8px}" +
+        ".pch-ringkas .pch-row{gap:5px;padding:5px 6px}" +
+        ".pch-ringkas .pch-nom{font-size:12px;min-width:0}" +
+        ".pch-ringkas .pch-btn{width:28px;height:28px;flex-shrink:0}" +
+        ".pch-ringkas .pch-in{width:38px;height:28px;flex-shrink:0}" +
+        ".pch-ringkas .pch-sub{display:none}";
     document.head.appendChild(st);
 }
 
 /* HTML kalkulator. id = awalan id elemen; onUbah = nama fungsi global
-   yang dipanggil setiap jumlah berubah. */
-function kasHtmlPecahan(id, onUbah) {
+   yang dipanggil setiap jumlah berubah; ringkas = tanpa subtotal per baris
+   (untuk kartu sempit). */
+function kasHtmlPecahan(id, onUbah, ringkas) {
     kasPasangGayaPecahan();
-    return '<div class="pch-grid">' + PECAHAN_UANG.map(function (n) {
+    return '<div class="pch-grid' + (ringkas ? ' pch-ringkas' : '') + '">' + PECAHAN_UANG.map(function (n) {
         const koin = n < 1000;
         return '<div class="pch-row">' +
             '<div class="pch-nom">' + n.toLocaleString("id-ID") + '<small>' + (koin ? "koin" : "lembar") + '</small></div>' +
