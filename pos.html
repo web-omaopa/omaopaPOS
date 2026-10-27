@@ -237,6 +237,15 @@
         /* ===== Buka toko (kas awal) ===== */
         .buka-wrap { max-width: 440px; margin: 30px auto; }
         .buka-kartu { background: #ffffff; border: 1px solid #dde3ea; border-radius: 14px; padding: 22px; }
+        /* Selama toko belum dibuka: tanpa sidebar, kartu di tengah layar seperti halaman login */
+        body.layar-buka .sidebar { display: none; }
+        body.layar-buka .content { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #f0f3f7; padding: 20px 16px; }
+        body.layar-buka .buka-wrap { width: 100%; margin: 0 auto; }
+        body.layar-buka .buka-kartu { box-shadow: 0 2px 8px rgba(80, 50, 30, 0.05); }
+        .buka-logo { display: block; width: 100%; max-width: 150px; height: auto; margin: 0 auto 14px; }
+        .buka-akun { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 16px; padding-top: 12px; border-top: 1px solid #e8ecf1; font-size: 11px; color: #6b7280; }
+        .buka-akun b { color: #1f2937; }
+        .buka-keluar { background: none; border: none; color: #c0392b; font-size: 11.5px; font-weight: 700; cursor: pointer; font-family: inherit; padding: 0; }
         .buka-judul { font-size: 17px; font-weight: 800; color: #12305C; }
         .buka-sub { font-size: 12px; color: #6b7280; margin-top: 4px; line-height: 1.5; }
         .buka-info { background: #F1F4F8; border-radius: 8px; padding: 9px 12px; margin-top: 12px; font-size: 11px; color: #52606d; line-height: 1.5; }
@@ -602,7 +611,18 @@
         let sesiKasUnsubscribe = null;
         let posSudahDimulai = false;
 
+        /* Kepala & kaki kartu layar buka/tutup (sidebar disembunyikan, jadi
+           logo, nama akun, dan tombol Keluar ada di dalam kartu) */
+        function htmlLogoBuka() {
+            return '<img src="logo.png" alt="Oma Opa" class="buka-logo">';
+        }
+        function htmlAkunBuka() {
+            return '<div class="buka-akun"><span>Masuk sebagai <b>' + escapeHtmlAman(currentUser.nama || "-") + '</b> · ' + escapeHtmlAman(currentUser.role) + '</span>' +
+                '<button type="button" class="buka-keluar" onclick="logout()">Keluar</button></div>';
+        }
+
         function cekSesiKas() {
+            document.body.classList.add("layar-buka");
             document.getElementById("mainContent").innerHTML = '<div class="loading-state">Memeriksa kas outlet...</div>';
             kasCariSesiAktif(db, currentUser.outlet).then(function (sesi) {
                 if (sesi) { pakaiSesiKas(sesi); return; }
@@ -610,7 +630,8 @@
             }).catch(function (error) {
                 document.getElementById("mainContent").innerHTML =
                     '<div class="empty-state" style="padding:40px 0;">Gagal memeriksa kas outlet: ' + escapeHtmlAman(error.message) +
-                    '<br><button type="button" class="btn-mini navy" style="margin-top:12px;" onclick="cekSesiKas()">Coba lagi</button></div>';
+                    '<br><button type="button" class="btn-mini navy" style="margin-top:12px;" onclick="cekSesiKas()">Coba lagi</button>' +
+                    '<br><button type="button" class="buka-keluar" style="margin-top:12px;" onclick="logout()">Keluar</button></div>';
             });
         }
 
@@ -635,6 +656,7 @@
                 }
                 main.innerHTML =
                     '<div class="buka-wrap"><div class="buka-kartu">' +
+                        htmlLogoBuka() +
                         '<div class="buka-judul">' + (gantiShift ? 'Mulai Shift' : 'Buka Toko') + '</div>' +
                         '<div class="buka-sub">' + (gantiShift
                             ? 'Outlet <b>' + escapeHtmlAman(currentUser.outlet) + '</b> · ganti shift. Hitung uang di laci kas, lalu pastikan kas awal sesuai.'
@@ -654,6 +676,7 @@
                         (currentUser.role !== "kasir"
                             ? '<button type="button" class="btn-aksi2" style="width:100%; margin-top:8px;" onclick="gantiOutletKasir()">📍 Ganti outlet</button>'
                             : '') +
+                        htmlAkunBuka() +
                     '</div></div>';
                 if (gantiShift) isiKasAwal(Number(lalu.data.kasAkhir) || 0);
                 document.getElementById("inputKasAwal").focus();
@@ -730,6 +753,7 @@
 
             if (posSudahDimulai) return;
             posSudahDimulai = true;
+            document.body.classList.remove("layar-buka");
             renderMainContent();
             loadModePenjualan();
             loadTopping();
@@ -745,8 +769,10 @@
             stockUnsubscribe = produkUnsubscribe = toppingUnsubscribe = modeUnsubscribe = promoUnsubscribe = null;
             ["layarBayar", "layarBerhasil"].forEach(function (id) { document.getElementById(id).classList.remove("open"); });
             document.querySelectorAll(".modal-overlay.open").forEach(function (m) { m.classList.remove("open"); });
+            document.body.classList.add("layar-buka");
             document.getElementById("mainContent").innerHTML =
                 '<div class="buka-wrap"><div class="buka-kartu" style="text-align:center;">' +
+                    htmlLogoBuka() +
                     (jenisTutup === "shift"
                         ? '<div class="buka-judul">Shift sudah diakhiri</div>' +
                           '<div class="buka-sub">Shift di outlet ' + escapeHtmlAman(currentUser.outlet) + ' sudah diakhiri. Kasir berikutnya mulai shift baru; kas awal otomatis diisi dari kas akhir shift tadi.</div>' +
@@ -755,6 +781,7 @@
                           '<div class="buka-sub">Outlet ' + escapeHtmlAman(currentUser.outlet) + ' sudah ditutup. Transaksi baru perlu buka toko lagi dengan kas awal.</div>' +
                           '<button type="button" class="btn-bayar-besar" style="justify-content:center; margin-top:16px;" onclick="window.location.reload()">Buka toko lagi</button>') +
                     '<a href="kas.html" class="btn-aksi2" style="margin-top:8px; text-decoration:none; height:40px;">Lihat rekap shift</a>' +
+                    htmlAkunBuka() +
                 '</div></div>';
         }
 
