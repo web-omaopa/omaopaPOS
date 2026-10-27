@@ -29,9 +29,9 @@ const HALAMAN_INFO = {
    Contoh menambah role baru: cukup tambah baris baru di sini,
    tidak perlu ubah kode di halaman manapun. */
 const ROLE_PERMISSIONS = {
-    management: ["kasir", "kas", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
-    admin:      ["kasir", "kas", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
-    owner:      ["kasir", "kas", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
+    management: ["kasir", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
+    admin:      ["kasir", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
+    owner:      ["kasir", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
     kasir:      ["kasir", "kas", "alokasi", "stok", "transfer"],
     forecaster: ["stok", "transfer", "laporan"]
 };
@@ -97,9 +97,20 @@ function escJsAttr(t) {
    Kalau role tidak dikenali (typo/belum didaftarkan), otomatis
    dianggap tidak punya akses sama sekali (aman by default). */
 function cekAksesHalaman(role, halamanKey) {
-    const izin = ROLE_PERMISSIONS[role];
+    const izin = izinEfektif(role);
     if (!izin) return false;
     return izin.indexOf(halamanKey) !== -1;
+}
+
+/* Halaman yang hanya untuk role kasir (selalu ada untuk kasir, tidak
+   pernah untuk role lain), apa pun isi ROLE_PERMISSIONS / koleksi roles. */
+const HALAMAN_HANYA_KASIR = ["kas"];
+
+function izinEfektif(role) {
+    const izin = ROLE_PERMISSIONS[role];
+    if (!izin) return null;
+    const tanpaKhusus = izin.filter(function (k) { return HALAMAN_HANYA_KASIR.indexOf(k) === -1; });
+    return role === "kasir" ? tanpaKhusus.concat(HALAMAN_HANYA_KASIR) : tanpaKhusus;
 }
 
 /* Ambil daftar halaman (yang sudah dibangun) yang boleh diakses role ini.
@@ -108,7 +119,7 @@ function cekAksesHalaman(role, halamanKey) {
    Transfer, ...), bukan urutan di daftar izin, supaya menu sama di
    semua role. */
 function getHalamanUntukRole(role) {
-    const izin = ROLE_PERMISSIONS[role] || [];
+    const izin = izinEfektif(role) || [];
     return Object.keys(HALAMAN_INFO)
         .filter(function (key) { return izin.indexOf(key) !== -1; })
         .map(function (key) { return Object.assign({ key: key }, HALAMAN_INFO[key]); });

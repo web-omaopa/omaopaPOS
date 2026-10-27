@@ -8,7 +8,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
-    <script src="roles.js?v=20261027b"></script>
+    <script src="roles.js?v=20261027c"></script>
     <script src="keuangan.js?v=20261020a"></script>
     <script src="kas.js?v=20261027b"></script>
 
@@ -781,7 +781,7 @@
                         : '<div class="buka-judul">Toko sudah ditutup</div>' +
                           '<div class="buka-sub">Outlet ' + escapeHtmlAman(currentUser.outlet) + ' sudah ditutup. Transaksi baru perlu buka toko lagi dengan kas awal.</div>' +
                           '<button type="button" class="btn-bayar-besar" style="justify-content:center; margin-top:16px;" onclick="window.location.reload()">Buka toko lagi</button>') +
-                    '<a href="kas.html" class="btn-aksi2" style="margin-top:8px; text-decoration:none; height:40px;">Lihat rekap shift</a>' +
+                    (cekAksesHalaman(currentUser.role, "kas") ? '<a href="kas.html" class="btn-aksi2" style="margin-top:8px; text-decoration:none; height:40px;">Lihat rekap shift</a>' : '') +
                     htmlAkunBuka() +
                 '</div></div>';
         }
@@ -1324,7 +1324,9 @@
                     (currentUser.role !== "kasir"
                         ? '<button type="button" class="btn-promo" onclick="gantiOutletKasir()" title="Ganti outlet">📍 ' + escapeHtmlAman(currentUser.outlet) + ' · ganti</button>'
                         : '') +
-                    '<a href="kas.html" class="btn-promo" style="text-decoration:none;" title="Uang di laci, pengeluaran, akhiri shift & tutup toko">💰 Shift & Kas</a>' +
+                    (cekAksesHalaman(currentUser.role, "kas")
+                        ? '<a href="kas.html" class="btn-promo" style="text-decoration:none;" title="Uang di laci, pengeluaran, akhiri shift & tutup toko">💰 Shift & Kas</a>'
+                        : '') +
                 '</div>' +
                 '<div class="kategori-tabs" id="kategoriTabs"></div>' +
                 '<div class="pos-grid">' +

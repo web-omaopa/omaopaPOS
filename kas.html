@@ -8,7 +8,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
-    <script src="roles.js?v=20261027b"></script>
+    <script src="roles.js?v=20261027c"></script>
     <script src="kas.js?v=20261027b"></script>
 
     <style>
@@ -454,8 +454,8 @@
         /* ---------- MULAI ---------- */
         function mulaiHalaman() {
             document.getElementById("sidebarContainer").innerHTML = renderSidebar(currentUser, "kas");
-            // Siapa pun yang boleh memakai Kasir juga harus bisa menutup tokonya
-            if (!cekAksesHalaman(currentUser.role, "kasir") && !jagaAksesHalaman(currentUser.role, "kas")) return;
+            // Shift & Kas hanya untuk role kasir (lihat HALAMAN_HANYA_KASIR di roles.js)
+            if (!jagaAksesHalaman(currentUser.role, "kas")) return;
 
             if (currentUser.role === "kasir") {
                 if (!currentUser.outlet) {

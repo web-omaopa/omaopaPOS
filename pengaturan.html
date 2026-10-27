@@ -9,7 +9,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-storage-compat.js"></script>
-    <script src="roles.js?v=20261027b"></script>
+    <script src="roles.js?v=20261027c"></script>
     <script src="keuangan.js?v=20261020a"></script>
 
     <style>
@@ -1585,7 +1585,10 @@
 
             tbody.innerHTML = Role_daftarNama().map(function (nama) {
                 const d = Role_dataEfektif(nama);
-                const judulHalaman = d.izin.filter(function (k) { return HALAMAN_INFO[k]; })
+                // Halaman khusus kasir (Shift & Kas) mengikuti aturan di roles.js, bukan centang
+                const izinTampil = d.izin.filter(function (k) { return HALAMAN_HANYA_KASIR.indexOf(k) === -1; })
+                    .concat(nama === "kasir" ? HALAMAN_HANYA_KASIR : []);
+                const judulHalaman = izinTampil.filter(function (k) { return HALAMAN_INFO[k]; })
                     .map(function (k) { return HALAMAN_INFO[k].title; }).join(", ");
                 let label = '<span class="badge role-badge">' + escapeHtmlAman(nama) + '</span>';
                 if (ROLE_BAWAAN[nama] && nama !== ROLE_TERKUNCI) {
@@ -1612,7 +1615,10 @@
         }
 
         function Role_renderCheckboxHalaman(izinTerpilih) {
-            document.getElementById("rHalamanCheckbox").innerHTML = SEMUA_HALAMAN.map(function (k) {
+            // Shift & Kas tidak bisa dicentang: otomatis untuk role kasir saja
+            document.getElementById("rHalamanCheckbox").innerHTML = SEMUA_HALAMAN.filter(function (k) {
+                return HALAMAN_HANYA_KASIR.indexOf(k) === -1;
+            }).map(function (k) {
                 const h = HALAMAN_INFO[k];
                 const checked = izinTerpilih.indexOf(k) !== -1 ? "checked" : "";
                 return '<label style="display:flex; align-items:center; gap:8px; padding:3px 0; margin:0; font-size:12px; font-weight:400;">' +
