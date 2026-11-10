@@ -1418,6 +1418,13 @@
                 p.dariLaci ? "Laci kas" : "Di luar laci", Math.round(Number(p.nominal) || 0), p.dibuatNama || "", urlFotoPengeluaran(p)];
         }
 
+        let kasTampilKosong = false;     // tabel pengeluaran per kategori: tampilkan kategori bernilai nol
+
+        function gantiKasKosong(cek) {
+            kasTampilKosong = cek;
+            renderLaporan();
+        }
+
         function renderKas(wadah) {
             const k = hitungKas();
             if (k.shift.length === 0 && k.pengeluaran.length === 0) {
@@ -1439,8 +1446,11 @@
                         tutup ? rp(a[6]) : "-", tutup ? rp(a[7]) : "-", tutup ? rp(a[8]) : "-", tutup ? rp(a[9]) : "-", tutup ? teksSelisih(a[10]) : "-"];
                 }), "Belum ada shift.", [4, 5, 6, 7, 8, 9]);
             html += '<div style="margin-top:18px;"></div><div class="tabel-grid">';
-            html += tabelSederhana("Pengeluaran per kategori", ["Kategori", "Akun", "Catatan", "Total"],
-                k.perKategori.map(function (x) { const a = cariAkunPengeluaran(x.nama); return [x.nama, a ? a[0] : "-", angka(x.n), rp(x.total)]; }), "Belum ada pengeluaran.", [2, 3]);
+            html += '<div>' + tabelSederhana("Pengeluaran per kategori", ["Kategori", "Akun", "Catatan", "Total"],
+                k.perKategori.filter(function (x) { return kasTampilKosong || x.total; })
+                    .map(function (x) { const a = cariAkunPengeluaran(x.nama); return [x.nama, a ? a[0] : "-", angka(x.n), rp(x.total)]; }), "Belum ada pengeluaran.", [2, 3]) +
+                '<label style="display:flex; align-items:center; gap:6px; font-size:11.5px; color:#52606d; margin-top:6px; cursor:pointer;">' +
+                    '<input type="checkbox"' + (kasTampilKosong ? ' checked' : '') + ' onchange="gantiKasKosong(this.checked)"> Tampilkan kategori kosong</label></div>';
             const perOutlet = {};
             k.pengeluaran.forEach(function (p) { perOutlet[p.outlet] = (perOutlet[p.outlet] || 0) + (Number(p.nominal) || 0); });
             html += tabelSederhana("Pengeluaran per outlet", ["Outlet", "Total"],
@@ -1953,7 +1963,7 @@
                 if (!perAkun[kunci]) perAkun[kunci] = { akun: akun ? akun[0] : "", ket: akun ? akun[1] : kategori, nilai: nol() };
                 return perAkun[kunci];
             }
-            // Semua kategori pengeluaran (kas.js) selalu tampil, walau nol, seperti di spreadsheet
+            // Semua kategori pengeluaran (kas.js) disiapkan; yang nol mengikuti pilihan "Nilai nol"
             KATEGORI_PENGELUARAN.forEach(barisBeban);
             beban.pengeluaran.forEach(function (p) {
                 if (f.area && areaDariOutlet(p.outlet) !== f.area) return;
@@ -1969,7 +1979,6 @@
                 return ta !== tb ? (ta ? 1 : -1) : a.localeCompare(b, "id");
             }).forEach(function (k) {
                 tambahBaris(perAkun[k].akun, perAkun[k].ket, perAkun[k].nilai, "akun");
-                baris[baris.length - 1].tetap = true;
                 jumlahkan(totalBeban, perAkun[k].nilai);
             });
             tambahBaris("", "Total Beban Operasional Outlet", totalBeban, "total");
@@ -2004,7 +2013,7 @@
 
             // Sembunyikan akun yang nol di semua kolom (baris total selalu tampil)
             const tampil = f.nol === "sembunyi"
-                ? baris.filter(function (b) { return b.jenis !== "akun" || b.tetap || !b.nilai.slice(0, n).every(function (v) { return v === 0; }); })
+                ? baris.filter(function (b) { return b.jenis !== "akun" || !b.nilai.slice(0, n).every(function (v) { return v === 0; }); })
                 : baris;
 
             return { s: s, header: header, idxPersen: idxPersen, baris: tampil, belumHpp: belumHpp, jumlahDok: jumlahDok };
