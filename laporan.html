@@ -1258,7 +1258,7 @@
                     columnStyles: { 1: { halign: "right" }, 2: { halign: "right" }, 3: { halign: "right" }, 4: { halign: "right" }, 5: { halign: "right" } } });
                 if (y > 170) { doc.addPage(); y = 15; }
                 judul("Rincian"); y += 1;
-                tabel({ startY: y, head: [KOLOM_WASTE], body: w.baris.map(barisWasteKeArray), styles: { fontSize: 6.5, cellPadding: 1 }, columnStyles: { 4: { halign: "right" }, 5: { halign: "right" } } });
+                tabel({ startY: y, head: [KOLOM_WASTE.slice(0, -1)], body: w.baris.map(function (x) { return barisWasteKeArray(x).slice(0, -1); }), styles: { fontSize: 6.5, cellPadding: 1 }, columnStyles: { 4: { halign: "right" }, 5: { halign: "right" } } });
             } else if (laporanAktif.key === "rekap") {
                 const h = hitungRekap(d);
                 if (d.filterItem) { doc.setFontSize(8); doc.text("Catatan: filter kategori aktif, dihitung dari item yang cocok saja.", 14, y); y += 5; }
@@ -1289,7 +1289,13 @@
            Query rentang field "tanggal"; area/outlet/alasan difilter di browser.
            Nilai = qty x harga Offline produk saat ini (perkiraan).
         ====================================================== */
-        const KOLOM_WASTE = ["Tanggal", "Jam", "Outlet", "Menu", "Qty", "Nilai", "Alasan", "Jenis", "Keterangan", "Kue masuk", "Kedaluwarsa", "Dicatat oleh", "Di-ACC oleh"];
+        const KOLOM_WASTE = ["Tanggal", "Jam", "Outlet", "Menu", "Qty", "Nilai", "Alasan", "Jenis", "Keterangan", "Kue masuk", "Kedaluwarsa", "Dicatat oleh", "Di-ACC oleh", "Foto"];
+
+        // Tautan lengkap foto bukti waste rusak (untuk Excel)
+        function urlFotoWaste(w) {
+            if (!w.buktiUrl || !/^api\/foto\.php\?b=[0-9a-f_]+\.jpg$/.test(w.buktiUrl)) return "";
+            return new URL(w.buktiUrl, window.location.href).href;
+        }
 
         function dengarkanWaste() {
             hentikanTransaksi();
@@ -1369,7 +1375,7 @@
         function barisWasteKeArray(w) {
             return [tglTampil(w._waktu), jamTampil(w._waktu), w.outlet || "-", w.nama || w.productId, Number(w.qty) || 0, Math.round(w._nilai),
                 SB_ALASAN_WASTE[w.alasan] || w.alasan || "-", w.jenisRusak || "", w.keterangan || "",
-                tglJamMs(w.masukMs), tglJamMs(w.kedaluwarsaMs), w.olehNama || "", w.diaccNama || ""];
+                tglJamMs(w.masukMs), tglJamMs(w.kedaluwarsaMs), w.olehNama || "", w.diaccNama || "", urlFotoWaste(w)];
         }
 
         function renderWaste(wadah) {
@@ -1414,7 +1420,7 @@
             ws2["!cols"] = [{ wch: 26 }, { wch: 11 }, { wch: 18 }, { wch: 8 }, { wch: 10 }, { wch: 12 }];
             XLSX.utils.book_append_sheet(wb, ws2, "Per Menu");
             const ws3 = XLSX.utils.aoa_to_sheet([KOLOM_WASTE].concat(w.baris.map(barisWasteKeArray)));
-            ws3["!cols"] = [11, 6, 14, 22, 6, 11, 26, 18, 30, 16, 16, 16, 16].map(function (x) { return { wch: x }; });
+            ws3["!cols"] = [11, 6, 14, 22, 6, 11, 26, 18, 30, 16, 16, 16, 16, 40].map(function (x) { return { wch: x }; });
             XLSX.utils.book_append_sheet(wb, ws3, "Rincian");
             XLSX.writeFile(wb, namaFile(r, "xlsx"));
         }

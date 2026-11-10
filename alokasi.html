@@ -10,6 +10,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
     <script src="roles.js?v=20261027c"></script>
     <script src="stok-batch.js?v=20261110d"></script>
+    <script src="kas.js?v=20261027b"></script>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -94,6 +95,12 @@
         .rusak-form { display: grid; grid-template-columns: 2fr 90px 1.4fr; gap: 8px; margin-bottom: 8px; }
         @media (max-width: 640px) { .rusak-form { grid-template-columns: 1fr; } }
         .rusak-form select, .rusak-form input, .rusak-ket { height: 36px; border: 1px solid #d1d5db; border-radius: 6px; padding: 0 10px; font-size: 12px; font-family: inherit; width: 100%; }
+        .foto-rusak { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+        .foto-kotak { width: 72px; height: 64px; border: 1.5px dashed #2F6FD6; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-direction: column; font-size: 9.5px; color: #2F6FD6; font-weight: 700; cursor: pointer; position: relative; overflow: hidden; background: #fff; }
+        .foto-kotak img { width: 100%; height: 100%; object-fit: cover; }
+        .foto-hapus { position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; border-radius: 50%; border: none; background: rgba(0,0,0,0.6); color: #fff; font-size: 11px; cursor: pointer; padding: 0; line-height: 18px; }
+        .foto-status { font-size: 10.5px; color: #52606d; }
+        .foto-mini { width: 64px; height: 56px; object-fit: cover; border-radius: 6px; border: 1px solid #dde3ea; margin-top: 6px; display: block; }
         .btn-waste { height: 38px; padding: 0 16px; border: none; border-radius: 6px; background: #b03a2e; color: #fff; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; margin-top: 8px; }
         .btn-waste:disabled { opacity: 0.5; cursor: not-allowed; }
         .status-menunggu { background: #fdf1de; color: #b06d09; }
@@ -753,10 +760,14 @@
                 '<div class="rusak-form">' +
                     '<select id="rusakProduk"><option value="">Pilih menu...</option></select>' +
                     '<input type="number" id="rusakQty" min="1" placeholder="Qty">' +
-                    '<select id="rusakJenis" onchange="Rusak_aturLainnya()">' + SB_JENIS_RUSAK.map(function (j) { return '<option>' + escapeHtmlAman(j) + '</option>'; }).join("") + '</select>' +
+                    '<select id="rusakJenis" onchange="Rusak_aturLainnya()"><option value="">Pilih alasan...</option>' + SB_JENIS_RUSAK.map(function (j) { return '<option>' + escapeHtmlAman(j) + '</option>'; }).join("") + '</select>' +
                 '</div>' +
-                '<input type="text" class="rusak-ket" id="rusakJenisLain" maxlength="60" placeholder="Tulis alasannya (wajib), contoh: semut" style="display:none; margin-bottom:8px;">' +
-                '<input type="text" class="rusak-ket" id="rusakKet" maxlength="120" placeholder="Keterangan (wajib), contoh: 2 kue jatuh saat dipindah ke etalase">' +
+                '<input type="text" class="rusak-ket" id="rusakJenisLain" maxlength="80" placeholder="Tulis alasannya, contoh: dikerubungi semut" style="display:none; margin-bottom:8px;">' +
+                '<div class="foto-rusak">' +
+                    '<div class="foto-kotak" id="rusakFotoKotak" onclick="Rusak_pilihFoto()"><span style="font-size:20px;">\ud83d\udcf7</span>Foto</div>' +
+                    '<div><div style="font-size:11.5px; font-weight:700;">Foto kue (opsional)</div><div class="foto-status" id="rusakFotoStatus">Membantu admin memeriksa sebelum ACC.</div></div>' +
+                '</div>' +
+                '<input type="file" id="rusakFotoFile" accept="image/*" style="display:none;" onchange="Rusak_uploadFoto(this)">' +
                 '<div class="msg-box" id="rusakMsg" style="margin-top:8px; margin-bottom:0;"></div>' +
                 '<button class="btn-waste" id="btnRusak" onclick="Rusak_kirim()">Kirim Laporan Waste ke Admin</button>' +
                 '<h3 style="margin-top:20px;">Laporan Waste Saya</h3>' +
@@ -767,10 +778,59 @@
 
         // Pilihan "Lainnya": kasir menulis alasannya sendiri
         function Rusak_aturLainnya() {
+            document.getElementById("rusakMsg").style.display = "none";
             const lain = document.getElementById("rusakJenis").value === "Lainnya";
             const el = document.getElementById("rusakJenisLain");
             el.style.display = lain ? "block" : "none";
             if (lain) el.focus();
+        }
+
+        /* Foto kue rusak (opsional): diupload lewat api/upload-foto.php
+           (jenis bukti, boleh role kasir) memakai kasUploadBukti dari kas.js */
+        let rusakFotoUrl = "";
+        let rusakSedangUpload = false;
+
+        function Rusak_aturFoto(url) {
+            rusakFotoUrl = url;
+            document.getElementById("rusakFotoKotak").innerHTML = url
+                ? '<img src="' + escapeHtmlAman(url) + '" alt="Foto"><button type="button" class="foto-hapus" title="Hapus foto" onclick="event.stopPropagation(); Rusak_aturFoto(\'\')">\u00d7</button>'
+                : '<span style="font-size:20px;">\ud83d\udcf7</span>Foto';
+            document.getElementById("rusakFotoFile").value = "";
+            const st = document.getElementById("rusakFotoStatus");
+            st.style.color = url ? "#1e7d32" : "#52606d";
+            st.textContent = url ? "Foto terupload \u2713" : "Membantu admin memeriksa sebelum ACC.";
+        }
+
+        function Rusak_pilihFoto() {
+            if (rusakSedangUpload || rusakFotoUrl) return;
+            document.getElementById("rusakFotoFile").click();
+        }
+
+        function Rusak_uploadFoto(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const st = document.getElementById("rusakFotoStatus");
+            const btn = document.getElementById("btnRusak");
+            rusakSedangUpload = true;
+            btn.disabled = true;
+            st.style.color = "#52606d";
+            st.textContent = "Mengupload foto...";
+            kasUploadBukti(file).then(function (url) {
+                Rusak_aturFoto(url);
+            }).catch(function (e) {
+                input.value = "";
+                st.style.color = "#c0392b";
+                st.textContent = "Gagal upload: " + e.message;
+            }).then(function () {
+                rusakSedangUpload = false;
+                btn.disabled = false;
+            });
+        }
+
+        // Tautan foto hanya untuk URL api/foto.php milik sendiri
+        function Rusak_htmlFoto(d) {
+            if (!d.buktiUrl || !/^api\/foto\.php\?b=[0-9a-f_]+\.jpg$/.test(d.buktiUrl)) return "";
+            return '<a href="' + escapeHtmlAman(d.buktiUrl) + '" target="_blank" rel="noopener"><img class="foto-mini" src="' + escapeHtmlAman(d.buktiUrl) + '" alt="Foto"></a>';
         }
 
         function Rusak_isiPilihanProduk() {
@@ -797,15 +857,15 @@
             const pid = document.getElementById("rusakProduk").value;
             const qty = parseInt(document.getElementById("rusakQty").value, 10);
             let jenis = document.getElementById("rusakJenis").value;
-            const ket = document.getElementById("rusakKet").value.trim();
-            if (jenis === "Lainnya") {
-                jenis = document.getElementById("rusakJenisLain").value.trim();
-                if (!jenis) return Rusak_pesan("Tulis alasan waste-nya di kolom alasan.", "error");
-            }
+            if (rusakSedangUpload) return Rusak_pesan("Tunggu foto selesai diupload.", "error");
             const produk = daftarProduk.find(function (p) { return p.id === pid; });
             if (!produk) return Rusak_pesan("Pilih menu yang rusak.", "error");
             if (!(qty > 0)) return Rusak_pesan("Isi jumlah kue yang rusak.", "error");
-            if (!ket) return Rusak_pesan("Tulis keterangan penyebabnya.", "error");
+            if (!jenis) return Rusak_pesan("Pilih alasannya.", "error");
+            if (jenis === "Lainnya") {
+                jenis = document.getElementById("rusakJenisLain").value.trim();
+                if (!jenis) return Rusak_pesan("Tulis alasannya di kolom yang muncul.", "error");
+            }
             if (!confirm("Laporkan " + qty + " " + produk.nama + " sebagai waste (" + jenis + ")?\nStok langsung dikurangi dan menunggu ACC admin.")) return;
 
             const btn = document.getElementById("btnRusak");
@@ -825,15 +885,15 @@
                         outlet: currentUser.outlet, productId: pid, nama: produk.nama,
                         olehUid: currentUser.uid, olehNama: currentUser.nama
                     }, { qty: qty, masukMs: tertua.masukMs, kedaluwarsaMs: tertua.kedaluwarsaMs }, "rusak", nowMs), {
-                        status: "menunggu", jenisRusak: jenis, keterangan: ket,
+                        status: "menunggu", jenisRusak: jenis, keterangan: "", buktiUrl: rusakFotoUrl || "",
                         batchDiambil: hasil.diambil.map(function (b) { return { qty: b.qty, masukMs: b.masukMs, kedaluwarsaMs: b.kedaluwarsaMs, laporanId: b.laporanId || null }; })
                     }));
                 });
             }).then(function () {
                 Rusak_pesan("Laporan waste terkirim. Stok sudah dikurangi, menunggu ACC admin.", "success");
                 document.getElementById("rusakQty").value = "";
-                document.getElementById("rusakKet").value = "";
                 document.getElementById("rusakProduk").value = "";
+                Rusak_aturFoto("");
                 document.getElementById("rusakJenisLain").value = "";
                 document.getElementById("rusakJenis").selectedIndex = 0;
                 Rusak_aturLainnya();
@@ -869,7 +929,8 @@
                         return '<div class="riwayat-item"><div style="display:flex; justify-content:space-between; margin-bottom:4px;">' +
                             '<span>' + escapeHtmlAman(d._waktu.toLocaleString("id-ID")) + '</span>' + Rusak_labelStatus(d.status) + '</div>' +
                             '<div><b>' + d.qty + ' ' + escapeHtmlAman(d.nama) + '</b> \u00b7 ' + escapeHtmlAman(d.jenisRusak || "") + '</div>' +
-                            '<div style="color:#6b7280; margin-top:2px;">' + escapeHtmlAman(d.keterangan || "") + '</div>' +
+                            (d.keterangan ? '<div style="color:#6b7280; margin-top:2px;">' + escapeHtmlAman(d.keterangan) + '</div>' : '') +
+                            Rusak_htmlFoto(d) +
                             (d.status === "ditolak" && d.alasanTolak ? '<div style="color:#c0392b; margin-top:2px;">Ditolak: ' + escapeHtmlAman(d.alasanTolak) + '</div>' : '') +
                             '</div>';
                     }).join("");
@@ -894,7 +955,8 @@
                         return '<div class="laporan-card">' +
                             '<div class="laporan-header"><div><div class="outlet">' + escapeHtmlAman(d.outlet) + ' \u00b7 ' + d.qty + ' ' + escapeHtmlAman(d.nama) + '</div>' +
                             '<div class="meta">Dilaporkan oleh ' + escapeHtmlAman(d.olehNama || "-") + ' \u00b7 ' + escapeHtmlAman(d._waktu.toLocaleString("id-ID")) + '</div>' +
-                            '<div class="meta" style="margin-top:4px;"><b>' + escapeHtmlAman(d.jenisRusak || "") + '</b> \u00b7 ' + escapeHtmlAman(d.keterangan || "") + '</div>' +
+                            '<div class="meta" style="margin-top:4px;"><b>' + escapeHtmlAman(d.jenisRusak || "") + '</b>' + (d.keterangan ? ' \u00b7 ' + escapeHtmlAman(d.keterangan) : '') + '</div>' +
+                            Rusak_htmlFoto(d) +
                             '</div></div>' +
                             '<div class="laporan-actions">' +
                                 '<button class="btn-tolak" onclick="Rusak_tolak(\'' + escJsAttr(d._id) + '\')">Tolak (kembalikan stok)</button>' +
