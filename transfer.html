@@ -9,6 +9,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
     <script src="roles.js?v=20261027c"></script>
+    <script src="stok-batch.js?v=20261110c"></script>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -724,7 +725,7 @@
                     const isi = {};
                     snap.forEach(function (d) {
                         const x = d.data();
-                        isi[d.id] = { jumlah: x.jumlah || 0, minStok: x.minStok !== undefined ? x.minStok : 5 };
+                        isi[d.id] = { jumlah: sbTersedia(x, Date.now()), minStok: x.minStok !== undefined ? x.minStok : 5 };
                     });
                     stokFc[o] = isi;
                     perbaruiStokFc(o);
@@ -947,7 +948,7 @@
                         const isi = {};
                         snap.forEach(function (d) {
                             const x = d.data();
-                            isi[d.id] = { jumlah: x.jumlah || 0, minStok: x.minStok !== undefined ? x.minStok : 5 };
+                            isi[d.id] = { jumlah: sbTersedia(x, Date.now()), minStok: x.minStok !== undefined ? x.minStok : 5 };
                         });
                         pmStok[o] = isi;
                         if (pertama) {
@@ -1460,18 +1461,24 @@
                 });
                 const snaps = await Promise.all(refs.map(function (r) { return tx.get(r); }));
 
-                snaps.forEach(function (s, i) {
-                    const sisa = s.exists ? (s.data().jumlah || 0) : 0;
-                    if (sisa < t.items[i].jumlah) {
-                        throw new Error("Stok " + t.items[i].nama + " tidak cukup (tersisa " + sisa + ", dikirim " + t.items[i].jumlah + "). Hubungi Forecaster.");
+                /* Stok per batch (stok-batch.js): yang dikirim batch paling lama
+                   yang masih berlaku; tanggal masuk & kedaluwarsanya ikut dicatat
+                   di item transfer supaya di outlet tujuan tetap sama. Batch yang
+                   sudah kedaluwarsa dibiarkan (disapu jadi waste oleh layar Kasir). */
+                const nowMs = Date.now();
+                const itemsKirim = t.items.map(function (it, i) {
+                    const pisah = sbPisah(sbBatch(snaps[i].exists ? snaps[i].data() : null, nowMs), nowMs);
+                    const sisa = sbTotal(pisah.aktif);
+                    if (sisa < it.jumlah) {
+                        throw new Error("Stok " + it.nama + " tidak cukup (tersisa " + sisa + ", dikirim " + it.jumlah + "). Hubungi Forecaster.");
                     }
-                });
-
-                snaps.forEach(function (s, i) {
-                    tx.update(refs[i], { jumlah: (s.data().jumlah || 0) - t.items[i].jumlah });
+                    const hasil = sbAmbil(pisah.aktif, it.jumlah);
+                    tx.set(refs[i], sbDataStok(hasil.sisa.concat(pisah.basi), nowMs), { merge: true });
+                    return Object.assign({}, it, { batchDikirim: hasil.diambil });
                 });
 
                 tx.update(tRef, {
+                    items: itemsKirim,
                     status: "dikirim",
                     dikirimOleh: { uid: auth.currentUser.uid, nama: currentUser.nama || "" },
                     dikirimPada: firebase.firestore.FieldValue.serverTimestamp()
@@ -1545,13 +1552,23 @@
                     return Object.assign({}, it, { jumlahDiterima: n });
                 });
 
+                /* Batch yang diterima mengikuti batch yang dikirim (paling lama
+                   dulu, sebanyak jumlah diterima) dengan tanggal kedaluwarsa yang
+                   sama. Transfer lama tanpa data batch masuk sebagai batch baru. */
+                const nowMs = Date.now();
                 snaps.forEach(function (s, i) {
                     const n = itemsBaru[i].jumlahDiterima;
-                    if (s.exists) {
-                        if (n > 0) tx.update(refs[i], { jumlah: (s.data().jumlah || 0) + n });
-                    } else if (n > 0) {
-                        tx.set(refs[i], { jumlah: n, minStok: 5 });
-                    }
+                    if (n <= 0) return;
+                    const dikirim = itemsBaru[i].batchDikirim;
+                    const masuk = Array.isArray(dikirim) && sbTotal(dikirim) >= n
+                        ? sbAmbil(sbBatch({ batch: dikirim }, nowMs), n).diambil
+                        : [{ qty: n, masukMs: nowMs, kedaluwarsaMs: null, laporanId: null }];
+                    const daftar = sbBatch(s.exists ? s.data() : null, nowMs)
+                        .concat(masuk.map(function (b) { return Object.assign({}, b, { laporanId: null }); }))
+                        .sort(function (a, b) { return a.masukMs - b.masukMs; });
+                    const data = sbDataStok(daftar, nowMs);
+                    if (!s.exists) data.minStok = 5;
+                    tx.set(refs[i], data, { merge: true });
                 });
 
                 tx.update(tRef, {

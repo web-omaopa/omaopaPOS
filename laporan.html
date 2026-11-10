@@ -10,6 +10,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
     <script src="roles.js?v=20261027c"></script>
     <script src="keuangan.js?v=20261020a"></script>
+    <script src="stok-batch.js?v=20261110c"></script>
 
     <!-- Download Excel & PDF -->
     <!-- Kalender rentang tanggal (satu kolom: dari - sampai) -->
@@ -227,6 +228,7 @@
                     <div><div class="ctrl-label">Mode penjualan</div><select class="outlet-select" id="fMode"></select></div>
                     <div><div class="ctrl-label">Metode bayar</div><select class="outlet-select" id="fBayar"></select></div>
                     <div><div class="ctrl-label">Kategori</div><select class="outlet-select" id="fKategori"></select></div>
+                    <div id="wadahAlasan" style="display:none;"><div class="ctrl-label">Alasan</div><select class="outlet-select" id="fAlasan"></select></div>
                     <select id="fKasir" hidden></select>
                     <div class="filter-aksi">
                         <button class="btn btn-primary" onclick="tampilkanLaporan()">Tampilkan laporan</button>
@@ -301,6 +303,7 @@
             { key: "jam",    grup: "Penjualan", icon: "🕐", nama: "Penjualan per jam",    desc: "Jam-jam paling ramai di tiap outlet",                             file: "Penjualan-per-Jam",    aktif: false },
             { key: "promo",  grup: "Promo",     icon: "🏷️", nama: "Promo & diskon",       desc: "Pemakaian promo dan total potongan harga",                        file: "Promo-Diskon",         aktif: false },
             { key: "kasir",  grup: "Kasir",     icon: "🧑", nama: "Penjualan per kasir",  desc: "Jumlah transaksi dan penjualan tiap kasir",                       file: "Penjualan-per-Kasir",  aktif: false },
+            { key: "waste",  grup: "Stok",      icon: "🗑️", nama: "Waste",                desc: "Kue tidak terjual: sisa kue reset, lewat masa berlaku, dan rusak", file: "Waste",                aktif: true },
             { key: "stok",   grup: "Stok",      icon: "📦", nama: "Pergerakan stok",      desc: "Stok masuk, keluar, dan transfer antar outlet",                   file: "Pergerakan-Stok",      aktif: false }
         ];
 
@@ -319,6 +322,8 @@
         let outletArea = {};             // { namaOutlet: "Area 1" }
 
         let kategoriProduk = {};         // { productId: kategori } dari koleksi products
+        let hargaProduk = {};            // { productId: harga Offline } untuk nilai waste
+        let dataWaste = [];              // waste_stok periode terpilih (status aktif)
         let daftarKategoriProduk = [];   // kategori yang ada di products
         let daftarModeDb = [];           // dari koleksi mode_penjualan
 
@@ -415,6 +420,7 @@
                 snapshot.forEach(function (doc) {
                     const k = doc.data().kategori || "";
                     kategoriProduk[doc.id] = k;
+                    hargaProduk[doc.id] = Number(doc.data().harga) || 0;
                     detailProdukMap[doc.id] = doc.data().detailKategori || "";
                     if (k && daftarKategoriProduk.indexOf(k) === -1) daftarKategoriProduk.push(k);
                 });
@@ -475,7 +481,7 @@
         ====================================================== */
         function filterBawaan() {
             const hariIni = tglKeIso(new Date());
-            return { periode: "pilih", dari: hariIni, sampai: hariIni, area: "", outlet: "", mode: "", bayar: "", kategori: "", kasir: "", tampil: "50" };
+            return { periode: "pilih", dari: hariIni, sampai: hariIni, area: "", outlet: "", mode: "", bayar: "", kategori: "", kasir: "", alasan: "", tampil: "50" };
         }
 
         function kunciSimpanFilter(key) { return "omaopa_laporan_filter_" + key; }
@@ -519,6 +525,11 @@
             document.getElementById("wadahHitungUlang").style.display = (lr && currentUser.role === "management") ? "" : "none";
             if (lr) { bukaLabaRugi(); window.scrollTo(0, 0); return; }
 
+            // Laporan Waste: filter mode/bayar/kategori tidak dipakai, diganti filter Alasan
+            const waste = key === "waste";
+            ["fMode", "fBayar", "fKategori"].forEach(function (id) { document.getElementById(id).parentNode.style.display = waste ? "none" : ""; });
+            document.getElementById("wadahAlasan").style.display = waste ? "" : "none";
+
             filter = muatFilterTersimpan(key);
 
             document.getElementById("fPeriode").value = filter.periode;
@@ -547,7 +558,7 @@
         function pasangEventFilter() {
             // Tanggal diatur lewat kalender rentang (lihat pasangKalender)
             // Filter selain periode: cukup render ulang dari data yang sudah ada
-            [["fArea", "area"], ["fOutlet", "outlet"], ["fMode", "mode"], ["fBayar", "bayar"], ["fKategori", "kategori"], ["fKasir", "kasir"]].forEach(function (p) {
+            [["fArea", "area"], ["fOutlet", "outlet"], ["fMode", "mode"], ["fBayar", "bayar"], ["fKategori", "kategori"], ["fKasir", "kasir"], ["fAlasan", "alasan"]].forEach(function (p) {
                 document.getElementById(p[0]).addEventListener("change", function () {
                     filter[p[1]] = this.value;
                     if (p[1] === "area" && filter.outlet && filter.area && areaDariOutlet(filter.outlet) !== filter.area) filter.outlet = "";
@@ -667,7 +678,7 @@
         let filterTerpakai = null;
 
         function samaFilter(a, b) {
-            return !!a && !!b && ["dari", "sampai", "area", "outlet", "mode", "bayar", "kategori"].every(function (k) { return a[k] === b[k]; });
+            return !!a && !!b && ["dari", "sampai", "area", "outlet", "mode", "bayar", "kategori", "alasan"].every(function (k) { return a[k] === b[k]; });
         }
 
         function tulisInfoPeriode() {
@@ -697,6 +708,11 @@
             const tanggalSama = filterTerpakai && filterTerpakai.dari === filter.dari && filterTerpakai.sampai === filter.sampai;
             filterTerpakai = JSON.parse(JSON.stringify(filter));
             halamanProduk = 1;
+            if (laporanAktif && laporanAktif.key === "waste") {
+                if (tanggalSama && trxUnsubscribe && trxSiap) { tulisInfoPeriode(); renderLaporan(); }
+                else dengarkanWaste();
+                return;
+            }
             if (tanggalSama && trxUnsubscribe && trxSiap) {
                 // Data tanggal ini sudah dimuat: cukup hitung ulang dengan filter baru
                 tulisInfoPeriode();
@@ -917,6 +933,11 @@
             dataTrx.forEach(function (t) { (t.items || []).forEach(function (it) { katData.push(kategoriItem(it)); }); });
             isiSatuFilter("fKategori", "Semua kategori", unik(daftarKategoriProduk.concat(katData)).sort(urutTeks), filter.kategori);
             isiSatuFilter("fKasir", "Semua kasir", unik(dataTrx.map(kasirTrx)).sort(urutTeks), filter.kasir);
+            let htmlAlasan = '<option value="">Semua alasan</option>';
+            Object.keys(SB_ALASAN_WASTE).forEach(function (k) {
+                htmlAlasan += '<option value="' + escapeHtmlAman(k) + '">' + escapeHtmlAman(SB_ALASAN_WASTE[k]) + '</option>';
+            });
+            setOpsi(document.getElementById("fAlasan"), htmlAlasan, filter.alasan || "");
         }
 
         function ringkasanFilter() {
@@ -925,6 +946,10 @@
             const bagian = ["Tanggal: " + (r ? teksPeriode(r) : "-")];
             bagian.push("Area: " + (f.area || "Semua"));
             bagian.push("Outlet: " + (f.outlet || "Semua"));
+            if (laporanAktif && laporanAktif.key === "waste") {
+                bagian.push("Alasan: " + (f.alasan ? (SB_ALASAN_WASTE[f.alasan] || f.alasan) : "Semua"));
+                return bagian;
+            }
             bagian.push("Mode: " + (f.mode || "Semua"));
             bagian.push("Bayar: " + (f.bayar || "Semua"));
             bagian.push("Kategori: " + (f.kategori || "Semua"));
@@ -1002,6 +1027,7 @@
 
         function renderLaporan() {
             if (!laporanAktif || !filterTerpakai || !trxSiap || trxError) return;
+            if (laporanAktif.key === "waste") { renderWaste(document.getElementById("isiLaporan")); return; }
             const d = dataTerfilter();
             const wadah = document.getElementById("isiLaporan");
 
@@ -1013,13 +1039,15 @@
             else if (laporanAktif.key === "produk") renderPerProduk(d, wadah);
         }
 
-        function tabelSederhana(judul, kolom, rows, kosong) {
+        // kanan: indeks kolom rata kanan (bawaan: semua kecuali kolom pertama)
+        function tabelSederhana(judul, kolom, rows, kosong, kanan) {
+            const rataKanan = function (i) { return kanan ? kanan.indexOf(i) !== -1 : i > 0; };
             let html = '<div><div class="judul-tabel">' + escapeHtmlAman(judul) + '</div><table><thead><tr>';
-            kolom.forEach(function (k, i) { html += '<th' + (i > 0 ? ' class="r"' : '') + '>' + escapeHtmlAman(k) + '</th>'; });
+            kolom.forEach(function (k, i) { html += '<th' + (rataKanan(i) ? ' class="r"' : '') + '>' + escapeHtmlAman(k) + '</th>'; });
             html += '</tr></thead><tbody>';
             if (rows.length === 0) html += '<tr><td colspan="' + kolom.length + '" class="empty-state">' + kosong + '</td></tr>';
             rows.forEach(function (r) {
-                html += '<tr>' + r.map(function (c, i) { return '<td' + (i > 0 ? ' class="r"' : '') + '>' + escapeHtmlAman(c) + '</td>'; }).join("") + '</tr>';
+                html += '<tr>' + r.map(function (c, i) { return '<td' + (rataKanan(i) ? ' class="r"' : '') + '>' + escapeHtmlAman(c) + '</td>'; }).join("") + '</tr>';
             });
             return html + '</tbody></table></div>';
         }
@@ -1139,6 +1167,7 @@
             const r = siapDownload();
             if (!r) return;
             if (typeof XLSX === "undefined") { alert("Library Excel belum termuat. Cek koneksi internet lalu muat ulang halaman."); return; }
+            if (laporanAktif.key === "waste") { downloadExcelWaste(r); return; }
 
             const d = dataTerfilter();
             const wb = XLSX.utils.book_new();
@@ -1194,7 +1223,7 @@
             if (!r) return;
             if (!window.jspdf || !window.jspdf.jsPDF) { alert("Library PDF belum termuat. Cek koneksi internet lalu muat ulang halaman."); return; }
 
-            const d = dataTerfilter();
+            const d = laporanAktif.key === "waste" ? null : dataTerfilter();
             const doc = new window.jspdf.jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
             if (typeof doc.autoTable !== "function") { alert("Library tabel PDF belum termuat. Muat ulang halaman."); return; }
 
@@ -1217,7 +1246,20 @@
             }
             function judul(t) { doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.text(teksPdf(t), 14, y); doc.setFont("helvetica", "normal"); y += 2; }
 
-            if (laporanAktif.key === "rekap") {
+            if (laporanAktif.key === "waste") {
+                const w = hitungWaste();
+                y = tabel({ startY: y, head: [["Total waste (pcs)", "Perkiraan nilai (harga jual)", "Jumlah catatan"]],
+                    body: [[angka(w.qty), rp(w.nilai), angka(w.baris.length)]] });
+                judul("Per alasan"); y += 1;
+                y = tabel({ startY: y, head: [["Alasan", "Qty", "Nilai"]], body: w.perAlasan.map(function (x) { return [x.nama, x.qty, x.nilai]; }), columnStyles: { 1: { halign: "right" }, 2: { halign: "right" } } });
+                judul("Per menu"); y += 1;
+                y = tabel({ startY: y, head: [["Menu", "Sisa reset", "Lewat masa berlaku", "Rusak", "Total qty", "Nilai"]],
+                    body: w.perMenu.map(function (x) { return [x.nama, x.diganti_lapor, x.kedaluwarsa, x.rusak, x.qty, x.nilai]; }),
+                    columnStyles: { 1: { halign: "right" }, 2: { halign: "right" }, 3: { halign: "right" }, 4: { halign: "right" }, 5: { halign: "right" } } });
+                if (y > 170) { doc.addPage(); y = 15; }
+                judul("Rincian"); y += 1;
+                tabel({ startY: y, head: [KOLOM_WASTE], body: w.baris.map(barisWasteKeArray), styles: { fontSize: 6.5, cellPadding: 1 }, columnStyles: { 4: { halign: "right" }, 5: { halign: "right" } } });
+            } else if (laporanAktif.key === "rekap") {
                 const h = hitungRekap(d);
                 if (d.filterItem) { doc.setFontSize(8); doc.text("Catatan: filter kategori aktif, dihitung dari item yang cocok saja.", 14, y); y += 5; }
                 y = tabel({ startY: y, head: [["Penjualan bersih", "Jumlah transaksi", "Rata-rata per transaksi", "Total diskon", "Item terjual"]],
@@ -1238,6 +1280,143 @@
                 tabel({ startY: y, head: [KOLOM_PRODUK], body: body, styles: { fontSize: 6, cellPadding: 1 }, columnStyles: kanan, margin: { left: 8, right: 8 } });
             }
             doc.save(namaFile(r, "pdf"));
+        }
+
+        /* =====================================================
+           LAPORAN WASTE
+           Sumber: koleksi waste_stok (lihat stok-batch.js), hanya status
+           "aktif" (waste otomatis + laporan rusak yang sudah di-ACC).
+           Query rentang field "tanggal"; area/outlet/alasan difilter di browser.
+           Nilai = qty x harga Offline produk saat ini (perkiraan).
+        ====================================================== */
+        const KOLOM_WASTE = ["Tanggal", "Jam", "Outlet", "Menu", "Qty", "Nilai", "Alasan", "Jenis", "Keterangan", "Kue masuk", "Kedaluwarsa", "Dicatat oleh", "Di-ACC oleh"];
+
+        function dengarkanWaste() {
+            hentikanTransaksi();
+            const token = tokenTrx;
+            dataWaste = [];
+            trxSiap = false;
+            trxError = null;
+            const r = rentangPeriode(filterTerpakai);
+            if (!r) {
+                document.getElementById("isiLaporan").innerHTML = '<div class="empty-state">Pilih tanggal "dari" dan "sampai" yang valid.</div>';
+                return;
+            }
+            document.getElementById("isiLaporan").innerHTML = '<div class="loading-state">Memuat data waste...</div>';
+            tulisInfoPeriode();
+            trxUnsubscribe = db.collection("waste_stok")
+                .where("tanggal", ">=", r.dariIso)
+                .where("tanggal", "<=", r.sampaiIso)
+                .onSnapshot(function (snapshot) {
+                    if (token !== tokenTrx) return;
+                    const hasil = [];
+                    snapshot.forEach(function (doc) {
+                        const d = doc.data({ serverTimestamps: "estimate" });
+                        if (d.status && d.status !== "aktif") return;
+                        d._waktu = d.waktu && d.waktu.toDate ? d.waktu.toDate() : new Date(0);
+                        hasil.push(d);
+                    });
+                    hasil.sort(function (a, b) { return b._waktu - a._waktu; });
+                    dataWaste = hasil;
+                    trxSiap = true;
+                    renderLaporan();
+                }, function (error) {
+                    if (token !== tokenTrx) return;
+                    trxUnsubscribe = null;
+                    trxError = error;
+                    document.getElementById("isiLaporan").innerHTML = '<div class="empty-state">' +
+                        (error.code === "permission-denied"
+                            ? "Data waste belum bisa ditampilkan: akses akun ini dibatasi oleh aturan Firestore."
+                            : "Gagal memuat: " + escapeHtmlAman(error.message)) + '</div>';
+                });
+        }
+
+        function hitungWaste() {
+            const f = filterTerpakai || filter;
+            const baris = dataWaste.filter(function (w) {
+                if (f.area && areaDariOutlet(w.outlet) !== f.area) return false;
+                if (f.outlet && w.outlet !== f.outlet) return false;
+                if (f.alasan && w.alasan !== f.alasan) return false;
+                return true;
+            }).map(function (w) {
+                return Object.assign({}, w, { _nilai: (Number(w.qty) || 0) * (hargaProduk[w.productId] || 0) });
+            });
+            const hasil = { baris: baris, qty: 0, nilai: 0 };
+            const alasan = {}, menu = {}, outlet = {};
+            baris.forEach(function (w) {
+                const q = Number(w.qty) || 0;
+                hasil.qty += q; hasil.nilai += w._nilai;
+                const a = SB_ALASAN_WASTE[w.alasan] || w.alasan || "-";
+                if (!alasan[a]) alasan[a] = { nama: a, qty: 0, nilai: 0 };
+                alasan[a].qty += q; alasan[a].nilai += w._nilai;
+                const m = w.nama || w.productId;
+                if (!menu[m]) menu[m] = { nama: m, qty: 0, nilai: 0, diganti_lapor: 0, kedaluwarsa: 0, rusak: 0 };
+                menu[m].qty += q; menu[m].nilai += w._nilai;
+                if (menu[m][w.alasan] !== undefined) menu[m][w.alasan] += q;
+                const o = w.outlet || "-";
+                if (!outlet[o]) outlet[o] = { nama: o, qty: 0, nilai: 0 };
+                outlet[o].qty += q; outlet[o].nilai += w._nilai;
+            });
+            const urut = function (map) { return Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) { return b.qty - a.qty; }); };
+            hasil.perAlasan = urut(alasan);
+            hasil.perMenu = urut(menu);
+            hasil.perOutlet = urut(outlet);
+            return hasil;
+        }
+
+        function tglJamMs(ms) { return ms ? tglTampil(new Date(ms)) + " " + jamTampil(new Date(ms)) : ""; }
+
+        function barisWasteKeArray(w) {
+            return [tglTampil(w._waktu), jamTampil(w._waktu), w.outlet || "-", w.nama || w.productId, Number(w.qty) || 0, Math.round(w._nilai),
+                SB_ALASAN_WASTE[w.alasan] || w.alasan || "-", w.jenisRusak || "", w.keterangan || "",
+                tglJamMs(w.masukMs), tglJamMs(w.kedaluwarsaMs), w.olehNama || "", w.diaccNama || ""];
+        }
+
+        function renderWaste(wadah) {
+            const w = hitungWaste();
+            if (w.baris.length === 0) { wadah.innerHTML = '<div class="empty-state">Tidak ada waste untuk filter ini.</div>'; return; }
+            let html = '<div class="stat-grid">' +
+                '<div class="stat-tile"><div class="k">Total waste</div><div class="v">' + angka(w.qty) + ' pcs</div></div>' +
+                '<div class="stat-tile"><div class="k">Perkiraan nilai (harga jual)</div><div class="v">' + rp(w.nilai) + '</div></div>' +
+                '<div class="stat-tile"><div class="k">Menu terbanyak</div><div class="v" style="font-size:14px;">' + escapeHtmlAman(w.perMenu[0].nama) + ' (' + angka(w.perMenu[0].qty) + ')</div></div>' +
+                '<div class="stat-tile"><div class="k">Jumlah catatan</div><div class="v">' + angka(w.baris.length) + '</div></div>' +
+                '</div>';
+            html += '<div class="stat-sub">Nilai dihitung dari harga Offline produk saat ini.</div>';
+            html += '<div class="tabel-grid">';
+            html += tabelSederhana("Per alasan", ["Alasan", "Qty", "Nilai"],
+                w.perAlasan.map(function (x) { return [x.nama, angka(x.qty), rp(x.nilai)]; }), "-");
+            html += tabelSederhana("Per outlet", ["Outlet", "Qty", "Nilai"],
+                w.perOutlet.map(function (x) { return [x.nama, angka(x.qty), rp(x.nilai)]; }), "-");
+            html += '</div>';
+            html += tabelSederhana("Per menu", ["Menu", "Sisa reset", "Lewat masa berlaku", "Rusak", "Total qty", "Nilai"],
+                w.perMenu.map(function (x) { return [x.nama, angka(x.diganti_lapor), angka(x.kedaluwarsa), angka(x.rusak), angka(x.qty), rp(x.nilai)]; }), "-");
+            html += '<div style="margin-top:18px;"></div>';
+            html += tabelSederhana("Rincian", ["Waktu", "Outlet", "Menu", "Qty", "Alasan", "Keterangan"],
+                w.baris.map(function (x) {
+                    return [tglTampil(x._waktu) + " " + jamTampil(x._waktu), x.outlet || "-", x.nama || x.productId, angka(x.qty),
+                        SB_ALASAN_WASTE[x.alasan] || x.alasan || "-", [x.jenisRusak, x.keterangan].filter(Boolean).join(" · ")];
+                }), "-", [3]);
+            wadah.innerHTML = html;
+        }
+
+        function downloadExcelWaste(r) {
+            const w = hitungWaste();
+            const wb = XLSX.utils.book_new();
+            const ringkas = blokInfo().concat([[], ["Ringkasan", "Nilai"],
+                ["Total waste (pcs)", w.qty], ["Perkiraan nilai (harga jual)", Math.round(w.nilai)], ["Jumlah catatan", w.baris.length],
+                [], ["Alasan", "Qty", "Nilai"]].concat(w.perAlasan.map(function (x) { return [x.nama, x.qty, Math.round(x.nilai)]; }))
+                .concat([[], ["Outlet", "Qty", "Nilai"]]).concat(w.perOutlet.map(function (x) { return [x.nama, x.qty, Math.round(x.nilai)]; })));
+            const ws1 = XLSX.utils.aoa_to_sheet(ringkas);
+            ws1["!cols"] = [{ wch: 30 }, { wch: 40 }, { wch: 14 }];
+            XLSX.utils.book_append_sheet(wb, ws1, "Ringkasan");
+            const ws2 = XLSX.utils.aoa_to_sheet([["Menu", "Sisa reset", "Lewat masa berlaku", "Rusak", "Total qty", "Nilai"]].concat(
+                w.perMenu.map(function (x) { return [x.nama, x.diganti_lapor, x.kedaluwarsa, x.rusak, x.qty, Math.round(x.nilai)]; })));
+            ws2["!cols"] = [{ wch: 26 }, { wch: 11 }, { wch: 18 }, { wch: 8 }, { wch: 10 }, { wch: 12 }];
+            XLSX.utils.book_append_sheet(wb, ws2, "Per Menu");
+            const ws3 = XLSX.utils.aoa_to_sheet([KOLOM_WASTE].concat(w.baris.map(barisWasteKeArray)));
+            ws3["!cols"] = [11, 6, 14, 22, 6, 11, 26, 18, 30, 16, 16, 16, 16].map(function (x) { return { wch: x }; });
+            XLSX.utils.book_append_sheet(wb, ws3, "Rincian");
+            XLSX.writeFile(wb, namaFile(r, "xlsx"));
         }
 
         /* =====================================================

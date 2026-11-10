@@ -11,6 +11,7 @@
     <script src="roles.js?v=20261027c"></script>
     <script src="keuangan.js?v=20261020a"></script>
     <script src="kas.js?v=20261027b"></script>
+    <script src="stok-batch.js?v=20261110c"></script>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1378,6 +1379,14 @@
                     // Stok cukup didengarkan sekali; update produk berikutnya hanya render ulang
                     if (!stockUnsubscribe) {
                         dengarkanStok();
+                        sapuStokKedaluwarsa();
+                        // Tiap menit: cek masa berlaku stok & catat yang kedaluwarsa sebagai waste
+                        if (!pengaturSapu) pengaturSapu = setInterval(function () {
+                            if (!stockUnsubscribe) return;
+                            hitungStockMap();
+                            renderProdukTampil();
+                            sapuStokKedaluwarsa();
+                        }, 60000);
                     } else {
                         renderKategoriTabs();
                         renderProdukTampil();
@@ -1396,13 +1405,38 @@
         ====================================================== */
         let stockUnsubscribe = null;
 
+        /* Data mentah dokumen stok (dengan batch). stockMap dihitung ulang dari
+           sini setiap menit, supaya kue yang lewat masa berlaku langsung tidak
+           bisa dijual walau dokumennya belum disapu (lihat stok-batch.js). */
+        let stokDataMap = {};
+        let pengaturSapu = null;
+
+        function hitungStockMap() {
+            const nowMs = Date.now();
+            stockMap = {};
+            Object.keys(stokDataMap).forEach(function (id) { stockMap[id] = sbTersedia(stokDataMap[id], nowMs); });
+        }
+
+        // Sapu stok kedaluwarsa outlet ini ke waste (gagal tidak mengganggu jualan)
+        let sedangMenyapu = false;
+        function sapuStokKedaluwarsa() {
+            if (sedangMenyapu || !currentUser || !currentUser.outlet || allProducts.length === 0) return;
+            sedangMenyapu = true;
+            const produkMap = {};
+            allProducts.forEach(function (p) { produkMap[p.id] = p; });
+            sbSapuOutlet(db, currentUser.outlet, produkMap, { uid: currentUser.uid, nama: currentUser.nama })
+                .catch(function (e) { console.warn("Sapu stok kedaluwarsa gagal:", e.message); })
+                .then(function () { sedangMenyapu = false; });
+        }
+
         function dengarkanStok() {
             if (stockUnsubscribe) { stockUnsubscribe(); stockUnsubscribe = null; }
 
             stockUnsubscribe = db.collection("outlets").doc(currentUser.outlet).collection("stock")
                 .onSnapshot(function (snapshot) {
-                    stockMap = {};
-                    snapshot.forEach(function (doc) { stockMap[doc.id] = doc.data().jumlah || 0; });
+                    stokDataMap = {};
+                    snapshot.forEach(function (doc) { stokDataMap[doc.id] = doc.data(); });
+                    hitungStockMap();
                     renderKategoriTabs();
                     renderProdukTampil();
                 }, function (error) {
@@ -2129,15 +2163,27 @@
                 const stockRefs = productIds.map(function (pid) { return outletRef.collection("stock").doc(pid); });
 
                 return Promise.all(stockRefs.map(function (ref) { return transaction.get(ref); })).then(function (stockDocs) {
-                    for (let i = 0; i < productIds.length; i++) {
-                        const stokSekarang = stockDocs[i].exists ? stockDocs[i].data().jumlah : 0;
-                        if (stokSekarang < totalPerProduk[productIds[i]]) {
-                            throw new Error("Stok tidak mencukupi untuk salah satu produk.");
+                    /* Stok per batch (stok-batch.js): hanya batch yang masih berlaku
+                       yang bisa dijual, diambil dari yang paling lama dulu. Batch
+                       yang sudah kedaluwarsa sekalian dicatat sebagai waste. */
+                    const nowMs = Date.now();
+                    const rencanaStok = productIds.map(function (pid, i) {
+                        const produk = allProducts.find(function (p) { return p.id === pid; }) || {};
+                        const batch = sbNormalkan(sbBatch(stockDocs[i].exists ? stockDocs[i].data() : null, nowMs), produk);
+                        const pisah = sbPisah(batch, nowMs);
+                        if (sbTotal(pisah.aktif) < totalPerProduk[pid]) {
+                            throw new Error("Stok " + (produk.nama || "salah satu produk") + " tidak mencukupi.");
                         }
-                    }
-                    productIds.forEach(function (pid, i) {
-                        const stokSekarang = stockDocs[i].data().jumlah;
-                        transaction.update(stockRefs[i], { jumlah: stokSekarang - totalPerProduk[pid] });
+                        return { pid: pid, produk: produk, basi: pisah.basi, sisa: sbAmbil(pisah.aktif, totalPerProduk[pid]).sisa };
+                    });
+                    rencanaStok.forEach(function (r, i) {
+                        r.basi.forEach(function (b) {
+                            transaction.set(db.collection("waste_stok").doc(), sbDataWaste({
+                                outlet: currentUser.outlet, productId: r.pid, nama: r.produk.nama,
+                                olehUid: currentUser.uid, olehNama: currentUser.nama
+                            }, b, "kedaluwarsa", nowMs));
+                        });
+                        transaction.set(stockRefs[i], sbDataStok(r.sisa, nowMs), { merge: true });
                     });
 
                     const itemsUntukTransaksi = entries.map(function (entry) {
