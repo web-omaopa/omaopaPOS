@@ -91,22 +91,11 @@
         .waste-box { margin-top: 28px; }
         .waste-box h3 { font-size: 13px; margin-bottom: 4px; }
         .waste-box .sub { font-size: 11px; color: #6b7280; margin-bottom: 10px; }
-        .waste-filter { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
-        .waste-filter select { height: 30px; border: 1px solid #dde3ea; border-radius: 6px; font-size: 11.5px; padding: 0 8px; font-family: inherit; }
-        .chip-f { height: 30px; padding: 0 12px; border-radius: 15px; border: 1px solid #dde3ea; background: #fff; font-size: 11.5px; font-weight: 700; color: #52606d; cursor: pointer; font-family: inherit; }
-        .chip-f.on { background: #12305C; border-color: #12305C; color: #fff; }
-        .waste-ringkas { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
-        .waste-ringkas span { font-size: 11px; background: #fdeaea; color: #8b2b22; padding: 4px 10px; border-radius: 12px; }
-        table.waste-table { width: 100%; border-collapse: collapse; font-size: 12px; border: 1px solid #dde3ea; }
-        table.waste-table th { text-align: left; padding: 7px 10px; background: #f1f4f8; color: #52606d; font-size: 10.5px; }
-        table.waste-table td { padding: 7px 10px; border-top: 1px solid #eef1f5; vertical-align: top; }
-        table.waste-table .r { text-align: right; }
         .rusak-form { display: grid; grid-template-columns: 2fr 90px 1.4fr; gap: 8px; margin-bottom: 8px; }
         @media (max-width: 640px) { .rusak-form { grid-template-columns: 1fr; } }
         .rusak-form select, .rusak-form input, .rusak-ket { height: 36px; border: 1px solid #d1d5db; border-radius: 6px; padding: 0 10px; font-size: 12px; font-family: inherit; width: 100%; }
         .btn-waste { height: 38px; padding: 0 16px; border: none; border-radius: 6px; background: #b03a2e; color: #fff; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; margin-top: 8px; }
         .btn-waste:disabled { opacity: 0.5; cursor: not-allowed; }
-        .btn-unduh { height: 30px; padding: 0 12px; border-radius: 15px; border: 1px solid #12305C; background: #fff; color: #12305C; font-size: 11.5px; font-weight: 700; cursor: pointer; font-family: inherit; margin-left: auto; }
         .status-menunggu { background: #fdf1de; color: #b06d09; }
         .status-aktif { background: #fdeaea; color: #b03a2e; }
     </style>
@@ -495,11 +484,10 @@
                 '</div>' +
                 '<div id="approvalContainer"><div class="loading-state">Memuat...</div></div>' +
                 '<div class="waste-box" id="rusakApprovalBox"></div>' +
-                '<div class="waste-box" id="wasteBox"></div>';
+                '<div class="hint-text" style="font-size:11px; color:#6b7280; margin-top:18px;">Data waste lengkap (per menu, outlet, alasan + download Excel/PDF) ada di <a href="laporan.html" style="color:#12305C; font-weight:700;">Laporan \u203a Waste</a>.</div>';
 
             Approval_load();
             Rusak_loadApproval();
-            Waste_tampil();
         }
 
         function Approval_load() {
@@ -740,106 +728,6 @@
         }
 
         /* =====================================================================
-           WASTE (koleksi waste_stok, lihat stok-batch.js)
-           Kasir: outlet-nya sendiri. Admin/owner/management: semua outlet.
-        ========================================================================= */
-        let wasteFilter = { preset: "7", outlet: "" };
-        let wasteTerakhir = [];     // isi daftar waste yang sedang tampil (untuk unduh CSV)
-
-        function Waste_unduhCsv() {
-            if (wasteTerakhir.length === 0) { alert("Tidak ada data waste untuk diunduh."); return; }
-            const r = Waste_rentang();
-            const kol = ["Tanggal", "Jam", "Outlet", "Menu", "Qty", "Alasan", "Jenis", "Keterangan", "Tanggal masuk kue", "Kedaluwarsa", "Dicatat oleh"];
-            const sel = function (v) { v = String(v == null ? "" : v); return /[";\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
-            const tgl = function (ms) { return ms ? new Date(ms).toLocaleString("id-ID") : ""; };
-            const baris = wasteTerakhir.slice().reverse().map(function (d) {
-                return [d.tanggal, d._waktu.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }), d.outlet, d.nama, d.qty,
-                    SB_ALASAN_WASTE[d.alasan] || d.alasan, d.jenisRusak || "", d.keterangan || "",
-                    tgl(d.masukMs), tgl(d.kedaluwarsaMs), d.olehNama || ""].map(sel).join(";");
-            });
-            const a = document.createElement("a");
-            a.href = URL.createObjectURL(new Blob(["\ufeff" + kol.join(";") + "\n" + baris.join("\n")], { type: "text/csv;charset=utf-8" }));
-            a.download = "waste_" + (wasteFilter.outlet || "semua-outlet").replace(/[^a-zA-Z0-9-]/g, "-") + "_" + r.dari + "_" + r.sampai + ".csv";
-            document.body.appendChild(a); a.click(); a.remove();
-        }
-        let wasteOutletList = [];
-
-        function Waste_rentang() {
-            const hariIni = sbTanggalIso(Date.now());
-            const mundur = function (n) { return sbTanggalIso(Date.now() - n * SB_SATU_HARI_MS); };
-            if (wasteFilter.preset === "hari") return { dari: hariIni, sampai: hariIni };
-            if (wasteFilter.preset === "30") return { dari: mundur(29), sampai: hariIni };
-            return { dari: mundur(6), sampai: hariIni };
-        }
-
-        function Waste_tampil() {
-            const box = document.getElementById("wasteBox");
-            if (!box) return;
-            const kasir = currentUser.role === "kasir";
-            const chip = function (k, label) {
-                return '<button class="chip-f' + (wasteFilter.preset === k ? " on" : "") + '" onclick="wasteFilter.preset=\'' + k + '\'; Waste_tampil()">' + label + '</button>';
-            };
-            box.innerHTML =
-                '<h3>Waste' + (kasir ? ' Outlet Saya' : '') + '</h3>' +
-                '<div class="sub">Kue yang tidak terjual: sisa kue reset saat lapor stok baru, stok yang lewat masa berlaku, dan kue rusak yang sudah di-ACC.</div>' +
-                '<div class="waste-filter">' + chip("hari", "Hari ini") + chip("7", "7 hari") + chip("30", "30 hari") +
-                    '<button class="btn-unduh" onclick="Waste_unduhCsv()">\u2b07 Unduh Excel (CSV)</button>' +
-                    (kasir ? '' : '<select id="wasteOutlet" onchange="wasteFilter.outlet=this.value; Waste_muat()"><option value="">Semua outlet</option>' +
-                        wasteOutletList.map(function (o) { return '<option value="' + escapeHtmlAman(o) + '"' + (wasteFilter.outlet === o ? ' selected' : '') + '>' + escapeHtmlAman(o) + '</option>'; }).join("") + '</select>') +
-                '</div>' +
-                '<div id="wasteIsi"><div class="loading-state">Memuat waste...</div></div>';
-            if (!kasir && wasteOutletList.length === 0) {
-                db.collection("outlets").get().then(function (snap) {
-                    snap.forEach(function (d) { wasteOutletList.push(d.id); });
-                    wasteOutletList.sort();
-                    if (wasteOutletList.length) Waste_tampil();
-                }).catch(function () {});
-            }
-            Waste_muat();
-        }
-
-        function Waste_muat() {
-            const isi = document.getElementById("wasteIsi");
-            if (!isi) return;
-            const r = Waste_rentang();
-            const outlet = currentUser.role === "kasir" ? currentUser.outlet : wasteFilter.outlet;
-            db.collection("waste_stok").where("tanggal", ">=", r.dari).where("tanggal", "<=", r.sampai).get().then(function (snap) {
-                const daftar = [];
-                snap.forEach(function (doc) {
-                    const d = doc.data({ serverTimestamps: "estimate" });
-                    if (d.status && d.status !== "aktif") return; // batal / menunggu ACC / ditolak tidak dihitung
-                    if (outlet && d.outlet !== outlet) return;
-                    d._waktu = d.waktu && d.waktu.toDate ? d.waktu.toDate() : new Date(0);
-                    daftar.push(d);
-                });
-                daftar.sort(function (a, b) { return b._waktu - a._waktu; });
-                wasteTerakhir = daftar;
-                if (daftar.length === 0) { isi.innerHTML = '<div class="empty-state" style="padding:16px 0;">Tidak ada waste di periode ini 👍</div>'; return; }
-                const perProduk = {};
-                let total = 0;
-                daftar.forEach(function (d) { perProduk[d.nama] = (perProduk[d.nama] || 0) + d.qty; total += d.qty; });
-                const tgl = function (ms) { return ms ? new Date(ms).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "-"; };
-                isi.innerHTML =
-                    '<div class="waste-ringkas"><span><b>Total ' + total + ' pcs</b></span>' +
-                        Object.keys(perProduk).sort(function (a, b) { return perProduk[b] - perProduk[a]; }).map(function (n) {
-                            return '<span>' + escapeHtmlAman(n) + ': <b>' + perProduk[n] + '</b></span>';
-                        }).join("") + '</div>' +
-                    '<table class="waste-table"><thead><tr><th>Dicatat</th>' + (outlet ? '' : '<th>Outlet</th>') +
-                        '<th>Menu</th><th class="r">Qty</th><th>Alasan</th><th>Masuk</th></tr></thead><tbody>' +
-                        daftar.map(function (d) {
-                            return '<tr><td>' + escapeHtmlAman(tgl(d._waktu.getTime())) + '</td>' + (outlet ? '' : '<td>' + escapeHtmlAman(d.outlet) + '</td>') +
-                                '<td>' + escapeHtmlAman(d.nama) + '</td><td class="r"><b>' + d.qty + '</b></td>' +
-                                '<td>' + escapeHtmlAman(SB_ALASAN_WASTE[d.alasan] || d.alasan) +
-                                    (d.alasan === "rusak" ? '<div style="font-size:10.5px; color:#6b7280;">' + escapeHtmlAman((d.jenisRusak || "") + (d.keterangan ? " \u00b7 " + d.keterangan : "")) + '</div>' : '') + '</td>' +
-                                '<td>' + escapeHtmlAman(tgl(d.masukMs)) + '</td></tr>';
-                        }).join("") +
-                    '</tbody></table>';
-            }).catch(function (error) {
-                isi.innerHTML = '<div class="empty-state">Gagal memuat waste: ' + escapeHtmlAman(error.message) + '</div>';
-            });
-        }
-
-        /* =====================================================================
            WASTE SEBELUM WAKTUNYA (rusak, jatuh, dll)
            Kasir melapor -> stok langsung disisihkan supaya tidak terjual,
            status "menunggu". Admin ACC -> tercatat sebagai waste; Tolak ->
@@ -997,8 +885,7 @@
             db.collection("waste_stok").doc(id).update({
                 status: "aktif", diaccUid: currentUser.uid, diaccNama: currentUser.nama,
                 waktuAcc: firebase.firestore.FieldValue.serverTimestamp()
-            }).then(function () { Waste_muat(); })
-              .catch(function (e) { alert("Gagal ACC: " + e.message); });
+            }).catch(function (e) { alert("Gagal ACC: " + e.message); });
         }
 
         function Rusak_tolak(id) {
