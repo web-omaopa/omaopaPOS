@@ -318,10 +318,24 @@ function keuDetailItem(item, detailProduk) {
     return cariDetailKategori(d) ? d : DETAIL_CADANGAN;
 }
 
-/* Ringkas satu transaksi: { penjualan: {detail: Rp}, diskon: {detail: Rp}, qty: {detail: pcs} }.
-   Penjualan = harga x qty (topping yang ikut kue masuk ke detail kuenya). */
-function keuRingkasTransaksi(t, detailProduk) {
-    const hasil = { penjualan: {}, diskon: {}, qty: {} };
+/* Ringkas satu transaksi:
+   { penjualan: {detail: Rp}, diskon: {detail: Rp}, qty: {detail: pcs},
+     cogs: {detail: Rp}, qtyTanpaHpp: {detail: pcs} }.
+   Penjualan = harga x qty (topping yang ikut kue masuk ke detail kuenya).
+   COGS = HPP item (Rp per pcs, kue + toppingnya; field item.hpp yang dicatat
+   Kasir) x qty. Item tanpa HPP dihitung di qtyTanpaHpp.
+   hppProduk(item) -> HPP cadangan untuk transaksi lama tanpa item.hpp. */
+function keuHppItem(it, hppProduk) {
+    if (typeof it.hpp === "number" && isFinite(it.hpp)) return it.hpp;
+    if (it.hpp === undefined && hppProduk) {
+        const v = hppProduk(it);
+        if (typeof v === "number" && isFinite(v)) return v;
+    }
+    return null;
+}
+
+function keuRingkasTransaksi(t, detailProduk, hppProduk) {
+    const hasil = { penjualan: {}, diskon: {}, qty: {}, cogs: {}, qtyTanpaHpp: {} };
     const items = t.items || [];
     const diskon = keuDiskonPerItem(items, t.diskonPromo);
     items.forEach(function (it, i) {
@@ -330,6 +344,9 @@ function keuRingkasTransaksi(t, detailProduk) {
         hasil.penjualan[d] = (hasil.penjualan[d] || 0) + nilai;
         if (diskon[i]) hasil.diskon[d] = (hasil.diskon[d] || 0) + diskon[i];
         hasil.qty[d] = (hasil.qty[d] || 0) + (Number(it.qty) || 0);
+        const hpp = keuHppItem(it, hppProduk);
+        if (hpp !== null) hasil.cogs[d] = (hasil.cogs[d] || 0) + hpp * (Number(it.qty) || 0);
+        else hasil.qtyTanpaHpp[d] = (hasil.qtyTanpaHpp[d] || 0) + (Number(it.qty) || 0);
     });
     return hasil;
 }

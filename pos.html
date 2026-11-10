@@ -9,7 +9,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
     <script src="roles.js?v=20261027c"></script>
-    <script src="keuangan.js?v=20261110b"></script>
+    <script src="keuangan.js?v=20261110c"></script>
     <script src="kas.js?v=20261027b"></script>
     <script src="stok-batch.js?v=20261110d"></script>
 
@@ -2090,6 +2090,20 @@
             return kode + "-" + hariIniStr().replace(/-/g, "") + "-" + docId.slice(-5).toUpperCase();
         }
 
+        /* HPP 1 pcs item keranjang (Rp) = HPP produk + HPP toppingnya.
+           null kalau produknya belum punya HPP (products.hpp). Topping tanpa
+           HPP dihitung 0. */
+        function hppSatuanItem(item) {
+            const prod = allProducts.find(function (p) { return p.id === item.productId; });
+            if (!prod || typeof prod.hpp !== "number") return null;
+            let n = prod.hpp;
+            (item.toppings || []).forEach(function (t) {
+                const tp = (t && t.id && allProducts.find(function (p) { return p.id === t.id; })) || t || {};
+                if (typeof tp.hpp === "number") n += tp.hpp;
+            });
+            return n;
+        }
+
         /* ---------- RINGKASAN HARIAN (untuk Laporan Laba Rugi) ----------
            Setelah transaksi tersimpan, tambahkan penjualan & diskon per detail
            kategori ke ringkasan_harian/<outlet>__<tanggal>. Dibuat terpisah dari
@@ -2105,10 +2119,12 @@
                 const data = {
                     outlet: currentUser.outlet, tanggal: tgl,
                     tahun: sekarang.getFullYear(), bulan: sekarang.getMonth() + 1,
-                    trx: naik(1), penjualan: {}, diskon: {}, qty: {},
+                    trx: naik(1), penjualan: {}, diskon: {}, qty: {}, cogs: {}, qtyTanpaHpp: {},
+                    // Ringkasan baru (sejak HPP per produk) selalu mencatat cogs
+                    adaCogs: true,
                     diperbarui: firebase.firestore.FieldValue.serverTimestamp()
                 };
-                ["penjualan", "diskon", "qty"].forEach(function (k) {
+                ["penjualan", "diskon", "qty", "cogs", "qtyTanpaHpp"].forEach(function (k) {
                     Object.keys(r[k]).forEach(function (d) { data[k][d] = naik(r[k][d]); });
                 });
                 db.collection("ringkasan_harian").doc(keuIdRingkasan(currentUser.outlet, tgl))
@@ -2156,7 +2172,8 @@
                 const item = entry[1];
                 const prod = allProducts.find(function (p) { return p.id === item.productId; }) || {};
                 return { productId: item.productId, nama: item.nama, harga: item.hargaSatuan, qty: item.qty,
-                    isPromoGratis: !!item.isPromoGratis, detailKategori: item.detailKategori || prod.detailKategori || "" };
+                    isPromoGratis: !!item.isPromoGratis, detailKategori: item.detailKategori || prod.detailKategori || "",
+                    hpp: hppSatuanItem(item) };
             });
 
             const trxRef = db.collection("transactions").doc();
@@ -2204,7 +2221,10 @@
                             kategori: item.kategori || ((allProducts.find(function (p) { return p.id === item.productId; }) || {}).kategori) || "",
                             detailKategori: item.detailKategori !== undefined ? item.detailKategori : (((allProducts.find(function (p) { return p.id === item.productId; }) || {}).detailKategori) || ""),
                             hargaDasar: item.hargaDasar !== undefined ? item.hargaDasar : item.hargaSatuan,
-                            toppingHarga: item.toppingHarga || []
+                            toppingHarga: item.toppingHarga || [],
+                            // HPP 1 pcs saat dijual (kue + topping), null kalau produk belum punya HPP.
+                            // Hanya untuk COGS di laporan, tidak memengaruhi harga/total.
+                            hpp: hppSatuanItem(item)
                         };
                     });
 

@@ -9,7 +9,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
     <script src="roles.js?v=20261027c"></script>
-    <script src="keuangan.js?v=20261110b"></script>
+    <script src="keuangan.js?v=20261110c"></script>
     <script src="stok-batch.js?v=20261110d"></script>
     <script src="kas.js?v=20261027b"></script>
 
@@ -325,6 +325,8 @@
 
         let kategoriProduk = {};         // { productId: kategori } dari koleksi products
         let hargaProduk = {};            // { productId: harga Offline } untuk nilai waste
+        let hppProdukMap = {};           // { productId: HPP Rp per pcs atau null } (products.hpp)
+        let namaProdukMap = {};
         let dataWaste = [];              // waste_stok periode terpilih (status aktif)
         let dataSesiKas = [];            // sesi_kas periode terpilih (Kas & Pengeluaran)
         let dataPengeluaran = [];        // pengeluaran periode terpilih (tanpa yang dihapus)
@@ -425,6 +427,8 @@
                     const k = doc.data().kategori || "";
                     kategoriProduk[doc.id] = k;
                     hargaProduk[doc.id] = Number(doc.data().harga) || 0;
+                    hppProdukMap[doc.id] = typeof doc.data().hpp === "number" ? doc.data().hpp : null;
+                    namaProdukMap[doc.id] = doc.data().nama || doc.id;
                     detailProdukMap[doc.id] = doc.data().detailKategori || "";
                     if (k && daftarKategoriProduk.indexOf(k) === -1) daftarKategoriProduk.push(k);
                 });
@@ -1653,8 +1657,7 @@
         let filterLR = null;             // isian form Laba Rugi
         let filterLRTerpakai = null;     // filter yang dipakai tabel
         let dataLR = [];                 // dokumen ringkasan_harian periode terpilih
-        let hppLR = {};                  // { detail: hppPersen }
-        let hppLRGagal = false;
+        let hppLRGagal = false;          // daftar detail kategori tambahan gagal dibaca
         let bebanLR = { pengeluaran: [], sesi: [], waste: [], gagal: false };   // pengeluaran, sesi kas tutup & waste periode LR
         let lrSiap = false;
         let lrError = null;
@@ -1837,15 +1840,10 @@
             const kueriHpp = db.collection("detail_kategori").get().then(function (snap) {
                 // Detail kategori tambahan -> baris Penjualan/COGS/Diskon baru (keuangan.js)
                 if (typeof keuTerapkanDetailKategori === "function") keuTerapkanDetailKategori(snap);
-                const peta = {};
-                snap.forEach(function (doc) {
-                    const v = doc.data().hppPersen;
-                    if (typeof v === "number" && isFinite(v)) peta[doc.id] = v;
-                });
-                return { peta: peta, gagal: false };
+                return { gagal: false };
             }).catch(function (error) {
-                console.warn("HPP % belum bisa dibaca:", error.message);
-                return { peta: {}, gagal: true };
+                console.warn("Detail kategori belum bisa dibaca:", error.message);
+                return { gagal: true };
             });
 
             Promise.all([Promise.all(kueri), kueriHpp, kueriBeban]).then(function (hasil) {
@@ -1860,7 +1858,6 @@
                     });
                 });
                 dataLR = docs;
-                hppLR = hasil[1].peta;
                 hppLRGagal = hasil[1].gagal;
                 bebanLR = hasil[2];
                 lrSiap = true;
@@ -1879,13 +1876,17 @@
         /* Hitung semua baris Laba Rugi.
            Hasil: { s, header: [label kolom angka], idxPersen (-1 kalau tidak ada),
                     baris: [{akun, ket, nilai: [...], jenis: "akun"|"total"|"utama"}],
-                    belumHpp: [detail], jumlahDok } */
-        function hitungLabaRugi(docs, s, hpp, f, beban) {
+                    belumHpp: [kalimat catatan HPP], jumlahDok }
+           COGS = HPP (Rp/pcs, products.hpp) x pcs terjual, sudah dijumlah Kasir
+           per detail kategori di ringkasan_harian.cogs. */
+        function hitungLabaRugi(docs, s, f, beban) {
             beban = beban || { pengeluaran: [], sesi: [], waste: [] };
             const n = s.kolom.length;
             function nol() { return s.kolom.map(function () { return 0; }); }
-            const jual = {}, disk = {};
-            DETAIL_KATEGORI.forEach(function (d) { jual[d.nama] = nol(); disk[d.nama] = nol(); });
+            const jual = {}, disk = {}, cogs = {};
+            DETAIL_KATEGORI.forEach(function (d) { jual[d.nama] = nol(); disk[d.nama] = nol(); cogs[d.nama] = nol(); });
+            const tanpaHpp = {};        // detail -> pcs terjual yang produknya belum punya HPP
+            let adaRingkasanLama = false;
             function tambahPeta(target, sumber, i) {
                 Object.keys(sumber || {}).forEach(function (k) {
                     const d = cariDetailKategori(k) ? k : DETAIL_CADANGAN;
@@ -1911,11 +1912,25 @@
                     terpakai = true;
                     tambahPeta(jual, doc.penjualan, i);
                     tambahPeta(disk, doc.diskon, i);
+                    if (doc.adaCogs) {
+                        tambahPeta(cogs, doc.cogs, i);
+                        Object.keys(doc.qtyTanpaHpp || {}).forEach(function (k) {
+                            const n = Number(doc.qtyTanpaHpp[k]) || 0;
+                            if (n > 0) tanpaHpp[k] = (tanpaHpp[k] || 0) + n;
+                        });
+                    } else if (Object.keys(doc.penjualan || {}).some(function (k) { return Number(doc.penjualan[k]); })) {
+                        // Ringkasan dari sebelum HPP per produk: COGS-nya belum ada
+                        adaRingkasanLama = true;
+                        Object.keys(doc.penjualan).forEach(function (k) {
+                            const d = cariDetailKategori(k) ? k : DETAIL_CADANGAN;
+                            if (Number(doc.penjualan[k])) cogs[d][i] = null;
+                        });
+                    }
                 });
                 if (terpakai) jumlahDok++;
             });
 
-            /* Nilai per kode akun. null = belum bisa dihitung (HPP % belum diisi). */
+            /* Nilai per kode akun. null = belum bisa dihitung (ringkasan lama tanpa HPP). */
             const nilaiAkun = {};
             function akun(kode) { return nilaiAkun[kode] || (nilaiAkun[kode] = nol()); }
             function tambahKe(kode, i, v) {
@@ -1926,16 +1941,20 @@
             // Penjualan, diskon (negatif) & COGS dari ringkasan harian per detail kategori
             const belumHpp = [];
             DETAIL_KATEGORI.forEach(function (d) {
-                const p = hpp[d.nama];
-                const ada = typeof p === "number" && isFinite(p);
-                if (!ada && jual[d.nama].some(function (v) { return v; })) belumHpp.push(d.nama);
                 for (let i = 0; i < n; i++) {
                     tambahKe(d.penjualan[0], i, jual[d.nama][i]);
                     tambahKe(d.diskon[0], i, -disk[d.nama][i]);
-                    const v = jual[d.nama][i];
-                    tambahKe(d.cogs[0], i, !v ? 0 : (ada ? Math.round(v * p / 100) : null));
+                    tambahKe(d.cogs[0], i, cogs[d.nama][i] === null ? null : Math.round(cogs[d.nama][i]));
                 }
             });
+            const detTanpa = Object.keys(tanpaHpp);
+            if (detTanpa.length) {
+                belumHpp.push("Ada penjualan produk yang belum punya HPP (" + detTanpa.map(function (k) { return k + " " + tanpaHpp[k] + " pcs"; }).join(", ") + "), COGS-nya belum terhitung.");
+            }
+            if (adaRingkasanLama) {
+                belumHpp.push("Sebagian ringkasan dibuat sebelum HPP per produk dipakai, COGS-nya tampil \"-\". Isi HPP produk lalu jalankan Hitung ulang ringkasan (management).");
+            }
+            const wasteTanpaHpp = [];
 
             // Pengeluaran outlet (Shift & Kas) ke akun bebannya; kategori tanpa akun jadi baris sendiri
             const tanpaAkun = {};
@@ -1952,17 +1971,20 @@
                 }
             });
 
-            // Waste (stok-batch.js) = qty x harga produk x HPP % detail kategorinya
+            // Waste (stok-batch.js) = pcs terbuang x HPP produk -> Pengeluaran Produk Dihancurkan
             beban.waste.forEach(function (w) {
                 if (!lolosFilter(w.outlet)) return;
                 const i = idxKolom(w.tanggal);
                 if (i === -1) return;
-                const det = cariDetailKategori(detailProdukMap[w.productId]) ? detailProdukMap[w.productId] : DETAIL_CADANGAN;
-                const p = hpp[det];
-                const ada = typeof p === "number" && isFinite(p);
-                if (!ada && belumHpp.indexOf(det) === -1) belumHpp.push(det);
-                tambahKe(AKUN_WASTE, i, ada ? Math.round((Number(w.qty) || 0) * (hargaProduk[w.productId] || 0) * p / 100) : null);
+                const hpp = typeof w.hpp === "number" ? w.hpp : hppProdukMap[w.productId];
+                if (typeof hpp !== "number") {
+                    const nm = namaProdukMap[w.productId] || w.nama || w.productId;
+                    if (wasteTanpaHpp.indexOf(nm) === -1) wasteTanpaHpp.push(nm);
+                    return;   // belum dinilai; waste lain tetap dihitung
+                }
+                tambahKe(AKUN_WASTE, i, Math.round((Number(w.qty) || 0) * hpp));
             });
+            if (wasteTanpaHpp.length) belumHpp.push("Waste produk yang belum punya HPP belum ikut dihitung: " + wasteTanpaHpp.join(", ") + ".");
 
             // Selisih kas saat tutup shift (lebih = pendapatan, kurang = beban)
             beban.sesi.forEach(function (sk) {
@@ -2038,7 +2060,7 @@
         }
 
         function hasilLabaRugi() {
-            return hitungLabaRugi(dataLR, susunKolomLR(filterLRTerpakai), hppLR, filterLRTerpakai, bebanLR);
+            return hitungLabaRugi(dataLR, susunKolomLR(filterLRTerpakai), filterLRTerpakai, bebanLR);
         }
 
         // Angka id-ID tanpa desimal, negatif pakai "-"; null = "–"
@@ -2053,7 +2075,7 @@
         }
 
         function teksBelumHpp(h) {
-            return "HPP % belum diisi untuk: " + h.belumHpp.join(", ") + ". COGS & Gross Profit belum lengkap.";
+            return h.belumHpp.join(" ");
         }
 
         function renderLabaRugi() {
@@ -2074,7 +2096,7 @@
                 html += '<div class="catatan">Pengeluaran, waste & selisih kas belum bisa dibaca (akses dibatasi aturan Firestore), dianggap 0.</div>';
             }
             if (hppLRGagal) {
-                html += '<div class="catatan">HPP % belum bisa dibaca (akses koleksi detail_kategori dibatasi aturan Firestore), COGS dianggap belum diisi.</div>';
+                html += '<div class="catatan">Detail kategori tambahan belum bisa dibaca (akses koleksi detail_kategori dibatasi aturan Firestore), hanya akun bawaan yang tampil.</div>';
             }
             html += '<div class="scroll-x"><table class="tabel-lr"><thead><tr><th>Akun</th><th>Keterangan</th>';
             h.header.forEach(function (k) { html += '<th class="n">' + escapeHtmlAman(k) + '</th>'; });
@@ -2129,7 +2151,7 @@
                     return i === h.idxPersen ? Math.round(v * 10) / 10 : Math.round(v);
                 })));
             });
-            if (h.belumHpp.length) aoa.push([], ["Catatan", teksBelumHpp(h) + " Atur di Pengaturan > Pemetaan & HPP."]);
+            if (h.belumHpp.length) aoa.push([], ["Catatan", teksBelumHpp(h) + " HPP diisi di Pengaturan > Pemetaan & HPP."]);
 
             const ws = XLSX.utils.aoa_to_sheet(aoa);
             ws["!cols"] = [{ wch: 12 }, { wch: 28 }].concat(h.header.map(function () { return { wch: 14 }; }));
@@ -2178,7 +2200,7 @@
             });
             if (h.belumHpp.length) {
                 doc.setFontSize(8);
-                doc.text(doc.splitTextToSize(teksPdf(teksBelumHpp(h) + " Atur di Pengaturan > Pemetaan & HPP."), 269), 14, doc.lastAutoTable.finalY + 6);
+                doc.text(doc.splitTextToSize(teksPdf(teksBelumHpp(h) + " HPP diisi di Pengaturan > Pemetaan & HPP."), 269), 14, doc.lastAutoTable.finalY + 6);
             }
             doc.save(namaFileLR("pdf"));
         }
@@ -2193,7 +2215,7 @@
            daftarTrx: data transaksi { outlet, waktu (Timestamp/Date), status, items, diskonPromo }
            detailProduk(productId): detail kategori produk saat ini.
            Hasil: { "<outlet>__<yyyy-mm-dd>": { outlet, tanggal, tahun, bulan, trx, penjualan, diskon, qty } } */
-        function hitungRingkasanDariTransaksi(daftarTrx, detailProduk) {
+        function hitungRingkasanDariTransaksi(daftarTrx, detailProduk, hppProduk) {
             const hasil = {};
             (daftarTrx || []).forEach(function (t) {
                 if (!t || t.status === "batal") return;
@@ -2203,12 +2225,12 @@
                 const outlet = t.outlet || "-";
                 const id = keuIdRingkasan(outlet, tanggal);
                 if (!hasil[id]) {
-                    hasil[id] = { outlet: outlet, tanggal: tanggal, tahun: w.getFullYear(), bulan: w.getMonth() + 1, trx: 0, penjualan: {}, diskon: {}, qty: {} };
+                    hasil[id] = { outlet: outlet, tanggal: tanggal, tahun: w.getFullYear(), bulan: w.getMonth() + 1, trx: 0, penjualan: {}, diskon: {}, qty: {}, cogs: {}, qtyTanpaHpp: {}, adaCogs: true };
                 }
                 const h = hasil[id];
-                const r = keuRingkasTransaksi(t, detailProduk);
+                const r = keuRingkasTransaksi(t, detailProduk, hppProduk);
                 h.trx++;
-                ["penjualan", "diskon", "qty"].forEach(function (k) {
+                ["penjualan", "diskon", "qty", "cogs", "qtyTanpaHpp"].forEach(function (k) {
                     Object.keys(r[k]).forEach(function (d) { h[k][d] = (h[k][d] || 0) + r[k][d]; });
                 });
             });
@@ -2258,7 +2280,9 @@
             ]).then(function (hasil) {
                 const daftar = [];
                 hasil[0].forEach(function (doc) { daftar.push(doc.data()); });
-                ringkas = hitungRingkasanDariTransaksi(daftar, function (pid) { return detailProdukMap[pid] || ""; });
+                // Transaksi lama belum menyimpan HPP per item: pakai HPP produk saat ini
+                ringkas = hitungRingkasanDariTransaksi(daftar, function (pid) { return detailProdukMap[pid] || ""; },
+                    function (it) { const v = hppProdukMap[it.productId]; return typeof v === "number" ? v : null; });
                 const ids = Object.keys(ringkas);
                 ids.forEach(function (id) { jumlahTrx += ringkas[id].trx; });
 
