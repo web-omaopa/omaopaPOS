@@ -17,9 +17,12 @@
        (kosong / 0 = tidak kedaluwarsa).
 
    Waste dicatat di koleksi waste_stok:
-     { outlet, productId, nama, qty, alasan: "kedaluwarsa" | "diganti_lapor",
+     { outlet, productId, nama, qty, alasan: "kedaluwarsa" | "diganti_lapor" | "rusak",
        masukMs, kedaluwarsaMs, tanggal: "yyyy-mm-dd", laporanId,
-       status: "aktif" | "batal", olehUid, olehNama, waktu }
+       status: "aktif" | "batal" | "menunggu" | "ditolak", olehUid, olehNama, waktu }
+   Waste "rusak" (sebelum waktunya) dilaporkan kasir dengan status "menunggu";
+   stoknya langsung disisihkan (batchDiambil) supaya tidak terjual. Admin ACC
+   -> "aktif" (dihitung waste), Tolak -> "ditolak" dan stok dikembalikan.
 
    Dokumen stok lama (belum punya field batch) dianggap satu batch yang
    masuk saat pertama kali dibaca; masa berlakunya mulai dihitung saat itu.
@@ -31,8 +34,12 @@ const SB_SATU_HARI_MS = 24 * 60 * 60 * 1000;
 
 const SB_ALASAN_WASTE = {
     kedaluwarsa: "Lewat masa berlaku",
-    diganti_lapor: "Sisa saat lapor stok baru"
+    diganti_lapor: "Sisa saat lapor stok baru",
+    rusak: "Rusak / waste sebelum waktunya"
 };
+
+/* Pilihan jenis waste sebelum waktunya yang dilaporkan kasir */
+const SB_JENIS_RUSAK = ["Rusak / penyok", "Jatuh", "Basi sebelum waktunya", "Lainnya"];
 
 /* Lama berlaku (ms) untuk produk ini, atau null kalau tidak kedaluwarsa */
 function sbMasaBerlakuMs(produk) {
@@ -120,8 +127,16 @@ function sbAmbil(aktif, qty) {
    dicatat sebagai waste boleh ikut disimpan (disapu nanti), tapi tidak
    dihitung di jumlah. */
 function sbDataStok(batch, nowMs) {
-    const bersih = batch.filter(function (b) { return b.qty > 0; })
-        .map(function (b) { return { qty: b.qty, masukMs: b.masukMs, kedaluwarsaMs: b.kedaluwarsaMs, laporanId: b.laporanId || null }; });
+    // Batch dengan tanggal masuk, kedaluwarsa & laporan yang sama digabung
+    const bersih = [];
+    batch.forEach(function (b) {
+        if (!(b.qty > 0)) return;
+        const sama = bersih.find(function (x) {
+            return x.masukMs === b.masukMs && x.kedaluwarsaMs === b.kedaluwarsaMs && x.laporanId === (b.laporanId || null);
+        });
+        if (sama) sama.qty += b.qty;
+        else bersih.push({ qty: b.qty, masukMs: b.masukMs, kedaluwarsaMs: b.kedaluwarsaMs, laporanId: b.laporanId || null });
+    });
     return {
         batch: bersih,
         jumlah: sbTotal(sbPisah(bersih, nowMs).aktif),

@@ -9,7 +9,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
     <script src="roles.js?v=20261027c"></script>
-    <script src="stok-batch.js?v=20261110a"></script>
+    <script src="stok-batch.js?v=20261110c"></script>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -101,6 +101,14 @@
         table.waste-table th { text-align: left; padding: 7px 10px; background: #f1f4f8; color: #52606d; font-size: 10.5px; }
         table.waste-table td { padding: 7px 10px; border-top: 1px solid #eef1f5; vertical-align: top; }
         table.waste-table .r { text-align: right; }
+        .rusak-form { display: grid; grid-template-columns: 2fr 90px 1.4fr; gap: 8px; margin-bottom: 8px; }
+        @media (max-width: 640px) { .rusak-form { grid-template-columns: 1fr; } }
+        .rusak-form select, .rusak-form input, .rusak-ket { height: 36px; border: 1px solid #d1d5db; border-radius: 6px; padding: 0 10px; font-size: 12px; font-family: inherit; width: 100%; }
+        .btn-waste { height: 38px; padding: 0 16px; border: none; border-radius: 6px; background: #b03a2e; color: #fff; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; margin-top: 8px; }
+        .btn-waste:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-unduh { height: 30px; padding: 0 12px; border-radius: 15px; border: 1px solid #12305C; background: #fff; color: #12305C; font-size: 11.5px; font-weight: 700; cursor: pointer; font-family: inherit; margin-left: auto; }
+        .status-menunggu { background: #fdf1de; color: #b06d09; }
+        .status-aktif { background: #fdeaea; color: #b03a2e; }
     </style>
 </head>
 <body>
@@ -176,6 +184,8 @@
             if (riwayatUnsubscribe) { riwayatUnsubscribe(); riwayatUnsubscribe = null; }
             if (approvalUnsubscribe) { approvalUnsubscribe(); approvalUnsubscribe = null; }
             if (stokKasirUnsubscribe) { stokKasirUnsubscribe(); stokKasirUnsubscribe = null; }
+            if (rusakUnsubscribe) { rusakUnsubscribe(); rusakUnsubscribe = null; }
+            if (rusakApprovalUnsubscribe) { rusakApprovalUnsubscribe(); rusakApprovalUnsubscribe = null; }
             auth.signOut().then(function () {
                 sessionStorage.removeItem("omaopa_user");
                 window.location.href = "index.html";
@@ -217,12 +227,12 @@
                 '<button class="submit-btn" id="submitBtnLapor" onclick="Kasir_kirim()" disabled>Kirim Laporan ke Admin</button>' +
                 '<h3 style="font-size:13px; margin-top:26px; margin-bottom:10px;">Riwayat Laporan Saya</h3>' +
                 '<div id="riwayatListLapor"><div class="loading-state">Memuat riwayat...</div></div>' +
-                '<div class="waste-box" id="wasteBox"></div>';
+                '<div class="waste-box" id="rusakBox"></div>';
 
             Kasir_loadProduk();
             Kasir_dengarkanStok();
             Kasir_loadRiwayat();
-            Waste_tampil();
+            Rusak_tampilKasir();
         }
 
         /* =====================================================
@@ -291,6 +301,7 @@
 
                 kembalikanNilaiInput(stateInput);
                 Kasir_tampilSisa();
+                Rusak_isiPilihanProduk();
 
                 const submitBtn = document.getElementById("submitBtnLapor");
                 // Jangan aktifkan tombol kalau laporan sedang dikirim
@@ -483,9 +494,11 @@
                     '<p>Stok POS sudah mengikuti laporan kasir ini. Edit angka kalau perlu koreksi, lalu ACC untuk mengunci sebagai stok resmi (atau Tolak untuk membatalkan &amp; kembalikan stok).</p>' +
                 '</div>' +
                 '<div id="approvalContainer"><div class="loading-state">Memuat...</div></div>' +
+                '<div class="waste-box" id="rusakApprovalBox"></div>' +
                 '<div class="waste-box" id="wasteBox"></div>';
 
             Approval_load();
+            Rusak_loadApproval();
             Waste_tampil();
         }
 
@@ -695,6 +708,7 @@
                 stokKasirData = {};
                 snap.forEach(function (doc) { stokKasirData[doc.id] = doc.data(); });
                 Kasir_tampilSisa();
+                Rusak_isiPilihanProduk();
             }, function () { /* info tambahan saja */ });
         }
 
@@ -730,6 +744,24 @@
            Kasir: outlet-nya sendiri. Admin/owner/management: semua outlet.
         ========================================================================= */
         let wasteFilter = { preset: "7", outlet: "" };
+        let wasteTerakhir = [];     // isi daftar waste yang sedang tampil (untuk unduh CSV)
+
+        function Waste_unduhCsv() {
+            if (wasteTerakhir.length === 0) { alert("Tidak ada data waste untuk diunduh."); return; }
+            const r = Waste_rentang();
+            const kol = ["Tanggal", "Jam", "Outlet", "Menu", "Qty", "Alasan", "Jenis", "Keterangan", "Tanggal masuk kue", "Kedaluwarsa", "Dicatat oleh"];
+            const sel = function (v) { v = String(v == null ? "" : v); return /[";\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+            const tgl = function (ms) { return ms ? new Date(ms).toLocaleString("id-ID") : ""; };
+            const baris = wasteTerakhir.slice().reverse().map(function (d) {
+                return [d.tanggal, d._waktu.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }), d.outlet, d.nama, d.qty,
+                    SB_ALASAN_WASTE[d.alasan] || d.alasan, d.jenisRusak || "", d.keterangan || "",
+                    tgl(d.masukMs), tgl(d.kedaluwarsaMs), d.olehNama || ""].map(sel).join(";");
+            });
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(new Blob(["\ufeff" + kol.join(";") + "\n" + baris.join("\n")], { type: "text/csv;charset=utf-8" }));
+            a.download = "waste_" + (wasteFilter.outlet || "semua-outlet").replace(/[^a-zA-Z0-9-]/g, "-") + "_" + r.dari + "_" + r.sampai + ".csv";
+            document.body.appendChild(a); a.click(); a.remove();
+        }
         let wasteOutletList = [];
 
         function Waste_rentang() {
@@ -749,8 +781,9 @@
             };
             box.innerHTML =
                 '<h3>Waste' + (kasir ? ' Outlet Saya' : '') + '</h3>' +
-                '<div class="sub">Kue yang tidak terjual: sisa kue reset saat lapor stok baru, dan stok yang lewat masa berlaku.</div>' +
+                '<div class="sub">Kue yang tidak terjual: sisa kue reset saat lapor stok baru, stok yang lewat masa berlaku, dan kue rusak yang sudah di-ACC.</div>' +
                 '<div class="waste-filter">' + chip("hari", "Hari ini") + chip("7", "7 hari") + chip("30", "30 hari") +
+                    '<button class="btn-unduh" onclick="Waste_unduhCsv()">\u2b07 Unduh Excel (CSV)</button>' +
                     (kasir ? '' : '<select id="wasteOutlet" onchange="wasteFilter.outlet=this.value; Waste_muat()"><option value="">Semua outlet</option>' +
                         wasteOutletList.map(function (o) { return '<option value="' + escapeHtmlAman(o) + '"' + (wasteFilter.outlet === o ? ' selected' : '') + '>' + escapeHtmlAman(o) + '</option>'; }).join("") + '</select>') +
                 '</div>' +
@@ -774,12 +807,13 @@
                 const daftar = [];
                 snap.forEach(function (doc) {
                     const d = doc.data({ serverTimestamps: "estimate" });
-                    if (d.status === "batal") return;
+                    if (d.status && d.status !== "aktif") return; // batal / menunggu ACC / ditolak tidak dihitung
                     if (outlet && d.outlet !== outlet) return;
                     d._waktu = d.waktu && d.waktu.toDate ? d.waktu.toDate() : new Date(0);
                     daftar.push(d);
                 });
                 daftar.sort(function (a, b) { return b._waktu - a._waktu; });
+                wasteTerakhir = daftar;
                 if (daftar.length === 0) { isi.innerHTML = '<div class="empty-state" style="padding:16px 0;">Tidak ada waste di periode ini 👍</div>'; return; }
                 const perProduk = {};
                 let total = 0;
@@ -795,13 +829,203 @@
                         daftar.map(function (d) {
                             return '<tr><td>' + escapeHtmlAman(tgl(d._waktu.getTime())) + '</td>' + (outlet ? '' : '<td>' + escapeHtmlAman(d.outlet) + '</td>') +
                                 '<td>' + escapeHtmlAman(d.nama) + '</td><td class="r"><b>' + d.qty + '</b></td>' +
-                                '<td>' + escapeHtmlAman(SB_ALASAN_WASTE[d.alasan] || d.alasan) + '</td>' +
+                                '<td>' + escapeHtmlAman(SB_ALASAN_WASTE[d.alasan] || d.alasan) +
+                                    (d.alasan === "rusak" ? '<div style="font-size:10.5px; color:#6b7280;">' + escapeHtmlAman((d.jenisRusak || "") + (d.keterangan ? " \u00b7 " + d.keterangan : "")) + '</div>' : '') + '</td>' +
                                 '<td>' + escapeHtmlAman(tgl(d.masukMs)) + '</td></tr>';
                         }).join("") +
                     '</tbody></table>';
             }).catch(function (error) {
                 isi.innerHTML = '<div class="empty-state">Gagal memuat waste: ' + escapeHtmlAman(error.message) + '</div>';
             });
+        }
+
+        /* =====================================================================
+           WASTE SEBELUM WAKTUNYA (rusak, jatuh, dll)
+           Kasir melapor -> stok langsung disisihkan supaya tidak terjual,
+           status "menunggu". Admin ACC -> tercatat sebagai waste; Tolak ->
+           stok dikembalikan ke batch asalnya.
+        ========================================================================= */
+        let rusakUnsubscribe = null;
+        let rusakApprovalUnsubscribe = null;
+
+        function Rusak_tampilKasir() {
+            const box = document.getElementById("rusakBox");
+            if (!box) return;
+            box.innerHTML =
+                '<h3>Lapor Kue Rusak / Waste</h3>' +
+                '<div class="sub">Untuk kue yang tidak bisa dijual sebelum waktunya (rusak, jatuh, basi). Stok langsung disisihkan dari Kasir, lalu menunggu ACC admin.</div>' +
+                '<div class="rusak-form">' +
+                    '<select id="rusakProduk"><option value="">Pilih menu...</option></select>' +
+                    '<input type="number" id="rusakQty" min="1" placeholder="Qty">' +
+                    '<select id="rusakJenis">' + SB_JENIS_RUSAK.map(function (j) { return '<option>' + escapeHtmlAman(j) + '</option>'; }).join("") + '</select>' +
+                '</div>' +
+                '<input type="text" class="rusak-ket" id="rusakKet" maxlength="120" placeholder="Keterangan (wajib), contoh: 2 kue jatuh saat dipindah ke etalase">' +
+                '<div class="msg-box" id="rusakMsg" style="margin-top:8px; margin-bottom:0;"></div>' +
+                '<button class="btn-waste" id="btnRusak" onclick="Rusak_kirim()">Kirim Laporan Waste ke Admin</button>' +
+                '<h3 style="margin-top:20px;">Laporan Waste Saya</h3>' +
+                '<div id="rusakRiwayat"><div class="loading-state">Memuat...</div></div>';
+            Rusak_isiPilihanProduk();
+            Rusak_loadRiwayatKasir();
+        }
+
+        function Rusak_isiPilihanProduk() {
+            const sel = document.getElementById("rusakProduk");
+            if (!sel) return;
+            const dipilih = sel.value;
+            const nowMs = Date.now();
+            sel.innerHTML = '<option value="">Pilih menu...</option>' + daftarProduk.map(function (p) {
+                const stok = sbTersedia(stokKasirData[p.id], nowMs);
+                return '<option value="' + escapeHtmlAman(p.id) + '"' + (stok <= 0 ? ' disabled' : '') + '>' +
+                    escapeHtmlAman(p.nama) + ' (stok ' + stok + ')</option>';
+            }).join("");
+            sel.value = dipilih;
+        }
+
+        function Rusak_pesan(teks, jenis) {
+            const box = document.getElementById("rusakMsg");
+            box.textContent = teks;
+            box.className = "msg-box " + (jenis === "error" ? "msg-error" : "msg-success");
+            box.style.display = "block";
+        }
+
+        function Rusak_kirim() {
+            const pid = document.getElementById("rusakProduk").value;
+            const qty = parseInt(document.getElementById("rusakQty").value, 10);
+            const jenis = document.getElementById("rusakJenis").value;
+            const ket = document.getElementById("rusakKet").value.trim();
+            const produk = daftarProduk.find(function (p) { return p.id === pid; });
+            if (!produk) return Rusak_pesan("Pilih menu yang rusak.", "error");
+            if (!(qty > 0)) return Rusak_pesan("Isi jumlah kue yang rusak.", "error");
+            if (!ket) return Rusak_pesan("Tulis keterangan penyebabnya.", "error");
+            if (!confirm("Laporkan " + qty + " " + produk.nama + " sebagai waste (" + jenis + ")?\nStok langsung dikurangi dan menunggu ACC admin.")) return;
+
+            const btn = document.getElementById("btnRusak");
+            btn.disabled = true; btn.textContent = "Mengirim...";
+            const ref = db.collection("outlets").doc(currentUser.outlet).collection("stock").doc(pid);
+            const wasteRef = db.collection("waste_stok").doc();
+            db.runTransaction(function (tx) {
+                return tx.get(ref).then(function (doc) {
+                    const nowMs = Date.now();
+                    const pisah = sbPisah(sbNormalkan(sbBatch(doc.exists ? doc.data() : null, nowMs), produk), nowMs);
+                    const ada = sbTotal(pisah.aktif);
+                    if (ada < qty) throw new Error("Stok " + produk.nama + " tinggal " + ada + ".");
+                    const hasil = sbAmbil(pisah.aktif, qty);
+                    tx.set(ref, sbDataStok(hasil.sisa.concat(pisah.basi), nowMs), { merge: true });
+                    const tertua = hasil.diambil[0];
+                    tx.set(wasteRef, Object.assign(sbDataWaste({
+                        outlet: currentUser.outlet, productId: pid, nama: produk.nama,
+                        olehUid: currentUser.uid, olehNama: currentUser.nama
+                    }, { qty: qty, masukMs: tertua.masukMs, kedaluwarsaMs: tertua.kedaluwarsaMs }, "rusak", nowMs), {
+                        status: "menunggu", jenisRusak: jenis, keterangan: ket,
+                        batchDiambil: hasil.diambil.map(function (b) { return { qty: b.qty, masukMs: b.masukMs, kedaluwarsaMs: b.kedaluwarsaMs, laporanId: b.laporanId || null }; })
+                    }));
+                });
+            }).then(function () {
+                Rusak_pesan("Laporan waste terkirim. Stok sudah dikurangi, menunggu ACC admin.", "success");
+                document.getElementById("rusakQty").value = "";
+                document.getElementById("rusakKet").value = "";
+                document.getElementById("rusakProduk").value = "";
+            }).catch(function (e) {
+                Rusak_pesan("Gagal: " + e.message, "error");
+            }).then(function () {
+                btn.disabled = false; btn.textContent = "Kirim Laporan Waste ke Admin";
+            });
+        }
+
+        function Rusak_labelStatus(st) {
+            if (st === "menunggu") return '<span class="status-tag status-menunggu">Menunggu ACC</span>';
+            if (st === "aktif") return '<span class="status-tag status-disetujui">Disetujui</span>';
+            return '<span class="status-tag status-ditolak">Ditolak</span>';
+        }
+
+        function Rusak_loadRiwayatKasir() {
+            if (rusakUnsubscribe) { rusakUnsubscribe(); rusakUnsubscribe = null; }
+            rusakUnsubscribe = db.collection("waste_stok").where("olehUid", "==", currentUser.uid).onSnapshot(function (snap) {
+                const el = document.getElementById("rusakRiwayat");
+                if (!el) return;
+                const daftar = [];
+                snap.forEach(function (doc) {
+                    const d = doc.data({ serverTimestamps: "estimate" });
+                    if (d.alasan !== "rusak") return;
+                    d._waktu = d.waktu && d.waktu.toDate ? d.waktu.toDate() : new Date(0);
+                    daftar.push(d);
+                });
+                daftar.sort(function (a, b) { return b._waktu - a._waktu; });
+                el.innerHTML = daftar.length === 0
+                    ? '<div class="empty-state" style="padding:14px 0;">Belum ada laporan waste.</div>'
+                    : daftar.slice(0, 10).map(function (d) {
+                        return '<div class="riwayat-item"><div style="display:flex; justify-content:space-between; margin-bottom:4px;">' +
+                            '<span>' + escapeHtmlAman(d._waktu.toLocaleString("id-ID")) + '</span>' + Rusak_labelStatus(d.status) + '</div>' +
+                            '<div><b>' + d.qty + ' ' + escapeHtmlAman(d.nama) + '</b> \u00b7 ' + escapeHtmlAman(d.jenisRusak || "") + '</div>' +
+                            '<div style="color:#6b7280; margin-top:2px;">' + escapeHtmlAman(d.keterangan || "") + '</div>' +
+                            (d.status === "ditolak" && d.alasanTolak ? '<div style="color:#c0392b; margin-top:2px;">Ditolak: ' + escapeHtmlAman(d.alasanTolak) + '</div>' : '') +
+                            '</div>';
+                    }).join("");
+            }, function (error) { tampilkanErrorQuery(document.getElementById("rusakRiwayat"), error); });
+        }
+
+        function Rusak_loadApproval() {
+            if (rusakApprovalUnsubscribe) { rusakApprovalUnsubscribe(); rusakApprovalUnsubscribe = null; }
+            rusakApprovalUnsubscribe = db.collection("waste_stok").where("status", "==", "menunggu").onSnapshot(function (snap) {
+                const box = document.getElementById("rusakApprovalBox");
+                if (!box) return;
+                if (snap.empty) { box.innerHTML = ""; return; }
+                const daftar = snap.docs.map(function (doc) {
+                    const d = doc.data({ serverTimestamps: "estimate" });
+                    d._id = doc.id;
+                    d._waktu = d.waktu && d.waktu.toDate ? d.waktu.toDate() : new Date(0);
+                    return d;
+                }).sort(function (a, b) { return a._waktu - b._waktu; });
+                box.innerHTML = '<h3>Laporan Waste Menunggu ACC</h3>' +
+                    '<div class="sub">Kue yang dilaporkan kasir tidak bisa dijual sebelum waktunya. Stoknya sudah disisihkan; ACC = dicatat sebagai waste, Tolak = stok dikembalikan.</div>' +
+                    daftar.map(function (d) {
+                        return '<div class="laporan-card">' +
+                            '<div class="laporan-header"><div><div class="outlet">' + escapeHtmlAman(d.outlet) + ' \u00b7 ' + d.qty + ' ' + escapeHtmlAman(d.nama) + '</div>' +
+                            '<div class="meta">Dilaporkan oleh ' + escapeHtmlAman(d.olehNama || "-") + ' \u00b7 ' + escapeHtmlAman(d._waktu.toLocaleString("id-ID")) + '</div>' +
+                            '<div class="meta" style="margin-top:4px;"><b>' + escapeHtmlAman(d.jenisRusak || "") + '</b> \u00b7 ' + escapeHtmlAman(d.keterangan || "") + '</div>' +
+                            '</div></div>' +
+                            '<div class="laporan-actions">' +
+                                '<button class="btn-tolak" onclick="Rusak_tolak(\'' + escJsAttr(d._id) + '\')">Tolak (kembalikan stok)</button>' +
+                                '<button class="btn-acc" onclick="Rusak_acc(\'' + escJsAttr(d._id) + '\')">ACC sebagai Waste</button>' +
+                            '</div></div>';
+                    }).join("");
+            }, function (error) { tampilkanErrorQuery(document.getElementById("rusakApprovalBox"), error); });
+        }
+
+        function Rusak_acc(id) {
+            if (!confirm("ACC laporan ini sebagai waste?")) return;
+            db.collection("waste_stok").doc(id).update({
+                status: "aktif", diaccUid: currentUser.uid, diaccNama: currentUser.nama,
+                waktuAcc: firebase.firestore.FieldValue.serverTimestamp()
+            }).then(function () { Waste_muat(); })
+              .catch(function (e) { alert("Gagal ACC: " + e.message); });
+        }
+
+        function Rusak_tolak(id) {
+            const alasan = prompt("Alasan penolakan (opsional). Stok akan dikembalikan:", "");
+            if (alasan === null) return;
+            const wRef = db.collection("waste_stok").doc(id);
+            db.runTransaction(function (tx) {
+                return tx.get(wRef).then(function (wDoc) {
+                    const w = wDoc.data();
+                    if (!w || w.status !== "menunggu") throw new Error("Laporan ini sudah diproses.");
+                    const ref = db.collection("outlets").doc(w.outlet).collection("stock").doc(w.productId);
+                    return tx.get(ref).then(function (doc) {
+                        const nowMs = Date.now();
+                        const kembali = (w.batchDiambil && w.batchDiambil.length)
+                            ? w.batchDiambil
+                            : [{ qty: w.qty, masukMs: w.masukMs, kedaluwarsaMs: w.kedaluwarsaMs, laporanId: null }];
+                        const daftar = sbBatch(doc.exists ? doc.data() : null, nowMs).concat(kembali)
+                            .sort(function (a, b) { return a.masukMs - b.masukMs; });
+                        tx.set(ref, sbDataStok(daftar, nowMs), { merge: true });
+                        tx.update(wRef, {
+                            status: "ditolak", alasanTolak: alasan || "",
+                            ditolakUid: currentUser.uid, ditolakNama: currentUser.nama,
+                            waktuTolak: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    });
+                });
+            }).catch(function (e) { alert("Gagal menolak: " + e.message); });
         }
 
         /* ===================================================================== */
