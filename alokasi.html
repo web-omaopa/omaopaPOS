@@ -9,6 +9,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
     <script src="roles.js?v=20261027c"></script>
+    <script src="stok-batch.js?v=20261110a"></script>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -81,6 +82,25 @@
         .btn-acc, .btn-tolak { flex: 1; height: 38px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; border: none; }
         .btn-acc { background: #1e7d32; color: white; }
         .btn-tolak { background: none; border: 1px solid #dde3ea; color: #c0392b; }
+
+        /* Info stok berjalan di baris lapor */
+        .sisa-info { font-size: 10.5px; margin-top: 3px; color: #52606d; }
+        .sisa-info.waste { color: #b03a2e; font-weight: 700; }
+
+        /* Waste */
+        .waste-box { margin-top: 28px; }
+        .waste-box h3 { font-size: 13px; margin-bottom: 4px; }
+        .waste-box .sub { font-size: 11px; color: #6b7280; margin-bottom: 10px; }
+        .waste-filter { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+        .waste-filter select { height: 30px; border: 1px solid #dde3ea; border-radius: 6px; font-size: 11.5px; padding: 0 8px; font-family: inherit; }
+        .chip-f { height: 30px; padding: 0 12px; border-radius: 15px; border: 1px solid #dde3ea; background: #fff; font-size: 11.5px; font-weight: 700; color: #52606d; cursor: pointer; font-family: inherit; }
+        .chip-f.on { background: #12305C; border-color: #12305C; color: #fff; }
+        .waste-ringkas { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+        .waste-ringkas span { font-size: 11px; background: #fdeaea; color: #8b2b22; padding: 4px 10px; border-radius: 12px; }
+        table.waste-table { width: 100%; border-collapse: collapse; font-size: 12px; border: 1px solid #dde3ea; }
+        table.waste-table th { text-align: left; padding: 7px 10px; background: #f1f4f8; color: #52606d; font-size: 10.5px; }
+        table.waste-table td { padding: 7px 10px; border-top: 1px solid #eef1f5; vertical-align: top; }
+        table.waste-table .r { text-align: right; }
     </style>
 </head>
 <body>
@@ -155,6 +175,7 @@
             if (produkUnsubscribe) { produkUnsubscribe(); produkUnsubscribe = null; }
             if (riwayatUnsubscribe) { riwayatUnsubscribe(); riwayatUnsubscribe = null; }
             if (approvalUnsubscribe) { approvalUnsubscribe(); approvalUnsubscribe = null; }
+            if (stokKasirUnsubscribe) { stokKasirUnsubscribe(); stokKasirUnsubscribe = null; }
             auth.signOut().then(function () {
                 sessionStorage.removeItem("omaopa_user");
                 window.location.href = "index.html";
@@ -195,10 +216,13 @@
                 '</div>' +
                 '<button class="submit-btn" id="submitBtnLapor" onclick="Kasir_kirim()" disabled>Kirim Laporan ke Admin</button>' +
                 '<h3 style="font-size:13px; margin-top:26px; margin-bottom:10px;">Riwayat Laporan Saya</h3>' +
-                '<div id="riwayatListLapor"><div class="loading-state">Memuat riwayat...</div></div>';
+                '<div id="riwayatListLapor"><div class="loading-state">Memuat riwayat...</div></div>' +
+                '<div class="waste-box" id="wasteBox"></div>';
 
             Kasir_loadProduk();
+            Kasir_dengarkanStok();
             Kasir_loadRiwayat();
+            Waste_tampil();
         }
 
         /* =====================================================
@@ -257,12 +281,16 @@
                 const stateInput = simpanNilaiInput(container, false);
 
                 container.innerHTML = daftarProduk.map(function (p) {
+                    const isReset = p.resetHarian !== false;
                     return '<div class="product-row"><div class="info"><div class="nama">' + escapeHtmlAman(p.nama) +
-                        '</div><div class="meta">' + escapeHtmlAman(p.kategori || "-") + '</div></div>' +
+                        '<span class="tipe-badge ' + (isReset ? "tipe-reset" : "tipe-akumulasi") + '">' + (isReset ? "Reset" : "Tambah") + '</span>' +
+                        '</div><div class="meta">' + escapeHtmlAman(p.kategori || "-") + '</div>' +
+                        '<div class="sisa-info" id="sisaLapor_' + p.id + '"></div></div>' +
                         '<input type="number" min="0" class="qty-input" id="qtyLapor_' + p.id + '" placeholder="0"></div>';
                 }).join("");
 
                 kembalikanNilaiInput(stateInput);
+                Kasir_tampilSisa();
 
                 const submitBtn = document.getElementById("submitBtnLapor");
                 // Jangan aktifkan tombol kalau laporan sedang dikirim
@@ -314,31 +342,61 @@
             /* =====================================================
                Stok POS langsung diupdate SEKARANG (tentatif) supaya
                kasir bisa langsung jualan sesuai fisik yang diterima,
-               tidak perlu menunggu admin ACC. Baseline stok SEBELUM
-               laporan ini (stokSebelumLaporan) disimpan di tiap item
-               supaya nanti kalau admin edit angka & ACC, koreksinya
-               dihitung dari baseline yang benar (bukan dobel-tambah).
+               tidak perlu menunggu admin ACC.
+               Stok disimpan per batch (stok-batch.js):
+               - Reset: sisa batch dari HARI SEBELUMNYA dicatat sebagai
+                 waste; batch hari ini yang sudah dilapor diganti (koreksi).
+                 Stok jadi tepat angka laporan ini.
+               - Akumulasi: laporan ini jadi batch baru di atas stok lama.
+               - Batch yang sudah kedaluwarsa sekalian jadi waste.
+               Batch & waste sebelum laporan disimpan di item laporan supaya
+               admin bisa koreksi (ACC) atau membatalkan (Tolak).
             ====================================================== */
             const outletRef = db.collection("outlets").doc(currentUser.outlet);
             const stockRefs = items.map(function (item) { return outletRef.collection("stock").doc(item.productId); });
+            const laporanRef = db.collection("laporan_stok").doc();
 
             Promise.all(stockRefs.map(function (ref) { return ref.get(); })).then(function (stockDocs) {
                 const batch = db.batch();
+                const nowMs = Date.now();
+                const hariIni = sbTanggalIso(nowMs);
                 const itemsDenganBaseline = items.map(function (item, i) {
+                    const produk = daftarProduk.find(function (p) { return p.id === item.productId; }) || {};
                     const isReset = item.resetHarian !== false;
-                    const stokSebelum = stockDocs[i].exists ? (stockDocs[i].data().jumlah || 0) : 0;
-                    const stokBaru = isReset ? item.jumlahDiterima : (stokSebelum + item.jumlahDiterima);
+                    const info = { outlet: currentUser.outlet, productId: item.productId, nama: item.nama,
+                        laporanId: laporanRef.id, olehUid: currentUser.uid, olehNama: currentUser.nama };
+                    const pisah = sbPisah(sbNormalkan(sbBatch(stockDocs[i].exists ? stockDocs[i].data() : null, nowMs), produk), nowMs);
+                    const wasteIds = [];
+                    const catatWaste = function (b, alasan) {
+                        const ref = db.collection("waste_stok").doc();
+                        batch.set(ref, sbDataWaste(info, b, alasan, nowMs));
+                        if (alasan === "diganti_lapor") wasteIds.push(ref.id);
+                    };
+                    pisah.basi.forEach(function (b) { catatWaste(b, "kedaluwarsa"); });
 
-                    batch.set(stockRefs[i], {
-                        jumlah: stokBaru,
-                        minStok: stockDocs[i].exists && stockDocs[i].data().minStok !== undefined ? stockDocs[i].data().minStok : 5,
-                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                    }, { merge: true });
+                    const batchBaru = { qty: item.jumlahDiterima, masukMs: nowMs, kedaluwarsaMs: sbKedaluwarsa(produk, nowMs), laporanId: laporanRef.id };
+                    let hasil;
+                    if (isReset) {
+                        pisah.aktif.forEach(function (b) {
+                            if (sbTanggalIso(b.masukMs) !== hariIni) catatWaste(b, "diganti_lapor");
+                        });
+                        hasil = [batchBaru];
+                    } else {
+                        hasil = pisah.aktif.concat([batchBaru]);
+                    }
 
-                    return Object.assign({}, item, { stokSebelumLaporan: stokSebelum });
+                    batch.set(stockRefs[i], Object.assign(sbDataStok(hasil, nowMs), {
+                        minStok: stockDocs[i].exists && stockDocs[i].data().minStok !== undefined ? stockDocs[i].data().minStok : 5
+                    }), { merge: true });
+
+                    return Object.assign({}, item, {
+                        stokSebelumLaporan: sbTotal(pisah.aktif),
+                        batchSebelum: isReset ? pisah.aktif : [],
+                        wasteIds: wasteIds,
+                        masukMs: nowMs, kedaluwarsaMs: batchBaru.kedaluwarsaMs
+                    });
                 });
 
-                const laporanRef = db.collection("laporan_stok").doc();
                 batch.set(laporanRef, {
                     outlet: currentUser.outlet, items: itemsDenganBaseline, status: "pending", catatan: catatan,
                     kasirUid: currentUser.uid, kasirNama: currentUser.nama,
@@ -424,9 +482,11 @@
                     '<h2>Manajemen Menu \u2013 Approval</h2>' +
                     '<p>Stok POS sudah mengikuti laporan kasir ini. Edit angka kalau perlu koreksi, lalu ACC untuk mengunci sebagai stok resmi (atau Tolak untuk membatalkan &amp; kembalikan stok).</p>' +
                 '</div>' +
-                '<div id="approvalContainer"><div class="loading-state">Memuat...</div></div>';
+                '<div id="approvalContainer"><div class="loading-state">Memuat...</div></div>' +
+                '<div class="waste-box" id="wasteBox"></div>';
 
             Approval_load();
+            Waste_tampil();
         }
 
         function Approval_load() {
@@ -510,35 +570,44 @@
 
                 return Promise.all(stockRefs.map(function (ref) { return ref.get(); })).then(function (stockDocs) {
                     const batch = db.batch();
+                    const nowMs = Date.now();
                     itemsFinal.forEach(function (item, i) {
                         const isReset = item.resetHarian !== false;
+                        const dataStok = stockDocs[i].exists ? stockDocs[i].data() : null;
+                        const stokSaatIni = dataStok ? sbTersedia(dataStok, nowMs) : 0;
+                        const asli = data.items[i].jumlahDiterima;
+                        let daftarBatch;
 
-                        /* =====================================================
-                           PENTING: baseline pakai stokSebelumLaporan (kondisi
-                           stok SEBELUM laporan kasir ini diterapkan), bukan
-                           stok saat ini — karena stok saat ini sudah berisi
-                           angka tentatif dari kasir. Kalau dipakai stok saat
-                           ini sebagai basis, tipe "akumulasi" bakal kehitung
-                           dobel. Fallback ke stok saat ini kalau laporan lama
-                           belum punya field stokSebelumLaporan.
-                        ====================================================== */
-                        const stokBaseline = item.stokSebelumLaporan !== undefined
-                            ? item.stokSebelumLaporan
-                            : (stockDocs[i].exists ? (stockDocs[i].data().jumlah || 0) : 0);
-                        const stokSaatIni = stockDocs[i].exists ? (stockDocs[i].data().jumlah || 0) : 0;
-                        const stokBaru = isReset ? item.jumlahDiterima : (stokBaseline + item.jumlahDiterima);
+                        if (item.masukMs !== undefined) {
+                            /* Laporan format batch: koreksi admin hanya mengubah batch
+                               laporan ini sebesar selisihnya, jadi penjualan yang sudah
+                               terjadi sejak laporan dikirim tidak ikut terhapus. */
+                            const selisih = item.jumlahDiterima - asli;
+                            daftarBatch = sbBatch(dataStok, nowMs);
+                            const idx = daftarBatch.findIndex(function (b) { return b.laporanId === laporanId; });
+                            if (idx !== -1) {
+                                daftarBatch[idx].qty = Math.max(0, daftarBatch[idx].qty + selisih);
+                            } else if (selisih > 0) {
+                                daftarBatch.push({ qty: selisih, masukMs: item.masukMs, kedaluwarsaMs: item.kedaluwarsaMs, laporanId: laporanId });
+                            }
+                        } else {
+                            /* Laporan lama (dikirim sebelum stok per batch): rumus lama
+                               dari stokSebelumLaporan, lalu disimpan sebagai satu batch. */
+                            const stokBaseline = item.stokSebelumLaporan !== undefined ? item.stokSebelumLaporan : stokSaatIni;
+                            const stokLama = isReset ? item.jumlahDiterima : (stokBaseline + item.jumlahDiterima);
+                            daftarBatch = stokLama > 0 ? [{ qty: stokLama, masukMs: nowMs, kedaluwarsaMs: null, laporanId: laporanId }] : [];
+                        }
+                        const dataBaru = sbDataStok(daftarBatch, nowMs);
 
-                        batch.set(stockRefs[i], {
-                            jumlah: stokBaru,
-                            minStok: stockDocs[i].exists && stockDocs[i].data().minStok !== undefined ? stockDocs[i].data().minStok : 5,
-                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                        }, { merge: true });
+                        batch.set(stockRefs[i], Object.assign(dataBaru, {
+                            minStok: dataStok && dataStok.minStok !== undefined ? dataStok.minStok : 5
+                        }), { merge: true });
 
                         batch.set(db.collection("alokasi_log").doc(), {
                             sumber: "acc-admin", laporanId: laporanId, outlet: data.outlet,
                             productId: item.productId, namaProduk: item.nama,
                             tipe: isReset ? "reset" : "akumulasi", jumlahInput: item.jumlahDiterima,
-                            stokSebelum: stokSaatIni, stokSesudah: stokBaru,
+                            stokSebelum: stokSaatIni, stokSesudah: dataBaru.jumlah,
                             olehUid: currentUser.uid, olehNama: currentUser.nama,
                             waktu: firebase.firestore.FieldValue.serverTimestamp()
                         });
@@ -563,32 +632,176 @@
             /* =====================================================
                Karena stok POS sudah sempat diubah tentatif waktu
                kasir kirim laporan, kalau laporan ini DITOLAK maka
-               stok dikembalikan ke kondisi SEBELUM laporan tadi
-               (stokSebelumLaporan), supaya tidak nyangkut angka
-               yang tidak pernah disetujui admin.
+               batch dari laporan ini dibuang, batch lama yang tadi
+               diganti (kue reset) dikembalikan, dan waste "sisa saat
+               lapor" dari laporan ini dibatalkan. Penjualan yang
+               sudah terjadi dari batch lama tetap terhitung.
             ====================================================== */
             laporanRef.get().then(function (doc) {
                 const data = doc.data();
                 const outletRef = db.collection("outlets").doc(data.outlet);
-                const batch = db.batch();
+                const stockRefs = data.items.map(function (item) { return outletRef.collection("stock").doc(item.productId); });
 
-                data.items.forEach(function (item) {
-                    if (item.stokSebelumLaporan === undefined) return; // laporan lama, tidak ada baseline, jangan diutak-atik
-                    batch.set(outletRef.collection("stock").doc(item.productId), {
-                        jumlah: item.stokSebelumLaporan,
-                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                    }, { merge: true });
+                return Promise.all(stockRefs.map(function (ref) { return ref.get(); })).then(function (stockDocs) {
+                    const batch = db.batch();
+                    const nowMs = Date.now();
+
+                    data.items.forEach(function (item, i) {
+                        if (item.masukMs !== undefined) {
+                            const dataStok = stockDocs[i].exists ? stockDocs[i].data() : null;
+                            const daftarBatch = sbBatch(dataStok, nowMs)
+                                .filter(function (b) { return b.laporanId !== laporanId; })
+                                .concat(item.batchSebelum || [])
+                                .sort(function (a, b) { return a.masukMs - b.masukMs; });
+                            batch.set(stockRefs[i], sbDataStok(daftarBatch, nowMs), { merge: true });
+                            (item.wasteIds || []).forEach(function (id) {
+                                batch.update(db.collection("waste_stok").doc(id), {
+                                    status: "batal", dibatalkanKarena: "laporan stok ditolak",
+                                    waktuBatal: firebase.firestore.FieldValue.serverTimestamp()
+                                });
+                            });
+                            return;
+                        }
+                        // Laporan lama: kembalikan ke stok sebelum laporan sebagai satu batch
+                        if (item.stokSebelumLaporan === undefined) return; // tidak ada baseline, jangan diutak-atik
+                        const lama = item.stokSebelumLaporan > 0
+                            ? [{ qty: item.stokSebelumLaporan, masukMs: nowMs, kedaluwarsaMs: null, laporanId: null }] : [];
+                        batch.set(stockRefs[i], sbDataStok(lama, nowMs), { merge: true });
+                    });
+
+                    batch.update(laporanRef, {
+                        status: "ditolak", catatanAdmin: alasan || "",
+                        olehAdminUid: currentUser.uid, olehAdminNama: currentUser.nama,
+                        waktuDiproses: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+
+                    return batch.commit();
                 });
-
-                batch.update(laporanRef, {
-                    status: "ditolak", catatanAdmin: alasan || "",
-                    olehAdminUid: currentUser.uid, olehAdminNama: currentUser.nama,
-                    waktuDiproses: firebase.firestore.FieldValue.serverTimestamp()
-                });
-
-                return batch.commit();
             }).then(function () { /* daftar approval otomatis diperbarui oleh listener Approval_load */ })
               .catch(function (error) { alert("Gagal menolak laporan: " + error.message); });
+        }
+
+        /* =====================================================================
+           STOK BERJALAN DI FORM LAPOR (kasir)
+           Menampilkan sisa stok tiap menu supaya kasir tahu apa yang terjadi
+           saat lapor: sisa kue reset dari hari sebelumnya jadi waste.
+        ========================================================================= */
+        let stokKasirUnsubscribe = null;
+        let stokKasirData = {};
+
+        function Kasir_dengarkanStok() {
+            if (stokKasirUnsubscribe) { stokKasirUnsubscribe(); stokKasirUnsubscribe = null; }
+            stokKasirUnsubscribe = db.collection("outlets").doc(currentUser.outlet).collection("stock").onSnapshot(function (snap) {
+                stokKasirData = {};
+                snap.forEach(function (doc) { stokKasirData[doc.id] = doc.data(); });
+                Kasir_tampilSisa();
+            }, function () { /* info tambahan saja */ });
+        }
+
+        function Kasir_tampilSisa() {
+            const nowMs = Date.now();
+            const hariIni = sbTanggalIso(nowMs);
+            daftarProduk.forEach(function (p) {
+                const el = document.getElementById("sisaLapor_" + p.id);
+                if (!el) return;
+                const pisah = sbPisah(sbNormalkan(sbBatch(stokKasirData[p.id], nowMs), p), nowMs);
+                const total = sbTotal(pisah.aktif);
+                const isReset = p.resetHarian !== false;
+                el.className = "sisa-info";
+                if (isReset) {
+                    const sisaLama = sbTotal(pisah.aktif.filter(function (b) { return sbTanggalIso(b.masukMs) !== hariIni; }));
+                    if (sisaLama > 0) {
+                        el.className = "sisa-info waste";
+                        el.textContent = "Sisa kemarin " + sisaLama + " → jadi waste saat lapor";
+                    } else if (total > 0) {
+                        el.textContent = "Sudah dilapor hari ini: " + total + " (lapor lagi = koreksi)";
+                    } else {
+                        el.textContent = "Belum ada stok – berlaku 24 jam sejak dilapor";
+                    }
+                } else {
+                    const hari = Number(p.masaTahanHari) || 0;
+                    el.textContent = "Stok sekarang " + total + (hari > 0 ? " · tahan " + hari + " hari" : " · tanpa batas hari");
+                }
+            });
+        }
+
+        /* =====================================================================
+           WASTE (koleksi waste_stok, lihat stok-batch.js)
+           Kasir: outlet-nya sendiri. Admin/owner/management: semua outlet.
+        ========================================================================= */
+        let wasteFilter = { preset: "7", outlet: "" };
+        let wasteOutletList = [];
+
+        function Waste_rentang() {
+            const hariIni = sbTanggalIso(Date.now());
+            const mundur = function (n) { return sbTanggalIso(Date.now() - n * SB_SATU_HARI_MS); };
+            if (wasteFilter.preset === "hari") return { dari: hariIni, sampai: hariIni };
+            if (wasteFilter.preset === "30") return { dari: mundur(29), sampai: hariIni };
+            return { dari: mundur(6), sampai: hariIni };
+        }
+
+        function Waste_tampil() {
+            const box = document.getElementById("wasteBox");
+            if (!box) return;
+            const kasir = currentUser.role === "kasir";
+            const chip = function (k, label) {
+                return '<button class="chip-f' + (wasteFilter.preset === k ? " on" : "") + '" onclick="wasteFilter.preset=\'' + k + '\'; Waste_tampil()">' + label + '</button>';
+            };
+            box.innerHTML =
+                '<h3>Waste' + (kasir ? ' Outlet Saya' : '') + '</h3>' +
+                '<div class="sub">Kue yang tidak terjual: sisa kue reset saat lapor stok baru, dan stok yang lewat masa berlaku.</div>' +
+                '<div class="waste-filter">' + chip("hari", "Hari ini") + chip("7", "7 hari") + chip("30", "30 hari") +
+                    (kasir ? '' : '<select id="wasteOutlet" onchange="wasteFilter.outlet=this.value; Waste_muat()"><option value="">Semua outlet</option>' +
+                        wasteOutletList.map(function (o) { return '<option value="' + escapeHtmlAman(o) + '"' + (wasteFilter.outlet === o ? ' selected' : '') + '>' + escapeHtmlAman(o) + '</option>'; }).join("") + '</select>') +
+                '</div>' +
+                '<div id="wasteIsi"><div class="loading-state">Memuat waste...</div></div>';
+            if (!kasir && wasteOutletList.length === 0) {
+                db.collection("outlets").get().then(function (snap) {
+                    snap.forEach(function (d) { wasteOutletList.push(d.id); });
+                    wasteOutletList.sort();
+                    if (wasteOutletList.length) Waste_tampil();
+                }).catch(function () {});
+            }
+            Waste_muat();
+        }
+
+        function Waste_muat() {
+            const isi = document.getElementById("wasteIsi");
+            if (!isi) return;
+            const r = Waste_rentang();
+            const outlet = currentUser.role === "kasir" ? currentUser.outlet : wasteFilter.outlet;
+            db.collection("waste_stok").where("tanggal", ">=", r.dari).where("tanggal", "<=", r.sampai).get().then(function (snap) {
+                const daftar = [];
+                snap.forEach(function (doc) {
+                    const d = doc.data({ serverTimestamps: "estimate" });
+                    if (d.status === "batal") return;
+                    if (outlet && d.outlet !== outlet) return;
+                    d._waktu = d.waktu && d.waktu.toDate ? d.waktu.toDate() : new Date(0);
+                    daftar.push(d);
+                });
+                daftar.sort(function (a, b) { return b._waktu - a._waktu; });
+                if (daftar.length === 0) { isi.innerHTML = '<div class="empty-state" style="padding:16px 0;">Tidak ada waste di periode ini 👍</div>'; return; }
+                const perProduk = {};
+                let total = 0;
+                daftar.forEach(function (d) { perProduk[d.nama] = (perProduk[d.nama] || 0) + d.qty; total += d.qty; });
+                const tgl = function (ms) { return ms ? new Date(ms).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "-"; };
+                isi.innerHTML =
+                    '<div class="waste-ringkas"><span><b>Total ' + total + ' pcs</b></span>' +
+                        Object.keys(perProduk).sort(function (a, b) { return perProduk[b] - perProduk[a]; }).map(function (n) {
+                            return '<span>' + escapeHtmlAman(n) + ': <b>' + perProduk[n] + '</b></span>';
+                        }).join("") + '</div>' +
+                    '<table class="waste-table"><thead><tr><th>Dicatat</th>' + (outlet ? '' : '<th>Outlet</th>') +
+                        '<th>Menu</th><th class="r">Qty</th><th>Alasan</th><th>Masuk</th></tr></thead><tbody>' +
+                        daftar.map(function (d) {
+                            return '<tr><td>' + escapeHtmlAman(tgl(d._waktu.getTime())) + '</td>' + (outlet ? '' : '<td>' + escapeHtmlAman(d.outlet) + '</td>') +
+                                '<td>' + escapeHtmlAman(d.nama) + '</td><td class="r"><b>' + d.qty + '</b></td>' +
+                                '<td>' + escapeHtmlAman(SB_ALASAN_WASTE[d.alasan] || d.alasan) + '</td>' +
+                                '<td>' + escapeHtmlAman(tgl(d.masukMs)) + '</td></tr>';
+                        }).join("") +
+                    '</tbody></table>';
+            }).catch(function (error) {
+                isi.innerHTML = '<div class="empty-state">Gagal memuat waste: ' + escapeHtmlAman(error.message) + '</div>';
+            });
         }
 
         /* ===================================================================== */

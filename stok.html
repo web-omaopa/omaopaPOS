@@ -9,6 +9,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
     <script src="roles.js?v=20261027c"></script>
+    <script src="stok-batch.js?v=20261110a"></script>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -659,7 +660,7 @@
                             const d = doc.data();
                             isi.push({
                                 id: doc.id,
-                                jumlah: d.jumlah || 0,
+                                jumlah: sbTersedia(d, Date.now()),
                                 minStok: d.minStok !== undefined ? d.minStok : 5
                             });
                         });
@@ -846,7 +847,7 @@
                                 id: doc.id,
                                 nama: productMap[doc.id] || doc.id,
                                 kategori: kategoriMap[doc.id] || "",
-                                jumlah: data.jumlah || 0,
+                                jumlah: sbTersedia(data, Date.now()),
                                 minStok: data.minStok !== undefined ? data.minStok : 5
                             });
                         });
@@ -874,7 +875,7 @@
                     snapshot.forEach(function (doc) {
                         const d = doc.data();
                         stokTujuan[doc.id] = {
-                            jumlah: d.jumlah || 0,
+                            jumlah: sbTersedia(d, Date.now()),
                             minStok: d.minStok !== undefined ? d.minStok : 5
                         };
                     });
