@@ -11,6 +11,7 @@
     <script src="roles.js?v=20261027c"></script>
     <script src="keuangan.js?v=20261110a"></script>
     <script src="stok-batch.js?v=20261110d"></script>
+    <script src="kas.js?v=20261027b"></script>
 
     <!-- Download Excel & PDF -->
     <!-- Kalender rentang tanggal (satu kolom: dari - sampai) -->
@@ -1379,6 +1380,7 @@
                 hasil.selisih += Number(s.selisih) || 0;
             });
             const kat = {};
+            KATEGORI_PENGELUARAN.forEach(function (k) { kat[k] = { nama: k, n: 0, total: 0 }; });
             pengeluaran.forEach(function (p) {
                 const n = Number(p.nominal) || 0;
                 hasil.totalKeluar += n;
@@ -1386,7 +1388,8 @@
                 if (!kat[p.kategori]) kat[p.kategori] = { nama: p.kategori, n: 0, total: 0 };
                 kat[p.kategori].n++; kat[p.kategori].total += n;
             });
-            hasil.perKategori = Object.keys(kat).map(function (k) { return kat[k]; }).sort(function (a, b) { return b.total - a.total; });
+            // Semua kategori tampil (yang nol di bawah), urut nilai terbesar
+            hasil.perKategori = Object.keys(kat).map(function (k) { return kat[k]; }).sort(function (a, b) { return b.total - a.total || a.nama.localeCompare(b.nama, "id"); });
             return hasil;
         }
 
@@ -1944,15 +1947,20 @@
             // Kategori dengan kode akun (AKUN_PENGELUARAN di keuangan.js) digabung per akun;
             // yang belum dipetakan tampil per nama kategori tanpa kode.
             const perAkun = {};
+            function barisBeban(kategori) {
+                const akun = cariAkunPengeluaran(kategori);
+                const kunci = akun ? akun[0] : "~" + kategori;
+                if (!perAkun[kunci]) perAkun[kunci] = { akun: akun ? akun[0] : "", ket: akun ? akun[1] : kategori, nilai: nol() };
+                return perAkun[kunci];
+            }
+            // Semua kategori pengeluaran (kas.js) selalu tampil, walau nol, seperti di spreadsheet
+            KATEGORI_PENGELUARAN.forEach(barisBeban);
             beban.pengeluaran.forEach(function (p) {
                 if (f.area && areaDariOutlet(p.outlet) !== f.area) return;
                 if (f.outlet && p.outlet !== f.outlet) return;
                 const i = idxKolom(p.tanggal);
                 if (i === -1) return;
-                const akun = cariAkunPengeluaran(p.kategori);
-                const kunci = akun ? akun[0] : "~" + (p.kategori || "Lain-lain");
-                if (!perAkun[kunci]) perAkun[kunci] = { akun: akun ? akun[0] : "", ket: akun ? akun[1] : (p.kategori || "Lain-lain"), nilai: nol() };
-                perAkun[kunci].nilai[i] += Number(p.nominal) || 0;
+                barisBeban(p.kategori || "Lain-lain").nilai[i] += Number(p.nominal) || 0;
             });
             const totalBeban = nol();
             // Akun berkode dulu (urut kode), lalu kategori yang belum dipetakan (urut nama)
@@ -1961,6 +1969,7 @@
                 return ta !== tb ? (ta ? 1 : -1) : a.localeCompare(b, "id");
             }).forEach(function (k) {
                 tambahBaris(perAkun[k].akun, perAkun[k].ket, perAkun[k].nilai, "akun");
+                baris[baris.length - 1].tetap = true;
                 jumlahkan(totalBeban, perAkun[k].nilai);
             });
             tambahBaris("", "Total Beban Operasional Outlet", totalBeban, "total");
@@ -1995,7 +2004,7 @@
 
             // Sembunyikan akun yang nol di semua kolom (baris total selalu tampil)
             const tampil = f.nol === "sembunyi"
-                ? baris.filter(function (b) { return b.jenis !== "akun" || !b.nilai.slice(0, n).every(function (v) { return v === 0; }); })
+                ? baris.filter(function (b) { return b.jenis !== "akun" || b.tetap || !b.nilai.slice(0, n).every(function (v) { return v === 0; }); })
                 : baris;
 
             return { s: s, header: header, idxPersen: idxPersen, baris: tampil, belumHpp: belumHpp, jumlahDok: jumlahDok };
