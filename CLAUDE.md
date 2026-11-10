@@ -19,7 +19,7 @@ Sistem kasir (POS) multi-outlet untuk Oma Opa. Situs: https://pos.omaopa.store (
 - `stok-batch.js` : stok outlet per batch (masa berlaku kue reset 24 jam / akumulasi `masaTahanHari`), jual paling lama dulu, sisa & kedaluwarsa dicatat ke `waste_stok`. Dipakai `pos.html`, `alokasi.html`, `transfer.html`, `stok.html`
 - `kas.html` + `kas.js` : "Shift & Kas": buka toko / mulai shift dengan kas awal di `pos.html`, dasbor uang di laci (realtime), pengeluaran outlet, Akhiri Shift / Tutup Toko 3 langkah (hitung per pecahan, cek selisih, cetak), Rekap Shift + unduh CSV
 - `laporan.html` : daftar laporan + Rekap penjualan, Penjualan per produk, Laba Rugi (termasuk beban pengeluaran outlet & selisih kas), Kas & Pengeluaran, Waste (filter, download Excel/PDF)
-- `keuangan.js` : akun penjualan/COGS/diskon per detail kategori + `AKUN_PENGELUARAN` (kode akun beban per kategori pengeluaran)
+- `keuangan.js` : akun penjualan/COGS/diskon per detail kategori, `AKUN_LR` (susunan Laba Rugi = Profit Loss Report ESB), `AKUN_PENGELUARAN` (kategori pengeluaran -> akun beban), akun waste & selisih kas
 - Halaman terencana tapi belum ada: `riwayat.html`
 
 ## Koleksi Firestore yang dipakai

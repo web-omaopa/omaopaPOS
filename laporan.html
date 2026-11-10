@@ -1655,7 +1655,7 @@
         let dataLR = [];                 // dokumen ringkasan_harian periode terpilih
         let hppLR = {};                  // { detail: hppPersen }
         let hppLRGagal = false;
-        let bebanLR = { pengeluaran: [], sesi: [], gagal: false };   // pengeluaran & sesi kas tutup periode LR
+        let bebanLR = { pengeluaran: [], sesi: [], waste: [], gagal: false };   // pengeluaran, sesi kas tutup & waste periode LR
         let lrSiap = false;
         let lrError = null;
         let tokenLR = 0;
@@ -1819,18 +1819,20 @@
             const kueriBeban = Promise.all(s.ambil.map(function (a) {
                 return Promise.all([
                     db.collection("pengeluaran").where("tanggal", ">=", a.dari).where("tanggal", "<=", a.sampai).get(),
-                    db.collection("sesi_kas").where("tanggal", ">=", a.dari).where("tanggal", "<=", a.sampai).get()
+                    db.collection("sesi_kas").where("tanggal", ">=", a.dari).where("tanggal", "<=", a.sampai).get(),
+                    db.collection("waste_stok").where("tanggal", ">=", a.dari).where("tanggal", "<=", a.sampai).get()
                 ]);
             })).then(function (hasil) {
-                const sudah = {}, keluar = [], sesi = [];
-                hasil.forEach(function (pasang) {
-                    pasang[0].forEach(function (doc) { if (!sudah[doc.id] && doc.data().status !== "dihapus") { sudah[doc.id] = true; keluar.push(doc.data()); } });
-                    pasang[1].forEach(function (doc) { if (!sudah[doc.id] && doc.data().status === "tutup") { sudah[doc.id] = true; sesi.push(doc.data()); } });
+                const sudah = {}, keluar = [], sesi = [], waste = [];
+                hasil.forEach(function (trio) {
+                    trio[0].forEach(function (doc) { if (!sudah[doc.id] && doc.data().status !== "dihapus") { sudah[doc.id] = true; keluar.push(doc.data()); } });
+                    trio[1].forEach(function (doc) { if (!sudah[doc.id] && doc.data().status === "tutup") { sudah[doc.id] = true; sesi.push(doc.data()); } });
+                    trio[2].forEach(function (doc) { const d = doc.data(); if (!sudah[doc.id] && (!d.status || d.status === "aktif")) { sudah[doc.id] = true; waste.push(d); } });
                 });
-                return { pengeluaran: keluar, sesi: sesi, gagal: false };
+                return { pengeluaran: keluar, sesi: sesi, waste: waste, gagal: false };
             }).catch(function (error) {
-                console.warn("Pengeluaran / kas belum bisa dibaca:", error.message);
-                return { pengeluaran: [], sesi: [], gagal: true };
+                console.warn("Pengeluaran / kas / waste belum bisa dibaca:", error.message);
+                return { pengeluaran: [], sesi: [], waste: [], gagal: true };
             });
             const kueriHpp = db.collection("detail_kategori").get().then(function (snap) {
                 const peta = {};
@@ -1877,7 +1879,7 @@
                     baris: [{akun, ket, nilai: [...], jenis: "akun"|"total"|"utama"}],
                     belumHpp: [detail], jumlahDok } */
         function hitungLabaRugi(docs, s, hpp, f, beban) {
-            beban = beban || { pengeluaran: [], sesi: [] };
+            beban = beban || { pengeluaran: [], sesi: [], waste: [] };
             const n = s.kolom.length;
             function nol() { return s.kolom.map(function () { return 0; }); }
             const jual = {}, disk = {};
@@ -1888,11 +1890,19 @@
                     target[d][i] += Number(sumber[k]) || 0;
                 });
             }
+            function lolosFilter(outlet) {
+                if (f.area && areaDariOutlet(outlet) !== f.area) return false;
+                if (f.outlet && (outlet || "-") !== f.outlet) return false;
+                return true;
+            }
+            function idxKolom(tanggal) {
+                for (let i = 0; i < s.kolom.length; i++) if (tanggal && tanggal >= s.kolom[i].dari && tanggal <= s.kolom[i].sampai) return i;
+                return -1;
+            }
 
             let jumlahDok = 0;
             docs.forEach(function (doc) {
-                if (f.area && areaDariOutlet(doc.outlet) !== f.area) return;
-                if (f.outlet && (doc.outlet || "-") !== f.outlet) return;
+                if (!lolosFilter(doc.outlet)) return;
                 let terpakai = false;
                 s.kolom.forEach(function (k, i) {
                     if (!doc.tanggal || doc.tanggal < k.dari || doc.tanggal > k.sampai) return;
@@ -1903,96 +1913,102 @@
                 if (terpakai) jumlahDok++;
             });
 
-            const baris = [];
-            function tambahBaris(akun, ket, nilai, jenis) { baris.push({ akun: akun, ket: ket, nilai: nilai, jenis: jenis }); }
-            function jumlahkan(total, nilai) { nilai.forEach(function (v, i) { total[i] += v || 0; }); }
+            /* Nilai per kode akun. null = belum bisa dihitung (HPP % belum diisi). */
+            const nilaiAkun = {};
+            function akun(kode) { return nilaiAkun[kode] || (nilaiAkun[kode] = nol()); }
+            function tambahKe(kode, i, v) {
+                const arr = akun(kode);
+                if (v === null || arr[i] === null) arr[i] = null; else arr[i] += v;
+            }
 
-            // Penjualan per akun
-            const totalJual = nol();
-            DETAIL_KATEGORI.forEach(function (d) {
-                tambahBaris(d.penjualan[0], d.penjualan[1], jual[d.nama], "akun");
-                jumlahkan(totalJual, jual[d.nama]);
-            });
-            tambahBaris("", "Total Sales", totalJual, "utama");
-
-            // Diskon: beberapa detail berbagi satu akun -> satu baris, angka negatif
-            const grupDiskon = [], petaDiskon = {};
-            DETAIL_KATEGORI.forEach(function (d) {
-                const kode = d.diskon[0];
-                if (!petaDiskon[kode]) { petaDiskon[kode] = { akun: d.diskon, nilai: nol() }; grupDiskon.push(petaDiskon[kode]); }
-                disk[d.nama].forEach(function (v, i) { petaDiskon[kode].nilai[i] -= v; });
-            });
-            const totalDisk = nol();
-            grupDiskon.forEach(function (g) {
-                tambahBaris(g.akun[0], g.akun[1], g.nilai, "akun");
-                jumlahkan(totalDisk, g.nilai);
-            });
-            tambahBaris("", "Total Discount", totalDisk, "total");
-            const netSales = totalJual.map(function (v, i) { return v + totalDisk[i]; });
-            tambahBaris("", "Net Sales", netSales, "utama");
-
-            // COGS = penjualan x HPP % (null kalau HPP % belum diisi)
+            // Penjualan, diskon (negatif) & COGS dari ringkasan harian per detail kategori
             const belumHpp = [];
-            const totalCogs = nol();
             DETAIL_KATEGORI.forEach(function (d) {
                 const p = hpp[d.nama];
                 const ada = typeof p === "number" && isFinite(p);
-                const nilai = jual[d.nama].map(function (v) {
-                    if (!v) return 0;
-                    return ada ? Math.round(v * p / 100) : null;
-                });
                 if (!ada && jual[d.nama].some(function (v) { return v; })) belumHpp.push(d.nama);
-                tambahBaris(d.cogs[0], d.cogs[1], nilai, "akun");
-                jumlahkan(totalCogs, nilai);
+                for (let i = 0; i < n; i++) {
+                    tambahKe(d.penjualan[0], i, jual[d.nama][i]);
+                    tambahKe(d.diskon[0], i, -disk[d.nama][i]);
+                    const v = jual[d.nama][i];
+                    tambahKe(d.cogs[0], i, !v ? 0 : (ada ? Math.round(v * p / 100) : null));
+                }
             });
-            tambahBaris("", "Total Cost of Goods Sold", totalCogs, "total");
-            const grossProfit = netSales.map(function (v, i) { return v - totalCogs[i]; });
-            tambahBaris("", "Gross Profit", grossProfit, "utama");
 
-            // Beban operasional outlet = pengeluaran yang dicatat di Shift & Kas (per kategori)
-            function idxKolom(tanggal) {
-                for (let i = 0; i < s.kolom.length; i++) if (tanggal && tanggal >= s.kolom[i].dari && tanggal <= s.kolom[i].sampai) return i;
-                return -1;
-            }
-            // Kategori dengan kode akun (AKUN_PENGELUARAN di keuangan.js) digabung per akun;
-            // yang belum dipetakan tampil per nama kategori tanpa kode.
-            const perAkun = {};
-            function barisBeban(kategori) {
-                const akun = cariAkunPengeluaran(kategori);
-                const kunci = akun ? akun[0] : "~" + kategori;
-                if (!perAkun[kunci]) perAkun[kunci] = { akun: akun ? akun[0] : "", ket: akun ? akun[1] : kategori, nilai: nol() };
-                return perAkun[kunci];
-            }
-            // Semua kategori pengeluaran (kas.js) disiapkan; yang nol mengikuti pilihan "Nilai nol"
-            KATEGORI_PENGELUARAN.forEach(barisBeban);
-            beban.pengeluaran.forEach(function (p) {
-                if (f.area && areaDariOutlet(p.outlet) !== f.area) return;
-                if (f.outlet && p.outlet !== f.outlet) return;
-                const i = idxKolom(p.tanggal);
+            // Pengeluaran outlet (Shift & Kas) ke akun bebannya; kategori tanpa akun jadi baris sendiri
+            const tanpaAkun = {};
+            beban.pengeluaran.forEach(function (pg) {
+                if (!lolosFilter(pg.outlet)) return;
+                const i = idxKolom(pg.tanggal);
                 if (i === -1) return;
-                barisBeban(p.kategori || "Lain-lain").nilai[i] += Number(p.nominal) || 0;
+                const kode = AKUN_PENGELUARAN[pg.kategori];
+                if (kode) tambahKe(kode, i, Number(pg.nominal) || 0);
+                else {
+                    const k = pg.kategori || "Lain-lain";
+                    if (!tanpaAkun[k]) tanpaAkun[k] = nol();
+                    tanpaAkun[k][i] += Number(pg.nominal) || 0;
+                }
             });
-            const totalBeban = nol();
-            // Akun berkode dulu (urut kode), lalu kategori yang belum dipetakan (urut nama)
-            Object.keys(perAkun).sort(function (a, b) {
-                const ta = a.charAt(0) === "~", tb = b.charAt(0) === "~";
-                return ta !== tb ? (ta ? 1 : -1) : a.localeCompare(b, "id");
-            }).forEach(function (k) {
-                tambahBaris(perAkun[k].akun, perAkun[k].ket, perAkun[k].nilai, "akun");
-                jumlahkan(totalBeban, perAkun[k].nilai);
-            });
-            tambahBaris("", "Total Beban Operasional Outlet", totalBeban, "total");
 
-            // Selisih kas saat tutup shift (lebih = +, kurang = -)
-            const selisihKas = nol();
-            beban.sesi.forEach(function (sk) {
-                if (f.area && areaDariOutlet(sk.outlet) !== f.area) return;
-                if (f.outlet && sk.outlet !== f.outlet) return;
-                const i = idxKolom(sk.tanggal);
-                if (i !== -1) selisihKas[i] += Number(sk.selisih) || 0;
+            // Waste (stok-batch.js) = qty x harga produk x HPP % detail kategorinya
+            beban.waste.forEach(function (w) {
+                if (!lolosFilter(w.outlet)) return;
+                const i = idxKolom(w.tanggal);
+                if (i === -1) return;
+                const det = cariDetailKategori(detailProdukMap[w.productId]) ? detailProdukMap[w.productId] : DETAIL_CADANGAN;
+                const p = hpp[det];
+                const ada = typeof p === "number" && isFinite(p);
+                if (!ada && belumHpp.indexOf(det) === -1) belumHpp.push(det);
+                tambahKe(AKUN_WASTE, i, ada ? Math.round((Number(w.qty) || 0) * (hargaProduk[w.productId] || 0) * p / 100) : null);
             });
-            tambahBaris("", "Selisih Kas (lebih / kurang)", selisihKas, "total");
-            tambahBaris("", "Laba Bersih Outlet", grossProfit.map(function (v, i) { return v - totalBeban[i] + selisihKas[i]; }), "utama");
+
+            // Selisih kas saat tutup shift (lebih = pendapatan, kurang = beban)
+            beban.sesi.forEach(function (sk) {
+                if (!lolosFilter(sk.outlet)) return;
+                const i = idxKolom(sk.tanggal);
+                if (i !== -1) tambahKe(AKUN_SELISIH_KAS, i, Number(sk.selisih) || 0);
+            });
+
+            const baris = [];
+            function tambahBaris(akunKode, ket, nilai, jenis) { baris.push({ akun: akunKode, ket: ket, nilai: nilai, jenis: jenis }); }
+            function jumlahkan(total, nilai) { nilai.forEach(function (v, i) { total[i] += v || 0; }); }
+            // Satu bagian: semua akun ESB berurutan + total bagian
+            function bagian(daftar, judulTotal, tambahan) {
+                const total = nol();
+                daftar.forEach(function (a) {
+                    const v = nilaiAkun[a[0]] || nol();
+                    tambahBaris(a[0], a[1], v, "akun");
+                    jumlahkan(total, v);
+                });
+                Object.keys(tambahan || {}).sort(function (a, b) { return a.localeCompare(b, "id"); }).forEach(function (k) {
+                    tambahBaris("", k, tambahan[k], "akun");
+                    jumlahkan(total, tambahan[k]);
+                });
+                tambahBaris("", judulTotal, total, "total");
+                return total;
+            }
+            function hitung(fn) { return s.kolom.map(function (_, i) { return fn(i); }); }
+
+            const totalJual = bagian(AKUN_LR.penjualan, "Total Sales");
+            baris[baris.length - 1].jenis = "utama";
+            const totalDisk = bagian(AKUN_LR.diskon, "Total Discount");
+            const netSales = hitung(function (i) { return totalJual[i] + totalDisk[i]; });
+            tambahBaris("", "Net Sales", netSales, "utama");
+            const totalCogs = bagian(AKUN_LR.cogs, "Total Cost of Goods Sold");
+            const grossProfit = hitung(function (i) { return netSales[i] - totalCogs[i]; });
+            tambahBaris("", "Gross Profit", grossProfit, "utama");
+            const totalOpex = bagian(AKUN_LR.operasional, "Total Operational Expense", tanpaAkun);
+            const opProfit = hitung(function (i) { return grossProfit[i] - totalOpex[i]; });
+            tambahBaris("", "Operational Profit/Loss", opProfit, "utama");
+            const totalLain = bagian(AKUN_LR.lain, "Total Other Income & Expense");
+            const ebitda = hitung(function (i) { return opProfit[i] + totalLain[i]; });
+            tambahBaris("", "Earning Before Interest, Tax, Depreciation, and Amortization", ebitda, "utama");
+            const totalDepr = bagian(AKUN_LR.depresiasi, "Total Depreciation & Amortization Expenses");
+            const ebit = hitung(function (i) { return ebitda[i] - totalDepr[i]; });
+            tambahBaris("", "Earning Before Interest & Tax", ebit, "utama");
+            const totalPajak = bagian(AKUN_LR.pajak, "Total Tax");
+            tambahBaris("", "Net Profit/(Net Loss)", hitung(function (i) { return ebit[i] - totalPajak[i]; }), "utama");
+            tambahBaris("", "Earning Before Tax", ebit.slice(), "utama");
 
             // Kolom tambahan: Total, atau Selisih & %
             const header = s.kolom.map(function (k) { return k.label; });
@@ -2053,7 +2069,7 @@
                 html += '<div class="catatan">Belum ada ringkasan harian untuk periode & filter ini. Untuk bulan sebelum Kasir mulai mencatat ringkasan, jalankan <b>Hitung ulang ringkasan</b> (management).</div>';
             }
             if (bebanLR.gagal) {
-                html += '<div class="catatan">Pengeluaran & selisih kas belum bisa dibaca (akses dibatasi aturan Firestore), beban operasional dianggap 0.</div>';
+                html += '<div class="catatan">Pengeluaran, waste & selisih kas belum bisa dibaca (akses dibatasi aturan Firestore), dianggap 0.</div>';
             }
             if (hppLRGagal) {
                 html += '<div class="catatan">HPP % belum bisa dibaca (akses koleksi detail_kategori dibatasi aturan Firestore), COGS dianggap belum diisi.</div>';
