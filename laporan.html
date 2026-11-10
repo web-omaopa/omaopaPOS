@@ -9,8 +9,9 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
     <script src="roles.js?v=20261027c"></script>
-    <script src="keuangan.js?v=20261020a"></script>
+    <script src="keuangan.js?v=20261110a"></script>
     <script src="stok-batch.js?v=20261110d"></script>
+    <script src="kas.js?v=20261027b"></script>
 
     <!-- Download Excel & PDF -->
     <!-- Kalender rentang tanggal (satu kolom: dari - sampai) -->
@@ -297,6 +298,7 @@
         ====================================================== */
         const DAFTAR_LAPORAN = [
             { key: "labarugi", grup: "Keuangan", icon: "📒", nama: "Laba Rugi",          desc: "Penjualan per akun sampai laba kotor, seperti Profit Loss ESB", file: "Laba-Rugi",            aktif: true },
+            { key: "kas",   grup: "Keuangan",  icon: "💰", nama: "Kas & Pengeluaran",   desc: "Kas awal, kas akhir & selisih tiap shift, serta pengeluaran outlet per kategori", file: "Kas-Pengeluaran", aktif: true },
             { key: "rekap", grup: "Penjualan", icon: "📈", nama: "Rekap penjualan",     desc: "Penjualan bersih, jumlah transaksi, diskon, dan produk terlaris", file: "Rekap-Penjualan",      aktif: true },
             { key: "produk", grup: "Penjualan", icon: "🧁", nama: "Penjualan per produk", desc: "Setiap item terjual per nota, lengkap untuk diolah di Excel",   file: "Penjualan-per-Produk", aktif: true },
             { key: "outlet", grup: "Penjualan", icon: "🏪", nama: "Penjualan per outlet", desc: "Bandingkan penjualan antar outlet dan area",                     file: "Penjualan-per-Outlet", aktif: false },
@@ -324,6 +326,8 @@
         let kategoriProduk = {};         // { productId: kategori } dari koleksi products
         let hargaProduk = {};            // { productId: harga Offline } untuk nilai waste
         let dataWaste = [];              // waste_stok periode terpilih (status aktif)
+        let dataSesiKas = [];            // sesi_kas periode terpilih (Kas & Pengeluaran)
+        let dataPengeluaran = [];        // pengeluaran periode terpilih (tanpa yang dihapus)
         let daftarKategoriProduk = [];   // kategori yang ada di products
         let daftarModeDb = [];           // dari koleksi mode_penjualan
 
@@ -525,9 +529,10 @@
             document.getElementById("wadahHitungUlang").style.display = (lr && currentUser.role === "management") ? "" : "none";
             if (lr) { bukaLabaRugi(); window.scrollTo(0, 0); return; }
 
-            // Laporan Waste: filter mode/bayar/kategori tidak dipakai, diganti filter Alasan
+            // Laporan Waste & Kas: filter mode/bayar/kategori tidak dipakai (Waste punya filter Alasan)
             const waste = key === "waste";
-            ["fMode", "fBayar", "fKategori"].forEach(function (id) { document.getElementById(id).parentNode.style.display = waste ? "none" : ""; });
+            const tanpaFilterJual = waste || key === "kas";
+            ["fMode", "fBayar", "fKategori"].forEach(function (id) { document.getElementById(id).parentNode.style.display = tanpaFilterJual ? "none" : ""; });
             document.getElementById("wadahAlasan").style.display = waste ? "" : "none";
 
             filter = muatFilterTersimpan(key);
@@ -708,6 +713,7 @@
             const tanggalSama = filterTerpakai && filterTerpakai.dari === filter.dari && filterTerpakai.sampai === filter.sampai;
             filterTerpakai = JSON.parse(JSON.stringify(filter));
             halamanProduk = 1;
+            if (laporanAktif && laporanAktif.key === "kas") { muatKas(); return; }
             if (laporanAktif && laporanAktif.key === "waste") {
                 if (tanggalSama && trxUnsubscribe && trxSiap) { tulisInfoPeriode(); renderLaporan(); }
                 else dengarkanWaste();
@@ -946,6 +952,7 @@
             const bagian = ["Tanggal: " + (r ? teksPeriode(r) : "-")];
             bagian.push("Area: " + (f.area || "Semua"));
             bagian.push("Outlet: " + (f.outlet || "Semua"));
+            if (laporanAktif && laporanAktif.key === "kas") return bagian;
             if (laporanAktif && laporanAktif.key === "waste") {
                 bagian.push("Alasan: " + (f.alasan ? (SB_ALASAN_WASTE[f.alasan] || f.alasan) : "Semua"));
                 return bagian;
@@ -1028,6 +1035,7 @@
         function renderLaporan() {
             if (!laporanAktif || !filterTerpakai || !trxSiap || trxError) return;
             if (laporanAktif.key === "waste") { renderWaste(document.getElementById("isiLaporan")); return; }
+            if (laporanAktif.key === "kas") { renderKas(document.getElementById("isiLaporan")); return; }
             const d = dataTerfilter();
             const wadah = document.getElementById("isiLaporan");
 
@@ -1168,6 +1176,7 @@
             if (!r) return;
             if (typeof XLSX === "undefined") { alert("Library Excel belum termuat. Cek koneksi internet lalu muat ulang halaman."); return; }
             if (laporanAktif.key === "waste") { downloadExcelWaste(r); return; }
+            if (laporanAktif.key === "kas") { downloadExcelKas(r); return; }
 
             const d = dataTerfilter();
             const wb = XLSX.utils.book_new();
@@ -1223,7 +1232,7 @@
             if (!r) return;
             if (!window.jspdf || !window.jspdf.jsPDF) { alert("Library PDF belum termuat. Cek koneksi internet lalu muat ulang halaman."); return; }
 
-            const d = laporanAktif.key === "waste" ? null : dataTerfilter();
+            const d = (laporanAktif.key === "waste" || laporanAktif.key === "kas") ? null : dataTerfilter();
             const doc = new window.jspdf.jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
             if (typeof doc.autoTable !== "function") { alert("Library tabel PDF belum termuat. Muat ulang halaman."); return; }
 
@@ -1246,7 +1255,20 @@
             }
             function judul(t) { doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.text(teksPdf(t), 14, y); doc.setFont("helvetica", "normal"); y += 2; }
 
-            if (laporanAktif.key === "waste") {
+            if (laporanAktif.key === "kas") {
+                const k = hitungKas();
+                y = tabel({ startY: y, head: [["Jumlah shift", "Penjualan tunai", "Total pengeluaran", "Total selisih kas"]],
+                    body: [[angka(k.shift.length), rp(k.tunai), rp(k.totalKeluar), teksSelisih(k.selisih)]] });
+                judul("Per shift"); y += 1;
+                y = tabel({ startY: y, head: [KOLOM_SHIFT], body: k.shift.map(barisShiftKeArray), styles: { fontSize: 7, cellPadding: 1.2 },
+                    columnStyles: { 5: { halign: "right" }, 6: { halign: "right" }, 7: { halign: "right" }, 8: { halign: "right" }, 9: { halign: "right" }, 10: { halign: "right" } } });
+                if (y > 170) { doc.addPage(); y = 15; }
+                judul("Pengeluaran per kategori"); y += 1;
+                y = tabel({ startY: y, head: [["Kategori", "Catatan", "Total"]], body: k.perKategori.map(function (x) { return [x.nama, x.n, x.total]; }), columnStyles: { 1: { halign: "right" }, 2: { halign: "right" } } });
+                if (y > 170) { doc.addPage(); y = 15; }
+                judul("Rincian pengeluaran"); y += 1;
+                tabel({ startY: y, head: [KOLOM_PENGELUARAN.slice(0, -1)], body: k.pengeluaran.map(function (x) { return barisPengeluaranKeArray(x).slice(0, -1); }), styles: { fontSize: 7, cellPadding: 1.2 }, columnStyles: { 6: { halign: "right" } } });
+            } else if (laporanAktif.key === "waste") {
                 const w = hitungWaste();
                 y = tabel({ startY: y, head: [["Total waste (pcs)", "Perkiraan nilai (harga jual)", "Jumlah catatan"]],
                     body: [[angka(w.qty), rp(w.nilai), angka(w.baris.length)]] });
@@ -1280,6 +1302,189 @@
                 tabel({ startY: y, head: [KOLOM_PRODUK], body: body, styles: { fontSize: 6, cellPadding: 1 }, columnStyles: kanan, margin: { left: 8, right: 8 } });
             }
             doc.save(namaFile(r, "pdf"));
+        }
+
+        /* =====================================================
+           LAPORAN KAS & PENGELUARAN
+           Sumber: sesi_kas (kas awal/akhir per shift) & pengeluaran
+           (lihat kas.js), query rentang field "tanggal" lalu area/outlet
+           difilter di browser. Pengeluaran yang dihapus tidak dihitung.
+        ====================================================== */
+        const KOLOM_SHIFT = ["Tanggal", "Outlet", "Buka", "Tutup", "Jenis", "Kas awal", "Penjualan tunai", "Pengeluaran", "Kas seharusnya", "Kas akhir", "Selisih", "Catatan"];
+        const KOLOM_PENGELUARAN = ["Tanggal", "Jam", "Outlet", "Kategori", "Catatan", "Sumber", "Nominal", "Dicatat oleh", "Foto"];
+
+        function muatKas() {
+            hentikanTransaksi();
+            const token = tokenTrx;
+            dataSesiKas = []; dataPengeluaran = [];
+            trxSiap = false; trxError = null;
+            const r = rentangPeriode(filterTerpakai);
+            if (!r) {
+                document.getElementById("isiLaporan").innerHTML = '<div class="empty-state">Pilih tanggal "dari" dan "sampai" yang valid.</div>';
+                return;
+            }
+            document.getElementById("isiLaporan").innerHTML = '<div class="loading-state">Memuat data kas & pengeluaran...</div>';
+            tulisInfoPeriode();
+            const ms = function (t) { return t && t.toDate ? t.toDate() : null; };
+            Promise.all([
+                db.collection("sesi_kas").where("tanggal", ">=", r.dariIso).where("tanggal", "<=", r.sampaiIso).get(),
+                db.collection("pengeluaran").where("tanggal", ">=", r.dariIso).where("tanggal", "<=", r.sampaiIso).get()
+            ]).then(function (h) {
+                if (token !== tokenTrx) return;
+                h[0].forEach(function (doc) {
+                    const d = doc.data({ serverTimestamps: "estimate" });
+                    d._buka = ms(d.waktuBuka) || new Date(0); d._tutup = ms(d.waktuTutup);
+                    dataSesiKas.push(d);
+                });
+                h[1].forEach(function (doc) {
+                    const d = doc.data({ serverTimestamps: "estimate" });
+                    if (d.status === "dihapus") return;
+                    d._waktu = ms(d.waktu) || new Date(0);
+                    dataPengeluaran.push(d);
+                });
+                dataSesiKas.sort(function (a, b) { return a._buka - b._buka; });
+                dataPengeluaran.sort(function (a, b) { return a._waktu - b._waktu; });
+                trxSiap = true;
+                renderLaporan();
+            }).catch(function (error) {
+                if (token !== tokenTrx) return;
+                trxError = error;
+                document.getElementById("isiLaporan").innerHTML = '<div class="empty-state">' +
+                    (error.code === "permission-denied"
+                        ? "Data kas belum bisa ditampilkan: akses akun ini dibatasi oleh aturan Firestore."
+                        : "Gagal memuat: " + escapeHtmlAman(error.message)) + '</div>';
+            });
+        }
+
+        function lolosAreaOutlet(outlet, f) {
+            if (f.area && areaDariOutlet(outlet) !== f.area) return false;
+            if (f.outlet && outlet !== f.outlet) return false;
+            return true;
+        }
+
+        function teksSelisih(n) {
+            n = Math.round(Number(n) || 0);
+            if (n === 0) return "Pas";
+            return (n > 0 ? "Lebih " : "Kurang ") + rp(Math.abs(n));
+        }
+
+        function hitungKas() {
+            const f = filterTerpakai || filter;
+            const shift = dataSesiKas.filter(function (s) { return lolosAreaOutlet(s.outlet, f); });
+            const pengeluaran = dataPengeluaran.filter(function (p) { return lolosAreaOutlet(p.outlet, f); });
+            const hasil = { shift: shift, pengeluaran: pengeluaran, tunai: 0, selisih: 0, totalKeluar: 0, laci: 0, selesai: 0 };
+            shift.forEach(function (s) {
+                if (s.status !== "tutup") return;
+                hasil.selesai++;
+                hasil.tunai += Number(s.penjualanTunai) || 0;
+                hasil.selisih += Number(s.selisih) || 0;
+            });
+            const kat = {};
+            KATEGORI_PENGELUARAN.forEach(function (k) { kat[k] = { nama: k, n: 0, total: 0 }; });
+            pengeluaran.forEach(function (p) {
+                const n = Number(p.nominal) || 0;
+                hasil.totalKeluar += n;
+                if (p.dariLaci) hasil.laci += n;
+                if (!kat[p.kategori]) kat[p.kategori] = { nama: p.kategori, n: 0, total: 0 };
+                kat[p.kategori].n++; kat[p.kategori].total += n;
+            });
+            // Semua kategori tampil (yang nol di bawah), urut nilai terbesar
+            hasil.perKategori = Object.keys(kat).map(function (k) { return kat[k]; }).sort(function (a, b) { return b.total - a.total || a.nama.localeCompare(b.nama, "id"); });
+            return hasil;
+        }
+
+        function barisShiftKeArray(s) {
+            const tutup = s.status === "tutup";
+            return [s.tanggal, s.outlet,
+                jamTampil(s._buka) + " " + (s.dibukaNama || ""),
+                tutup && s._tutup ? jamTampil(s._tutup) + " " + (s.ditutupNama || "") : "Berjalan",
+                tutup ? (s.jenisTutup === "shift" ? "Ganti shift" : "Tutup toko") : "",
+                Math.round(Number(s.kasAwal) || 0),
+                tutup ? Math.round(Number(s.penjualanTunai) || 0) : "",
+                tutup ? Math.round(Number(s.totalPengeluaran) || 0) : "",
+                tutup ? Math.round(Number(s.kasSeharusnya) || 0) : "",
+                tutup ? Math.round(Number(s.kasAkhir) || 0) : "",
+                tutup ? Math.round(Number(s.selisih) || 0) : "",
+                s.catatan || ""];
+        }
+
+        function urlFotoPengeluaran(p) {
+            if (!p.buktiUrl || !/^api\/foto\.php\?b=[0-9a-f_]+\.jpg$/.test(p.buktiUrl)) return "";
+            return new URL(p.buktiUrl, window.location.href).href;
+        }
+
+        function barisPengeluaranKeArray(p) {
+            return [p.tanggal, jamTampil(p._waktu), p.outlet, p.kategori, p.keterangan || "",
+                p.dariLaci ? "Laci kas" : "Di luar laci", Math.round(Number(p.nominal) || 0), p.dibuatNama || "", urlFotoPengeluaran(p)];
+        }
+
+        let kasTampilKosong = false;     // tabel pengeluaran per kategori: tampilkan kategori bernilai nol
+
+        function gantiKasKosong(cek) {
+            kasTampilKosong = cek;
+            renderLaporan();
+        }
+
+        function renderKas(wadah) {
+            const k = hitungKas();
+            if (k.shift.length === 0 && k.pengeluaran.length === 0) {
+                wadah.innerHTML = '<div class="empty-state">Belum ada shift atau pengeluaran untuk filter ini.</div>';
+                return;
+            }
+            let html = '<div class="stat-grid">' +
+                '<div class="stat-tile"><div class="k">Jumlah shift</div><div class="v">' + angka(k.shift.length) + '</div></div>' +
+                '<div class="stat-tile"><div class="k">Penjualan tunai (shift selesai)</div><div class="v">' + rp(k.tunai) + '</div></div>' +
+                '<div class="stat-tile"><div class="k">Total pengeluaran</div><div class="v">' + rp(k.totalKeluar) + '</div></div>' +
+                '<div class="stat-tile"><div class="k">Total selisih kas</div><div class="v" style="color:' + (k.selisih < 0 ? '#B03A2E' : (k.selisih > 0 ? '#9A6B1C' : '#1E7D32')) + ';">' + escapeHtmlAman(teksSelisih(k.selisih)) + '</div></div>' +
+                '</div>';
+            html += '<div class="stat-sub">Pengeluaran dari laci kas: <b>' + rp(k.laci) + '</b> · di luar laci: <b>' + rp(k.totalKeluar - k.laci) + '</b> · ' + angka(k.shift.length - k.selesai) + ' shift masih berjalan</div>';
+            html += tabelSederhana("Per shift", ["Tanggal", "Outlet", "Buka", "Tutup", "Kas awal", "Tunai", "Pengeluaran", "Seharusnya", "Kas akhir", "Selisih"],
+                k.shift.map(function (s) {
+                    const a = barisShiftKeArray(s);
+                    const tutup = s.status === "tutup";
+                    return [a[0], a[1], a[2], a[3] + (a[4] ? " (" + a[4] + ")" : ""), rp(a[5]),
+                        tutup ? rp(a[6]) : "-", tutup ? rp(a[7]) : "-", tutup ? rp(a[8]) : "-", tutup ? rp(a[9]) : "-", tutup ? teksSelisih(a[10]) : "-"];
+                }), "Belum ada shift.", [4, 5, 6, 7, 8, 9]);
+            html += '<div style="margin-top:18px;"></div><div class="tabel-grid">';
+            html += '<div>' + tabelSederhana("Pengeluaran per kategori", ["Kategori", "Akun", "Catatan", "Total"],
+                k.perKategori.filter(function (x) { return kasTampilKosong || x.total; })
+                    .map(function (x) { const a = cariAkunPengeluaran(x.nama); return [x.nama, a ? a[0] : "-", angka(x.n), rp(x.total)]; }), "Belum ada pengeluaran.", [2, 3]) +
+                '<label style="display:flex; align-items:center; gap:6px; font-size:11.5px; color:#52606d; margin-top:6px; cursor:pointer;">' +
+                    '<input type="checkbox"' + (kasTampilKosong ? ' checked' : '') + ' onchange="gantiKasKosong(this.checked)"> Tampilkan kategori kosong</label></div>';
+            const perOutlet = {};
+            k.pengeluaran.forEach(function (p) { perOutlet[p.outlet] = (perOutlet[p.outlet] || 0) + (Number(p.nominal) || 0); });
+            html += tabelSederhana("Pengeluaran per outlet", ["Outlet", "Total"],
+                Object.keys(perOutlet).sort().map(function (o) { return [o, rp(perOutlet[o])]; }), "-");
+            html += '</div>';
+            html += tabelSederhana("Rincian pengeluaran", ["Tanggal", "Outlet", "Kategori", "Catatan", "Sumber", "Nominal", "Dicatat"],
+                k.pengeluaran.map(function (p) {
+                    return [p.tanggal + " " + jamTampil(p._waktu), p.outlet, p.kategori, p.keterangan || "-", p.dariLaci ? "Laci kas" : "Di luar laci", rp(p.nominal), p.dibuatNama || "-"];
+                }), "Belum ada pengeluaran.", [5]);
+            wadah.innerHTML = html;
+        }
+
+        function downloadExcelKas(r) {
+            const k = hitungKas();
+            const wb = XLSX.utils.book_new();
+            const ringkas = blokInfo().concat([[], ["Ringkasan", "Nilai"],
+                ["Jumlah shift", k.shift.length], ["Shift selesai", k.selesai],
+                ["Penjualan tunai (shift selesai)", Math.round(k.tunai)],
+                ["Total pengeluaran", Math.round(k.totalKeluar)], ["Pengeluaran dari laci", Math.round(k.laci)],
+                ["Total selisih kas", Math.round(k.selisih)],
+                [], ["Kategori pengeluaran", "Kode akun", "Nama akun", "Catatan", "Total"]].concat(k.perKategori.map(function (x) {
+                    const a = cariAkunPengeluaran(x.nama);
+                    return [x.nama, a ? a[0] : "", a ? a[1] : "", x.n, Math.round(x.total)];
+                })));
+            const ws1 = XLSX.utils.aoa_to_sheet(ringkas);
+            ws1["!cols"] = [{ wch: 30 }, { wch: 40 }, { wch: 26 }, { wch: 10 }, { wch: 14 }];
+            XLSX.utils.book_append_sheet(wb, ws1, "Ringkasan");
+            const ws2 = XLSX.utils.aoa_to_sheet([KOLOM_SHIFT].concat(k.shift.map(barisShiftKeArray)));
+            ws2["!cols"] = [11, 14, 20, 20, 11, 12, 14, 12, 14, 12, 10, 30].map(function (x) { return { wch: x }; });
+            XLSX.utils.book_append_sheet(wb, ws2, "Shift");
+            const ws3 = XLSX.utils.aoa_to_sheet([KOLOM_PENGELUARAN].concat(k.pengeluaran.map(barisPengeluaranKeArray)));
+            ws3["!cols"] = [11, 6, 14, 24, 30, 12, 12, 16, 40].map(function (x) { return { wch: x }; });
+            XLSX.utils.book_append_sheet(wb, ws3, "Pengeluaran");
+            XLSX.writeFile(wb, namaFile(r, "xlsx"));
         }
 
         /* =====================================================
@@ -1450,6 +1655,7 @@
         let dataLR = [];                 // dokumen ringkasan_harian periode terpilih
         let hppLR = {};                  // { detail: hppPersen }
         let hppLRGagal = false;
+        let bebanLR = { pengeluaran: [], sesi: [], gagal: false };   // pengeluaran & sesi kas tutup periode LR
         let lrSiap = false;
         let lrError = null;
         let tokenLR = 0;
@@ -1609,6 +1815,23 @@
             const kueri = s.ambil.map(function (a) {
                 return db.collection("ringkasan_harian").where("tanggal", ">=", a.dari).where("tanggal", "<=", a.sampai).get();
             });
+            // Beban operasional outlet (pengeluaran) & selisih kas (sesi_kas), lihat kas.js
+            const kueriBeban = Promise.all(s.ambil.map(function (a) {
+                return Promise.all([
+                    db.collection("pengeluaran").where("tanggal", ">=", a.dari).where("tanggal", "<=", a.sampai).get(),
+                    db.collection("sesi_kas").where("tanggal", ">=", a.dari).where("tanggal", "<=", a.sampai).get()
+                ]);
+            })).then(function (hasil) {
+                const sudah = {}, keluar = [], sesi = [];
+                hasil.forEach(function (pasang) {
+                    pasang[0].forEach(function (doc) { if (!sudah[doc.id] && doc.data().status !== "dihapus") { sudah[doc.id] = true; keluar.push(doc.data()); } });
+                    pasang[1].forEach(function (doc) { if (!sudah[doc.id] && doc.data().status === "tutup") { sudah[doc.id] = true; sesi.push(doc.data()); } });
+                });
+                return { pengeluaran: keluar, sesi: sesi, gagal: false };
+            }).catch(function (error) {
+                console.warn("Pengeluaran / kas belum bisa dibaca:", error.message);
+                return { pengeluaran: [], sesi: [], gagal: true };
+            });
             const kueriHpp = db.collection("detail_kategori").get().then(function (snap) {
                 const peta = {};
                 snap.forEach(function (doc) {
@@ -1621,7 +1844,7 @@
                 return { peta: {}, gagal: true };
             });
 
-            Promise.all([Promise.all(kueri), kueriHpp]).then(function (hasil) {
+            Promise.all([Promise.all(kueri), kueriHpp, kueriBeban]).then(function (hasil) {
                 if (token !== tokenLR) return;
                 const sudah = {};
                 const docs = [];
@@ -1635,6 +1858,7 @@
                 dataLR = docs;
                 hppLR = hasil[1].peta;
                 hppLRGagal = hasil[1].gagal;
+                bebanLR = hasil[2];
                 lrSiap = true;
                 isiPilihanLR();
                 renderLabaRugi();
@@ -1652,7 +1876,8 @@
            Hasil: { s, header: [label kolom angka], idxPersen (-1 kalau tidak ada),
                     baris: [{akun, ket, nilai: [...], jenis: "akun"|"total"|"utama"}],
                     belumHpp: [detail], jumlahDok } */
-        function hitungLabaRugi(docs, s, hpp, f) {
+        function hitungLabaRugi(docs, s, hpp, f, beban) {
+            beban = beban || { pengeluaran: [], sesi: [] };
             const n = s.kolom.length;
             function nol() { return s.kolom.map(function () { return 0; }); }
             const jual = {}, disk = {};
@@ -1721,7 +1946,53 @@
                 jumlahkan(totalCogs, nilai);
             });
             tambahBaris("", "Total Cost of Goods Sold", totalCogs, "total");
-            tambahBaris("", "Gross Profit", netSales.map(function (v, i) { return v - totalCogs[i]; }), "utama");
+            const grossProfit = netSales.map(function (v, i) { return v - totalCogs[i]; });
+            tambahBaris("", "Gross Profit", grossProfit, "utama");
+
+            // Beban operasional outlet = pengeluaran yang dicatat di Shift & Kas (per kategori)
+            function idxKolom(tanggal) {
+                for (let i = 0; i < s.kolom.length; i++) if (tanggal && tanggal >= s.kolom[i].dari && tanggal <= s.kolom[i].sampai) return i;
+                return -1;
+            }
+            // Kategori dengan kode akun (AKUN_PENGELUARAN di keuangan.js) digabung per akun;
+            // yang belum dipetakan tampil per nama kategori tanpa kode.
+            const perAkun = {};
+            function barisBeban(kategori) {
+                const akun = cariAkunPengeluaran(kategori);
+                const kunci = akun ? akun[0] : "~" + kategori;
+                if (!perAkun[kunci]) perAkun[kunci] = { akun: akun ? akun[0] : "", ket: akun ? akun[1] : kategori, nilai: nol() };
+                return perAkun[kunci];
+            }
+            // Semua kategori pengeluaran (kas.js) disiapkan; yang nol mengikuti pilihan "Nilai nol"
+            KATEGORI_PENGELUARAN.forEach(barisBeban);
+            beban.pengeluaran.forEach(function (p) {
+                if (f.area && areaDariOutlet(p.outlet) !== f.area) return;
+                if (f.outlet && p.outlet !== f.outlet) return;
+                const i = idxKolom(p.tanggal);
+                if (i === -1) return;
+                barisBeban(p.kategori || "Lain-lain").nilai[i] += Number(p.nominal) || 0;
+            });
+            const totalBeban = nol();
+            // Akun berkode dulu (urut kode), lalu kategori yang belum dipetakan (urut nama)
+            Object.keys(perAkun).sort(function (a, b) {
+                const ta = a.charAt(0) === "~", tb = b.charAt(0) === "~";
+                return ta !== tb ? (ta ? 1 : -1) : a.localeCompare(b, "id");
+            }).forEach(function (k) {
+                tambahBaris(perAkun[k].akun, perAkun[k].ket, perAkun[k].nilai, "akun");
+                jumlahkan(totalBeban, perAkun[k].nilai);
+            });
+            tambahBaris("", "Total Beban Operasional Outlet", totalBeban, "total");
+
+            // Selisih kas saat tutup shift (lebih = +, kurang = -)
+            const selisihKas = nol();
+            beban.sesi.forEach(function (sk) {
+                if (f.area && areaDariOutlet(sk.outlet) !== f.area) return;
+                if (f.outlet && sk.outlet !== f.outlet) return;
+                const i = idxKolom(sk.tanggal);
+                if (i !== -1) selisihKas[i] += Number(sk.selisih) || 0;
+            });
+            tambahBaris("", "Selisih Kas (lebih / kurang)", selisihKas, "total");
+            tambahBaris("", "Laba Bersih Outlet", grossProfit.map(function (v, i) { return v - totalBeban[i] + selisihKas[i]; }), "utama");
 
             // Kolom tambahan: Total, atau Selisih & %
             const header = s.kolom.map(function (k) { return k.label; });
@@ -1749,7 +2020,7 @@
         }
 
         function hasilLabaRugi() {
-            return hitungLabaRugi(dataLR, susunKolomLR(filterLRTerpakai), hppLR, filterLRTerpakai);
+            return hitungLabaRugi(dataLR, susunKolomLR(filterLRTerpakai), hppLR, filterLRTerpakai, bebanLR);
         }
 
         // Angka id-ID tanpa desimal, negatif pakai "-"; null = "–"
@@ -1780,6 +2051,9 @@
             let html = "";
             if (h.jumlahDok === 0) {
                 html += '<div class="catatan">Belum ada ringkasan harian untuk periode & filter ini. Untuk bulan sebelum Kasir mulai mencatat ringkasan, jalankan <b>Hitung ulang ringkasan</b> (management).</div>';
+            }
+            if (bebanLR.gagal) {
+                html += '<div class="catatan">Pengeluaran & selisih kas belum bisa dibaca (akses dibatasi aturan Firestore), beban operasional dianggap 0.</div>';
             }
             if (hppLRGagal) {
                 html += '<div class="catatan">HPP % belum bisa dibaca (akses koleksi detail_kategori dibatasi aturan Firestore), COGS dianggap belum diisi.</div>';
