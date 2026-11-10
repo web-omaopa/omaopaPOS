@@ -27,23 +27,107 @@ const DETAIL_KATEGORI = [
 ];
 
 /* =====================================================================
-   AKUN BEBAN untuk kategori pengeluaran outlet (kas.js KATEGORI_PENGELUARAN),
-   dipakai Laba Rugi bagian Beban Operasional Outlet. Kode & nama akun dari
-   Chart of Account (spreadsheet Laba Rugi / ESB). Kategori yang belum ada di
-   sini tetap tampil di Laba Rugi per nama kategori, tanpa kode.
+   SUSUNAN LABA RUGI mengikuti "Profit Loss Report" ESB (PT Ultima Rasa
+   Nusantara): urutan, kode & nama akun sama supaya bisa dicocokkan baris
+   per baris. Akun yang belum punya sumber data di POS tampil sebagai nol.
 ========================================================================= */
-const AKUN_PENGELUARAN = {
-    "Salah Nota":          ["6 1 01 07", "Beban Salah Nota"],
-    "Kompensasi Customer": ["6 1 01 11", "Kompensasi"],
-    "Marketing":           ["6 1 01 06", "Biaya Marketing"],
-    "Biaya Operasional":   ["6 1 01 08", "Biaya Operasional"],
-    "Pengeluaran Reward":  ["6 1 02 07", "Reward"],
-    "Upgrading":           ["6 1 02 10", "Dana Upgrading"],
-    "Biaya Backup Kasir":  ["6 1 02 06", "Biaya Backup Kasir"]
+const AKUN_LR = {
+    penjualan: [
+        ["4 1 01 01", "Penjualan - Makanan"], ["4 1 01 02", "Penjualan - Minuman"], ["4 1 01 03", "Penjualan - Lainya"],
+        ["4 1 01 04", "Sales - Order fee"], ["4 1 01 05", "Penjualan - Konsinyasi"], ["4 1 01 06", "Penjualan - Ogura"],
+        ["4 1 01 07", "Penjualan - Malmil"], ["4 1 01 08", "Penjualan - Mini Ogura"], ["4 1 01 09", "Penjualan - Cisfon"],
+        ["4 1 01 10", "Penjualan - Snibby"], ["4 1 01 11", "Penjualan - Roti Manis"], ["4 1 02 01", "Penjualan - Transfer"],
+        ["4 1 04 01", "Other Revenue/Income"]
+    ],
+    diskon: [
+        ["4 1 03 01", "Bill Discount"], ["4 1 03 02", "Diskon Makanan"], ["4 1 03 03", "Diskon Minuman"],
+        ["4 1 03 04", "Diskon Penjualan"], ["4 1 03 05", "Diskon Lainya"]
+    ],
+    cogs: [
+        ["5 1 01 01", "COGS - Makanan"], ["5 1 01 02", "COGS - Minuman"], ["5 1 01 03", "COGS - Lainya"],
+        ["5 1 01 04", "COGS - Konsinyasi"], ["5 1 01 05", "COGS - Ogura"], ["5 1 01 06", "COGS - Malmil"],
+        ["5 1 01 07", "COGS - Mini Ogura"], ["5 1 01 08", "COGS - Cisfon"], ["5 1 01 09", "COGS - Snibby"],
+        ["5 1 01 10", "COGS - Roti Manis"], ["5 1 02 01", "COGS - Penjualan Transfer"], ["5 1 03 01", "COGS Variance"],
+        ["5 1 03 02", "COGS Minus Resolve Variance"]
+    ],
+    operasional: [
+        ["6 1 01 01", "Iklan & Promosi"], ["6 1 01 02", "Biaya Potongan Merchant"], ["6 1 01 03", "Entertainment"],
+        ["6 1 01 05", "Pengeluaran Produk Dihancurkan"], ["6 1 01 06", "Biaya Marketing"], ["6 1 01 07", "Beban Salah Nota"],
+        ["6 1 01 08", "Biaya Operasional"], ["6 1 01 09", "Topping Terbuang"], ["6 1 01 10", "Bumil Promotion"],
+        ["6 1 01 11", "Kompensasi"], ["6 1 01 12", "Produk RnD"],
+        ["6 1 02 01", "Gaji Kasir"], ["6 1 02 02", "Tabungan untuk THR"], ["6 1 02 03", "Employee Income Tax"],
+        ["6 1 02 04", "Casual Labour"], ["6 1 02 05", "BPJS"], ["6 1 02 06", "Biaya Backup Kasir"],
+        ["6 1 02 07", "Reward"], ["6 1 02 08", "Gaji Office"], ["6 1 02 09", "Pengembangan Karyawan"],
+        ["6 1 02 10", "Dana Upgrading"], ["6 1 02 11", "Dana Darurat"],
+        ["6 1 03 01", "Eating House Rental"], ["6 1 03 02", "Utilities"], ["6 1 03 03", "Biaya Listrik"],
+        ["6 1 03 04", "Biaya Air PAM"], ["6 1 03 05", "Google Maps Review"], ["6 1 03 06", "Biaya Kebersihan"],
+        ["6 1 03 07", "Biaya Sewa Ruko"], ["6 1 03 08", "Pajak Reklame"], ["6 1 03 09", "Biaya Renovasi Outlet"],
+        ["6 1 04 01", "Freight Charges"], ["6 1 04 02", "Biaya Pengiriman"], ["6 1 04 03", "Akomodasi"],
+        ["6 1 04 04", "Bensin TVS"], ["6 1 04 05", "Biaya Ongkir ke Customer"], ["6 1 04 06", "Ongkir Promo Delivery"],
+        ["6 1 04 07", "Biaya Transfer Kue"],
+        ["6 1 05 01", "Operasional Snibby"], ["6 1 05 02", "Consultancy Expense"], ["6 1 05 03", "License Expense"],
+        ["6 1 05 04", "Technology expenses"],
+        ["6 1 06 01", "Perbaikan dan Pemeliharaan"],
+        ["6 1 07 01", "Insurance"], ["6 1 07 02", "Office expense"], ["6 1 07 03", "Postage & Stamps"],
+        ["6 1 07 04", "Alat Tulis dan Printing"], ["6 1 07 05", "Telekomunikasi"], ["6 1 07 06", "Uniform"],
+        ["6 1 07 07", "Kitchenware & Related Cost"], ["6 1 07 08", "Biaya Rumah Tangga"], ["6 1 07 09", "CSR"],
+        ["6 1 07 10", "Biaya ESB"], ["6 1 07 11", "Administrasi Bank"], ["6 1 07 14", "Cadangan Kenaikan Sewa"],
+        ["6 1 07 15", "Konsumsi Rapat"]
+    ],
+    lain: [
+        ["7 1 01 01", "Asset Sales Gain or Losses/ Asset Revaluation"], ["7 1 01 02", "Foreign Exhange Gain/(Loss)"],
+        ["7 1 01 03", "Pendapatan Bunga"], ["7 1 01 04", "Bank Charges"], ["7 1 01 05", "PB 1 Income"],
+        ["7 1 01 06", "Tax expenses"], ["7 1 01 07", "Investment income"], ["7 1 01 08", "Service charge income"],
+        ["7 1 01 09", "Miscellaneous Income/(Expense)"], ["7 1 01 10", "Rounding/ POS Adjustment"],
+        ["7 1 01 11", "Penyesuaian Persediaan"], ["7 1 01 12", "Pendapatan Lain-lain"], ["7 1 01 13", "Denda Penyesuaian"],
+        ["7 1 01 14", "Denda Waste"], ["7 1 01 15", "Kompensasi Produk Dihancurkan"], ["7 1 01 16", "Kompensasi Kue Tidak Standar"]
+    ],
+    depresiasi: [
+        ["6 2 01 01", "Depr - Bulding"], ["6 2 01 02", "Depr - Renovation"], ["6 2 01 03", "Depr - Equipment"], ["6 2 01 04", "Depr - Vehicle"]
+    ],
+    pajak: [
+        ["7 1 02 01", "Pajak  PPh Final"], ["7 1 02 02", "Pajak Sewa"]
+    ]
 };
 
+/* Kategori pengeluaran outlet (kas.js KATEGORI_PENGELUARAN) -> kode akun beban */
+const AKUN_PENGELUARAN = {
+    "Salah Nota": "6 1 01 07",
+    "Kompensasi Customer": "6 1 01 11",
+    "Marketing": "6 1 01 06",
+    "Biaya Operasional": "6 1 01 08",
+    "Biaya Kebersihan": "6 1 03 06",
+    "Pengeluaran Reward": "6 1 02 07",
+    "Bensin TVS": "6 1 04 04",
+    "Upgrading": "6 1 02 10",
+    "Biaya Listrik": "6 1 03 03",
+    "Biaya Air PAM": "6 1 03 04",
+    "Pengiriman dari Pabrik": "6 1 04 02",
+    "Biaya Transfer Kue": "6 1 04 07",
+    "Perbaikan dan Pemeliharaan": "6 1 06 01",
+    "Biaya Alat Tulis": "6 1 07 04",
+    "Telekomunikasi": "6 1 07 05",
+    "Konsumsi Rapat": "6 1 07 15",
+    "Utilitis": "6 1 03 02",
+    "Pengiriman Kue ke Customer": "6 1 04 05",
+    "Biaya Backup Kasir": "6 1 02 06",
+    "Reward Sniby": "6 1 02 07"
+};
+
+/* Akun untuk data lain dari POS */
+const AKUN_WASTE = "6 1 01 05";          // waste_stok (stok-batch.js), dinilai HPP
+const AKUN_SELISIH_KAS = "7 1 01 10";    // selisih kas saat tutup shift (kas.js)
+
+function cariAkunLR(kode) {
+    const semua = [].concat(AKUN_LR.penjualan, AKUN_LR.diskon, AKUN_LR.cogs, AKUN_LR.operasional, AKUN_LR.lain, AKUN_LR.depresiasi, AKUN_LR.pajak);
+    for (let i = 0; i < semua.length; i++) if (semua[i][0] === kode) return semua[i];
+    return null;
+}
+
+/* [kode, nama akun] untuk kategori pengeluaran, atau null kalau belum dipetakan */
 function cariAkunPengeluaran(kategori) {
-    return AKUN_PENGELUARAN[kategori] || null;
+    const kode = AKUN_PENGELUARAN[kategori];
+    return kode ? cariAkunLR(kode) : null;
 }
 
 /* Produk tanpa Detail Kategori dicatat ke kelompok ini di laporan */
