@@ -26,6 +26,26 @@ const DETAIL_KATEGORI = [
     { nama: "Lainnya",    penjualan: ["4 1 01 03", "Penjualan - Lainya"],     cogs: ["5 1 01 03", "COGS - Lainya"],     diskon: ["4 1 03 05", "Diskon Lainya"] }
 ];
 
+/* =====================================================================
+   AKUN BEBAN untuk kategori pengeluaran outlet (kas.js KATEGORI_PENGELUARAN),
+   dipakai Laba Rugi bagian Beban Operasional Outlet. Kode & nama akun dari
+   Chart of Account (spreadsheet Laba Rugi / ESB). Kategori yang belum ada di
+   sini tetap tampil di Laba Rugi per nama kategori, tanpa kode.
+========================================================================= */
+const AKUN_PENGELUARAN = {
+    "Salah Nota":          ["6 1 01 07", "Beban Salah Nota"],
+    "Kompensasi Customer": ["6 1 01 11", "Kompensasi"],
+    "Marketing":           ["6 1 01 06", "Biaya Marketing"],
+    "Biaya Operasional":   ["6 1 01 08", "Biaya Operasional"],
+    "Pengeluaran Reward":  ["6 1 02 07", "Reward"],
+    "Upgrading":           ["6 1 02 10", "Dana Upgrading"],
+    "Biaya Backup Kasir":  ["6 1 02 06", "Biaya Backup Kasir"]
+};
+
+function cariAkunPengeluaran(kategori) {
+    return AKUN_PENGELUARAN[kategori] || null;
+}
+
 /* Produk tanpa Detail Kategori dicatat ke kelompok ini di laporan */
 const DETAIL_CADANGAN = "Lainnya";
 
