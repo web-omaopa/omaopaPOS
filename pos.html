@@ -9,7 +9,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
     <script src="roles.js?v=20261027c"></script>
-    <script src="keuangan.js?v=20261110a"></script>
+    <script src="keuangan.js?v=20261110b"></script>
     <script src="kas.js?v=20261027b"></script>
     <script src="stok-batch.js?v=20261110d"></script>
 
@@ -518,8 +518,15 @@
         let daftarPromo = [];
         let promoDinonaktifkanManual = {}; // { [promoId]: true } = kasir matikan manual promo ini untuk transaksi sekarang
 
+        let detailKategoriUnsubscribe = null;
+
         auth.onAuthStateChanged(function (user) {
             if (!user) { window.location.href = "index.html"; return; }
+            // Detail kategori tambahan (Pengaturan > Pemetaan & HPP), supaya
+            // penjualan produk kategori baru masuk ke akunnya di ringkasan harian.
+            if (!detailKategoriUnsubscribe && typeof keuDengarDetailKategori === "function") {
+                detailKategoriUnsubscribe = keuDengarDetailKategori(db);
+            }
 
             const savedUser = sessionStorage.getItem("omaopa_user");
             if (savedUser) {
@@ -540,9 +547,9 @@
         });
 
         function logout() {
-            [stockUnsubscribe, produkUnsubscribe, toppingUnsubscribe, modeUnsubscribe, promoUnsubscribe, sesiKasUnsubscribe]
+            [stockUnsubscribe, produkUnsubscribe, toppingUnsubscribe, modeUnsubscribe, promoUnsubscribe, sesiKasUnsubscribe, detailKategoriUnsubscribe]
                 .forEach(function (stop) { if (stop) stop(); });
-            stockUnsubscribe = produkUnsubscribe = toppingUnsubscribe = modeUnsubscribe = promoUnsubscribe = sesiKasUnsubscribe = null;
+            stockUnsubscribe = produkUnsubscribe = toppingUnsubscribe = modeUnsubscribe = promoUnsubscribe = sesiKasUnsubscribe = detailKategoriUnsubscribe = null;
             auth.signOut().then(function () {
                 sessionStorage.removeItem("omaopa_user");
                 sessionStorage.removeItem("omaopa_outlet_kasir");

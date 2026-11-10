@@ -9,7 +9,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
     <script src="roles.js?v=20261027c"></script>
-    <script src="keuangan.js?v=20261110a"></script>
+    <script src="keuangan.js?v=20261110b"></script>
     <script src="stok-batch.js?v=20261110d"></script>
     <script src="kas.js?v=20261027b"></script>
 
@@ -1835,6 +1835,8 @@
                 return { pengeluaran: [], sesi: [], waste: [], gagal: true };
             });
             const kueriHpp = db.collection("detail_kategori").get().then(function (snap) {
+                // Detail kategori tambahan -> baris Penjualan/COGS/Diskon baru (keuangan.js)
+                if (typeof keuTerapkanDetailKategori === "function") keuTerapkanDetailKategori(snap);
                 const peta = {};
                 snap.forEach(function (doc) {
                     const v = doc.data().hppPersen;
@@ -2251,7 +2253,8 @@
                     .where("waktu", ">=", firebase.firestore.Timestamp.fromDate(awal))
                     .where("waktu", "<", firebase.firestore.Timestamp.fromDate(akhir))
                     .get(),
-                koleksi.where("tanggal", ">=", awalBulanIso(th, bl)).where("tanggal", "<=", akhirBulanIso(th, bl)).get()
+                koleksi.where("tanggal", ">=", awalBulanIso(th, bl)).where("tanggal", "<=", akhirBulanIso(th, bl)).get(),
+                keuMuatDetailKategori(db)
             ]).then(function (hasil) {
                 const daftar = [];
                 hasil[0].forEach(function (doc) { daftar.push(doc.data()); });

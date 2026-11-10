@@ -9,11 +9,17 @@
    - HPP % per Detail Kategori disimpan di Firestore
      (koleksi "detail_kategori", field hppPersen) dan diatur di
      Pengaturan > Pemetaan & HPP.
+   - Detail Kategori BARU (dan perubahan akun yang bawaan) juga disimpan
+     di koleksi "detail_kategori", Document ID = nama detail:
+       { hppPersen, penjualan: [kode, nama], cogs: [kode, nama],
+         diskon: [kode, nama], nonaktif: true|false, dibuatOleh, diubahPada }
+     Halaman memanggil keuDengarDetailKategori(db) supaya DETAIL_KATEGORI
+     dan AKUN_LR (penjualan/COGS/diskon) ikut bertambah tanpa ubah kode.
    - Kalau file ini diubah, naikkan versi ?v=... di semua halaman
      yang memuatnya (CDN Hostinger menyimpan file .js 7 hari).
 ========================================================================= */
 
-const DETAIL_KATEGORI = [
+const DETAIL_KATEGORI_BAWAAN = [
     { nama: "Malmil",     penjualan: ["4 1 01 07", "Penjualan - Malmil"],     cogs: ["5 1 01 06", "COGS - Malmil"],     diskon: ["4 1 03 02", "Diskon Makanan"] },
     { nama: "Ogura",      penjualan: ["4 1 01 06", "Penjualan - Ogura"],      cogs: ["5 1 01 05", "COGS - Ogura"],      diskon: ["4 1 03 02", "Diskon Makanan"] },
     { nama: "Mini Ogura", penjualan: ["4 1 01 08", "Penjualan - Mini Ogura"], cogs: ["5 1 01 07", "COGS - Mini Ogura"], diskon: ["4 1 03 02", "Diskon Makanan"] },
@@ -25,6 +31,10 @@ const DETAIL_KATEGORI = [
     { nama: "Konsinyasi", penjualan: ["4 1 01 05", "Penjualan - Konsinyasi"], cogs: ["5 1 01 04", "COGS - Konsinyasi"], diskon: ["4 1 03 02", "Diskon Makanan"] },
     { nama: "Lainnya",    penjualan: ["4 1 01 03", "Penjualan - Lainya"],     cogs: ["5 1 01 03", "COGS - Lainya"],     diskon: ["4 1 03 05", "Diskon Lainya"] }
 ];
+
+/* Daftar yang dipakai semua halaman: bawaan + tambahan dari database.
+   Isinya diganti di tempat oleh keuTerapkanDetailKategori(). */
+const DETAIL_KATEGORI = DETAIL_KATEGORI_BAWAAN.map(function (d) { return Object.assign({ bawaan: true }, d); });
 
 /* =====================================================================
    SUSUNAN LABA RUGI mengikuti "Profit Loss Report" ESB (PT Ultima Rasa
@@ -90,6 +100,14 @@ const AKUN_LR = {
     ]
 };
 
+/* Salinan akun penjualan/diskon/COGS bawaan, supaya akun dari detail
+   kategori tambahan bisa disisipkan ulang setiap data berubah. */
+const AKUN_LR_BAWAAN = {
+    penjualan: AKUN_LR.penjualan.slice(),
+    diskon: AKUN_LR.diskon.slice(),
+    cogs: AKUN_LR.cogs.slice()
+};
+
 /* Kategori pengeluaran outlet (kas.js KATEGORI_PENGELUARAN) -> kode akun beban */
 const AKUN_PENGELUARAN = {
     "Salah Nota": "6 1 01 07",
@@ -132,6 +150,101 @@ function cariAkunPengeluaran(kategori) {
 
 /* Produk tanpa Detail Kategori dicatat ke kelompok ini di laporan */
 const DETAIL_CADANGAN = "Lainnya";
+
+/* Akun [kode, nama] yang sah dari data database, atau null */
+function keuAkunSah(a) {
+    if (!Array.isArray(a) || a.length < 2) return null;
+    const kode = String(a[0] || "").trim(), nama = String(a[1] || "").trim();
+    return kode && nama ? [kode, nama] : null;
+}
+
+/* Bandingkan kode akun "4 1 01 07" per bagian angka */
+function keuBandingKode(a, b) {
+    const x = String(a).split(/\s+/), y = String(b).split(/\s+/);
+    for (let i = 0; i < Math.max(x.length, y.length); i++) {
+        const p = Number(x[i] || 0), q = Number(y[i] || 0);
+        if (p !== q) return p - q;
+    }
+    return 0;
+}
+
+/* Gabungkan dokumen koleksi detail_kategori ke DETAIL_KATEGORI & AKUN_LR.
+   docs: [{ id, data }] atau QuerySnapshot. Dokumen yang hanya berisi
+   hppPersen (data lama) tidak mengubah daftar. */
+function keuTerapkanDetailKategori(docs) {
+    const daftar = [];
+    if (docs && typeof docs.forEach === "function") {
+        docs.forEach(function (d) {
+            if (d && typeof d.data === "function") daftar.push({ id: d.id, data: d.data() || {} });
+            else if (d) daftar.push({ id: d.id, data: d.data || {} });
+        });
+    }
+    const hasil = DETAIL_KATEGORI_BAWAAN.map(function (d) { return Object.assign({ bawaan: true }, d); });
+    daftar.forEach(function (doc) {
+        const x = doc.data;
+        const nama = String(doc.id || "").trim();
+        if (!nama) return;
+        let d = hasil.find(function (h) { return h.nama === nama; });
+        const penjualan = keuAkunSah(x.penjualan), cogs = keuAkunSah(x.cogs), diskon = keuAkunSah(x.diskon);
+        if (!d) {
+            if (!penjualan || !cogs) return;   // bukan detail tambahan yang lengkap
+            d = { nama: nama, bawaan: false, penjualan: penjualan, cogs: cogs, diskon: diskon || ["4 1 03 02", "Diskon Makanan"] };
+            hasil.push(d);
+        } else {
+            if (penjualan) d.penjualan = penjualan;
+            if (cogs) d.cogs = cogs;
+            if (diskon) d.diskon = diskon;
+        }
+        d.nonaktif = x.nonaktif === true && nama !== DETAIL_CADANGAN;
+    });
+    DETAIL_KATEGORI.length = 0;
+    hasil.forEach(function (d) { DETAIL_KATEGORI.push(d); });
+
+    // Akun penjualan/diskon/COGS: bawaan + akun detail kategori, urut kode
+    ["penjualan", "diskon", "cogs"].forEach(function (k) {
+        const peta = {};
+        AKUN_LR_BAWAAN[k].forEach(function (a) { peta[a[0]] = a[1]; });
+        hasil.forEach(function (d) { if (d[k]) peta[d[k][0]] = d[k][1]; });
+        const urut = Object.keys(peta).sort(keuBandingKode).map(function (kode) { return [kode, peta[kode]]; });
+        AKUN_LR[k].length = 0;
+        urut.forEach(function (a) { AKUN_LR[k].push(a); });
+    });
+    return DETAIL_KATEGORI;
+}
+
+/* Dengarkan koleksi detail_kategori (realtime). onUbah(snapshot) dipanggil
+   setiap kali daftar berubah. Hasil: fungsi berhenti. Kalau gagal dibaca,
+   daftar bawaan tetap dipakai. */
+function keuDengarDetailKategori(db, onUbah, onGagal) {
+    return db.collection("detail_kategori").onSnapshot(function (snap) {
+        keuTerapkanDetailKategori(snap);
+        if (onUbah) onUbah(snap);
+    }, function (error) {
+        console.warn("Detail kategori belum bisa dibaca:", error.message);
+        if (onGagal) onGagal(error);
+    });
+}
+
+/* Sekali baca (untuk laporan). Hasil Promise snapshot, atau null kalau gagal. */
+function keuMuatDetailKategori(db) {
+    return db.collection("detail_kategori").get().then(function (snap) {
+        keuTerapkanDetailKategori(snap);
+        return snap;
+    }).catch(function (error) {
+        console.warn("Detail kategori belum bisa dibaca:", error.message);
+        return null;
+    });
+}
+
+/* Kode akun berikutnya yang belum dipakai di bagian AKUN_LR[k] dengan
+   awalan yang sama, mis. "4 1 01" -> "4 1 01 12" */
+function keuKodeBerikutnya(k, awalan) {
+    let maks = 0;
+    AKUN_LR[k].forEach(function (a) {
+        if (a[0].indexOf(awalan + " ") === 0) maks = Math.max(maks, Number(a[0].slice(awalan.length + 1)) || 0);
+    });
+    return awalan + " " + ("0" + (maks + 1)).slice(-2);
+}
 
 function cariDetailKategori(nama) {
     for (let i = 0; i < DETAIL_KATEGORI.length; i++) {

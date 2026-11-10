@@ -10,7 +10,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-storage-compat.js"></script>
     <script src="roles.js?v=20261027c"></script>
-    <script src="keuangan.js?v=20261110a"></script>
+    <script src="keuangan.js?v=20261110b"></script>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -94,6 +94,10 @@
         .btn-save { background: #12305C; color: white; border: none; }
         .btn-cancel { background: none; border: 1px solid #dde3ea; color: #52606d; }
         .err-text { font-size: 10px; color: #c0392b; margin-top: 4px; display: none; }
+        .dk-akun { display: grid; grid-template-columns: 110px 1fr; gap: 6px; }
+        .dk-badge { display: inline-block; font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: 9px; margin-left: 4px; vertical-align: middle; }
+        .dk-badge.baru { background: #e6f4ea; color: #1e7d32; }
+        .dk-badge.nonaktif { background: #f1f3f5; color: #6b7280; }
         .denied-state { text-align: center; color: #6b7280; font-size: 12px; padding: 40px 0; }
 
         .mode-overlay { z-index: 20; }
@@ -349,6 +353,39 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="modalDetail">
+        <div class="modal-box" style="max-width:420px;">
+            <h3 id="modalDetailTitle">Tambah Detail Kategori</h3>
+            <div class="modal-hint">Akun ini otomatis jadi baris baru di Laba Rugi. Samakan kode &amp; nama akun dengan Chart of Account di ESB.</div>
+            <label>Nama detail kategori</label>
+            <input type="text" id="dkNama" placeholder="mis. Bolu" maxlength="40" oninput="Dk_isiOtomatis()">
+            <div class="field-hint" id="dkHintNama">Nama ini jadi ID permanen dan dipilih di produk, tidak bisa diganti setelah disimpan.</div>
+            <label>Akun Penjualan</label>
+            <div class="dk-akun">
+                <input type="text" id="dkJualKode" placeholder="4 1 01 12" oninput="this.setAttribute('data-manual','1')">
+                <input type="text" id="dkJualNama" placeholder="Penjualan - Bolu" oninput="this.setAttribute('data-manual','1')">
+            </div>
+            <label>Akun COGS</label>
+            <div class="dk-akun">
+                <input type="text" id="dkCogsKode" placeholder="5 1 01 11" oninput="this.setAttribute('data-manual','1')">
+                <input type="text" id="dkCogsNama" placeholder="COGS - Bolu" oninput="this.setAttribute('data-manual','1')">
+            </div>
+            <div class="field-hint">Kode terisi otomatis dengan nomor berikutnya, boleh diganti.</div>
+            <label>Akun Diskon</label>
+            <select id="dkDiskon"></select>
+            <label>HPP % (opsional)</label>
+            <input type="number" id="dkHpp" min="0" max="100" step="0.1" placeholder="mis. 35">
+            <label id="dkNonaktifBaris" style="display:flex; align-items:center; gap:8px; font-weight:400; font-size:12px; margin-top:12px;">
+                <input type="checkbox" id="dkNonaktif" style="width:14px; height:14px;"> Nonaktif (tidak bisa dipilih untuk produk; data lama tetap masuk laporan)
+            </label>
+            <div class="err-text" id="dkError"></div>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="Dk_tutupModal()">Batal</button>
+                <button class="btn-save" id="dkBtnSimpan" onclick="Dk_simpan()">Simpan</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const firebaseConfig = {
             apiKey: "AIzaSyC5nxXV7YPTEq160fLoqBBKtvwaHBQljfc",
@@ -461,6 +498,9 @@
             document.getElementById("sidebarContainer").innerHTML = renderSidebar(currentUser, "pengaturan");
 
             if (!jagaAksesHalaman(currentUser.role, "pengaturan")) return;
+
+            // Detail kategori tambahan (koleksi detail_kategori) untuk pilihan di form produk
+            if (typeof keuDengarDetailKategori === "function") keuDengarDetailKategori(db);
 
             renderHubPengaturan();
         }
@@ -666,13 +706,15 @@
         /* =====================================================
            DETAIL KATEGORI (level kedua, mirip "Menu Category
            Detail" di ESB: Malmil, Ogura, Mini Ogura, ...)
-           Daftarnya TETAP, diambil dari DETAIL_KATEGORI di
-           keuangan.js (lengkap dengan akun penjualan/COGS/diskon).
-           Produk menyimpan namanya di field detailKategori.
+           Daftarnya dari DETAIL_KATEGORI di keuangan.js: bawaan +
+           tambahan dari Pengaturan > Pemetaan & HPP (koleksi
+           detail_kategori). Produk menyimpan namanya di field
+           detailKategori.
         ====================================================== */
-        function Detail_daftarNama() {
+        // semua = true: termasuk yang dinonaktifkan
+        function Detail_daftarNama(semua) {
             if (typeof DETAIL_KATEGORI === "undefined") return [];
-            return DETAIL_KATEGORI.map(function (d) { return d.nama; });
+            return DETAIL_KATEGORI.filter(function (d) { return semua || !d.nonaktif; }).map(function (d) { return d.nama; });
         }
 
         // HTML opsi detail kategori. Nilai yang tidak ada di daftar (data lama)
@@ -683,7 +725,8 @@
                 return '<option value="' + escapeHtmlAman(d) + '"' + (d === selectedValue ? " selected" : "") + '>' + escapeHtmlAman(d) + '</option>';
             }).join("");
             if (selectedValue && daftar.indexOf(selectedValue) === -1) {
-                html += '<option value="' + escapeHtmlAman(selectedValue) + '" selected>' + escapeHtmlAman(selectedValue) + ' (lama)</option>';
+                const nonaktif = Detail_daftarNama(true).indexOf(selectedValue) !== -1;
+                html += '<option value="' + escapeHtmlAman(selectedValue) + '" selected>' + escapeHtmlAman(selectedValue) + (nonaktif ? ' (nonaktif)' : ' (lama)') + '</option>';
             }
             return html;
         }
@@ -909,7 +952,7 @@
         function renderToppingKueInputs(hargaPerKategori) {
             const container = document.getElementById("toppingKueContainer");
             hargaPerKategori = hargaPerKategori || {};
-            const daftarDetail = Detail_daftarNama();
+            const daftarDetail = Detail_daftarNama(true);
             const kunciLama = Object.keys(hargaPerKategori)
                 .filter(function (k) { return daftarDetail.indexOf(k) === -1; })
                 .sort();
@@ -1735,11 +1778,11 @@
 
         /* =====================================================
            PEMETAAN & HPP
-           Akun penjualan/COGS/diskon tiap detail kategori TETAP
-           (dari keuangan.js, hanya ditampilkan). Yang bisa diatur:
-           HPP % per detail kategori, disimpan di collection
-           "detail_kategori", Document ID = nama detail, field
-           hppPersen (angka 0-100). HPP sementara = penjualan x HPP %.
+           Collection "detail_kategori", Document ID = nama detail:
+           - hppPersen (angka 0-100). HPP sementara = penjualan x HPP %.
+           - Detail kategori tambahan / akun yang diubah: penjualan,
+             cogs, diskon ([kode, nama]) dan nonaktif (lihat keuangan.js).
+             Akunnya otomatis jadi baris baru di Laba Rugi.
         ====================================================== */
         let Hpp_tersimpan = {};   // nama detail -> hppPersen dari database (atau null)
         let Hpp_produk = [];      // daftar produk, untuk jumlah & produk tanpa detail
@@ -1748,24 +1791,52 @@
             return a ? escapeHtmlAman(a[0] + " · " + a[1]) : "-";
         }
 
-        function Hpp_renderKerangka() {
+        function Hpp_barisHtml() {
             const daftar = (typeof DETAIL_KATEGORI === "undefined") ? [] : DETAIL_KATEGORI;
-            const baris = daftar.map(function (d, i) {
-                return '<tr><td style="font-weight:700; white-space:nowrap;">' + escapeHtmlAman(d.nama) + '</td>' +
+            if (daftar.length === 0) return '<tr><td colspan="7" class="empty-state">Daftar detail kategori (keuangan.js) belum termuat.</td></tr>';
+            return daftar.map(function (d, i) {
+                const badge = (d.bawaan ? '' : '<span class="dk-badge baru">Tambahan</span>') +
+                    (d.nonaktif ? '<span class="dk-badge nonaktif">Nonaktif</span>' : '');
+                return '<tr' + (d.nonaktif ? ' style="opacity:0.6;"' : '') + '><td style="font-weight:700; white-space:nowrap;">' + escapeHtmlAman(d.nama) + badge + '</td>' +
                     '<td style="font-size:11px;">' + Hpp_teksAkun(d.penjualan) + '</td>' +
                     '<td style="font-size:11px;">' + Hpp_teksAkun(d.cogs) + '</td>' +
                     '<td style="font-size:11px;">' + Hpp_teksAkun(d.diskon) + '</td>' +
-                    '<td><input type="number" id="hppInput_' + i + '" min="0" max="100" step="0.1" placeholder="-" oninput="this.setAttribute(\'data-ubah\', \'1\')" style="width:70px; height:30px; border:1px solid #d1d5db; border-radius:6px; padding:0 6px; font-size:12px;"></td>' +
-                    '<td id="hppJumlah_' + i + '" style="text-align:right;">-</td></tr>';
+                    '<td><input type="number" id="hppInput_' + i + '" data-nama="' + escapeHtmlAman(d.nama) + '" min="0" max="100" step="0.1" placeholder="-" oninput="this.setAttribute(\'data-ubah\', \'1\')" style="width:70px; height:30px; border:1px solid #d1d5db; border-radius:6px; padding:0 6px; font-size:12px;"></td>' +
+                    '<td id="hppJumlah_' + i + '" style="text-align:right;">-</td>' +
+                    '<td><button class="action-btn" onclick="Dk_bukaModal(\'' + escJsAttr(d.nama) + '\')">Edit</button></td></tr>';
             }).join("");
-            return '<div style="font-size:11px; color:#6b7280; margin-bottom:10px;">HPP sementara dihitung = penjualan × HPP %. Nanti bisa diganti HPP dari resep.</div>' +
-                '<table><thead><tr><th>Detail kategori</th><th>Akun penjualan</th><th>Akun COGS</th><th>Akun diskon</th><th>HPP %</th><th style="text-align:right;">Jumlah produk</th></tr></thead>' +
-                '<tbody id="hppTableBody">' + (baris || '<tr><td colspan="6" class="empty-state">Daftar detail kategori (keuangan.js) belum termuat.</td></tr>') + '</tbody></table>' +
+        }
+
+        function Hpp_renderKerangka() {
+            return '<div class="header-row"><div style="font-size:11px; color:#6b7280;">HPP sementara dihitung = penjualan × HPP %. Nanti bisa diganti HPP dari resep.</div>' +
+                    '<button class="add-btn" onclick="Dk_bukaModal(null)">+ Tambah detail kategori</button></div>' +
+                '<table><thead><tr><th>Detail kategori</th><th>Akun penjualan</th><th>Akun COGS</th><th>Akun diskon</th><th>HPP %</th><th style="text-align:right;">Jumlah produk</th><th></th></tr></thead>' +
+                '<tbody id="hppTableBody">' + Hpp_barisHtml() + '</tbody></table>' +
                 '<div style="display:flex; align-items:center; gap:10px; margin-bottom:18px;">' +
                     '<button class="add-btn" id="hppBtnSimpan" onclick="Hpp_simpan()">Simpan HPP</button>' +
                     '<span id="hppStatus" style="font-size:11px; color:#1e7d32;"></span>' +
                 '</div>' +
                 '<div id="hppTanpaDetail"></div>';
+        }
+
+        // Gambar ulang tabel saat daftar detail kategori berubah, tanpa
+        // menghilangkan HPP % yang sedang diketik / belum disimpan.
+        function Hpp_renderUlangTabel() {
+            const tbody = document.getElementById("hppTableBody");
+            if (!tbody) return;
+            const ketik = {};
+            let fokus = null;
+            tbody.querySelectorAll("input[data-nama]").forEach(function (el) {
+                const nama = el.getAttribute("data-nama");
+                if (el.getAttribute("data-ubah") === "1") ketik[nama] = el.value;
+                if (el === document.activeElement) fokus = nama;
+            });
+            tbody.innerHTML = Hpp_barisHtml();
+            tbody.querySelectorAll("input[data-nama]").forEach(function (el) {
+                const nama = el.getAttribute("data-nama");
+                if (Object.prototype.hasOwnProperty.call(ketik, nama)) { el.value = ketik[nama]; el.setAttribute("data-ubah", "1"); }
+                if (fokus === nama) el.focus();
+            });
         }
 
         // Realtime: HPP % (tidak menimpa kolom yang sedang diketik/diubah) dan
@@ -1776,6 +1847,10 @@
             if (sectionAktif !== "hpp") return;
 
             hppUnsubscribe = db.collection("detail_kategori").onSnapshot(function (snapshot) {
+                if (typeof keuTerapkanDetailKategori === "function") keuTerapkanDetailKategori(snapshot);
+                Hpp_renderUlangTabel();
+                Hpp_renderJumlah();
+                Hpp_renderTanpaDetail();
                 Hpp_tersimpan = {};
                 snapshot.forEach(function (doc) {
                     const v = (doc.data() || {}).hppPersen;
@@ -1823,7 +1898,7 @@
         function Hpp_renderTanpaDetail() {
             const box = document.getElementById("hppTanpaDetail");
             if (!box) return;
-            const daftar = Detail_daftarNama();
+            const daftar = Detail_daftarNama(true);
             const tanpa = Hpp_produk.filter(function (p) {
                 return !Produk_isTopping(p) && (!p.detailKategori || daftar.indexOf(p.detailKategori) === -1);
             });
@@ -1903,6 +1978,133 @@
                 status.style.color = "#c0392b";
                 status.textContent = "Gagal menyimpan: " + error.message;
             }).then(function () { btn.disabled = false; });
+        }
+
+        /* =====================================================
+           TAMBAH / EDIT DETAIL KATEGORI
+           Disimpan ke detail_kategori/{nama}: penjualan, cogs, diskon,
+           nonaktif (+ hppPersen kalau diisi). Nama tidak bisa diganti
+           karena dipakai produk & ringkasan_harian.
+        ====================================================== */
+        let Dk_editNama = null;
+
+        function Dk_bukaModal(nama) {
+            const d = nama ? cariDetailKategori(nama) : null;
+            if (nama && !d) return;
+            Dk_editNama = d ? d.nama : null;
+            document.getElementById("modalDetailTitle").textContent = d ? "Edit Detail Kategori" : "Tambah Detail Kategori";
+            const inNama = document.getElementById("dkNama");
+            inNama.value = d ? d.nama : "";
+            inNama.disabled = !!d;
+            document.getElementById("dkHintNama").textContent = d
+                ? (d.bawaan ? "Detail kategori bawaan. Nama tidak bisa diganti." : "Nama tidak bisa diganti karena sudah dipakai produk & laporan.")
+                : "Nama ini jadi ID permanen dan dipilih di produk, tidak bisa diganti setelah disimpan.";
+            ["dkJualKode", "dkJualNama", "dkCogsKode", "dkCogsNama"].forEach(function (id) {
+                const el = document.getElementById(id);
+                el.value = ""; el.removeAttribute("data-manual");
+            });
+            if (d) {
+                document.getElementById("dkJualKode").value = d.penjualan[0];
+                document.getElementById("dkJualNama").value = d.penjualan[1];
+                document.getElementById("dkCogsKode").value = d.cogs[0];
+                document.getElementById("dkCogsNama").value = d.cogs[1];
+                ["dkJualKode", "dkJualNama", "dkCogsKode", "dkCogsNama"].forEach(function (id) { document.getElementById(id).setAttribute("data-manual", "1"); });
+            }
+            const diskon = d && d.diskon ? d.diskon[0] : "4 1 03 02";
+            document.getElementById("dkDiskon").innerHTML = AKUN_LR.diskon.map(function (a) {
+                return '<option value="' + escapeHtmlAman(a[0]) + '"' + (a[0] === diskon ? " selected" : "") + '>' + escapeHtmlAman(a[0] + " · " + a[1]) + '</option>';
+            }).join("");
+            const hpp = d ? Hpp_tersimpan[d.nama] : null;
+            document.getElementById("dkHpp").value = (hpp !== null && hpp !== undefined) ? hpp : "";
+            document.getElementById("dkNonaktif").checked = !!(d && d.nonaktif);
+            document.getElementById("dkNonaktifBaris").style.display = d && d.nama !== DETAIL_CADANGAN ? "flex" : "none";
+            document.getElementById("dkError").style.display = "none";
+            const btn = document.getElementById("dkBtnSimpan");
+            btn.disabled = false; btn.textContent = "Simpan";
+            Dk_isiOtomatis();
+            document.getElementById("modalDetail").classList.add("open");
+            if (!d) setTimeout(function () { inNama.focus(); }, 50);
+        }
+
+        function Dk_tutupModal() { document.getElementById("modalDetail").classList.remove("open"); }
+
+        // Isi kode & nama akun otomatis selama belum diubah manual
+        function Dk_isiOtomatis() {
+            if (Dk_editNama) return;
+            const nama = document.getElementById("dkNama").value.trim();
+            const isi = function (id, nilai) {
+                const el = document.getElementById(id);
+                if (el.getAttribute("data-manual") !== "1") el.value = nilai;
+            };
+            isi("dkJualKode", keuKodeBerikutnya("penjualan", "4 1 01"));
+            isi("dkCogsKode", keuKodeBerikutnya("cogs", "5 1 01"));
+            isi("dkJualNama", nama ? "Penjualan - " + nama : "");
+            isi("dkCogsNama", nama ? "COGS - " + nama : "");
+        }
+
+        function Dk_rapikanKode(teks) { return String(teks || "").trim().replace(/\s+/g, " "); }
+
+        function Dk_simpan() {
+            const errBox = document.getElementById("dkError");
+            const salah = function (pesan) { errBox.textContent = pesan; errBox.style.display = "block"; };
+            errBox.style.display = "none";
+
+            const nama = Dk_editNama || document.getElementById("dkNama").value.trim().replace(/\s+/g, " ");
+            const jual = [Dk_rapikanKode(document.getElementById("dkJualKode").value), document.getElementById("dkJualNama").value.trim()];
+            const cogs = [Dk_rapikanKode(document.getElementById("dkCogsKode").value), document.getElementById("dkCogsNama").value.trim()];
+            const kodeDiskon = document.getElementById("dkDiskon").value;
+            const akunDiskon = AKUN_LR.diskon.find(function (a) { return a[0] === kodeDiskon; });
+            const teksHpp = document.getElementById("dkHpp").value.trim();
+            const nonaktif = document.getElementById("dkNonaktif").checked && nama !== DETAIL_CADANGAN;
+
+            if (!nama) return salah("Nama detail kategori wajib diisi.");
+            if (/[\/]/.test(nama) || nama === "." || nama === "..") return salah('Nama tidak boleh memakai tanda "/".');
+            if (!Dk_editNama && DETAIL_KATEGORI.some(function (d) { return d.nama.toLowerCase() === nama.toLowerCase(); })) {
+                return salah('Detail kategori "' + nama + '" sudah ada.');
+            }
+            const polaKode = /^\d+( \d+)+$/;
+            if (!polaKode.test(jual[0]) || !jual[1]) return salah("Kode & nama akun penjualan wajib diisi, kode berupa angka dipisah spasi (mis. 4 1 01 12).");
+            if (jual[0].charAt(0) !== "4") return salah("Kode akun penjualan harus diawali 4 (pendapatan).");
+            if (!polaKode.test(cogs[0]) || !cogs[1]) return salah("Kode & nama akun COGS wajib diisi, kode berupa angka dipisah spasi (mis. 5 1 01 11).");
+            if (cogs[0].charAt(0) !== "5") return salah("Kode akun COGS harus diawali 5 (harga pokok).");
+            if (!akunDiskon) return salah("Pilih akun diskon.");
+            const bentrok = DETAIL_KATEGORI.find(function (d) {
+                return d.nama !== nama && (d.penjualan[0] === jual[0] || d.cogs[0] === cogs[0]);
+            });
+            if (bentrok) return salah('Kode akun sudah dipakai detail kategori "' + bentrok.nama + '". Pakai kode lain supaya barisnya tidak tercampur.');
+            const akunLain = [].concat(AKUN_LR.diskon, AKUN_LR.operasional, AKUN_LR.lain, AKUN_LR.depresiasi, AKUN_LR.pajak)
+                .find(function (a) { return a[0] === jual[0] || a[0] === cogs[0]; });
+            if (akunLain) return salah('Kode ' + akunLain[0] + ' sudah dipakai akun "' + akunLain[1] + '".');
+            let hpp = null;
+            if (teksHpp !== "") {
+                hpp = Number(teksHpp);
+                if (isNaN(hpp) || hpp < 0 || hpp > 100) return salah("HPP % harus angka 0 - 100.");
+            }
+
+            const data = {
+                penjualan: jual, cogs: cogs, diskon: [akunDiskon[0], akunDiskon[1]], nonaktif: nonaktif,
+                diubahOleh: currentUser.nama || currentUser.username || currentUser.uid || "",
+                diubahPada: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            if (hpp !== null) data.hppPersen = hpp;
+            else if (Dk_editNama && Hpp_tersimpan[nama] !== null && Hpp_tersimpan[nama] !== undefined) data.hppPersen = firebase.firestore.FieldValue.delete();
+
+            const btn = document.getElementById("dkBtnSimpan");
+            btn.disabled = true; btn.textContent = "Menyimpan...";
+            db.collection("detail_kategori").doc(nama).set(data, { merge: true }).then(function () {
+                Dk_tutupModal();
+                const status = document.getElementById("hppStatus");
+                if (status) {
+                    status.style.color = "#1e7d32";
+                    status.textContent = '"' + nama + '" tersimpan ✓ Barisnya otomatis muncul di Laba Rugi.';
+                    setTimeout(function () { if (status.textContent.indexOf(nama) !== -1) status.textContent = ""; }, 4000);
+                }
+            }).catch(function (error) {
+                btn.disabled = false; btn.textContent = "Simpan";
+                salah(error.code === "permission-denied"
+                    ? "Akun ini tidak punya izin mengubah detail kategori (aturan Firestore)."
+                    : "Gagal menyimpan: " + error.message);
+            });
         }
 
         /* =====================================================
