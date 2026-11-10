@@ -10,7 +10,9 @@
        updatedAt }
 
    Masa berlaku per produk (koleksi products):
-     - resetHarian (bawaan): 24 jam sejak dilaporkan. Saat kasir lapor lagi,
+     - resetHarian (bawaan): 24 jam sejak dilaporkan, atau sampai jamReset
+       berikutnya ("HH:MM", mis. "13:59") kalau produk punya jam reset tetap.
+       Saat kasir lapor lagi,
        sisa dari HARI SEBELUMNYA jadi waste; laporan di hari yang sama
        dianggap koreksi (diganti tanpa waste).
      - akumulasi (resetHarian = false): masaTahanHari hari sejak masuk
@@ -49,7 +51,21 @@ function sbMasaBerlakuMs(produk) {
     return hari > 0 ? hari * SB_SATU_HARI_MS : null;
 }
 
+/* Jam reset tetap produk reset ("HH:MM"), atau null */
+function sbJamReset(produk) {
+    const m = /^(\d{1,2}):(\d{2})$/.exec((produk && produk.jamReset) || "");
+    return m && produk.resetHarian !== false ? { jam: Number(m[1]), menit: Number(m[2]) } : null;
+}
+
 function sbKedaluwarsa(produk, masukMs) {
+    const jr = sbJamReset(produk);
+    if (jr) {
+        // Berlaku sampai jam reset berikutnya setelah masuk
+        const d = new Date(masukMs);
+        d.setHours(jr.jam, jr.menit, 0, 0);
+        if (d.getTime() <= masukMs) d.setDate(d.getDate() + 1);
+        return d.getTime();
+    }
     const lama = sbMasaBerlakuMs(produk);
     return lama ? masukMs + lama : null;
 }

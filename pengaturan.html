@@ -147,7 +147,11 @@
                 <option value="true">Reset harian (kue basah)</option>
                 <option value="false">Akumulasi (tahan lama)</option>
             </select>
-            <div class="field-hint" id="pHintReset">Stok berlaku 24 jam sejak kasir lapor stok. Saat lapor stok baru, sisa dari hari sebelumnya tercatat sebagai waste.</div>
+            <div id="pJamResetWrap">
+                <label>Jam reset (opsional)</label>
+                <input type="time" id="pInputJamReset">
+                <div class="field-hint" id="pHintReset">Kosong = stok berlaku 24 jam sejak kasir lapor stok. Diisi (mis. 13:59) = stok berlaku sampai jam itu; yang dilapor setelah jam itu berlaku sampai jam yang sama besoknya. Sisa saat lapor stok baru / lewat jam reset tercatat sebagai waste.</div>
+            </div>
             <div id="pMasaTahanWrap" style="display:none;">
                 <label>Masa tahan (hari)</label>
                 <input type="number" id="pInputMasaTahan" min="0" step="1" placeholder="Mis. 3">
@@ -1147,6 +1151,7 @@
             document.getElementById("pInputStatus").value = "aktif";
             document.getElementById("pInputResetHarian").value = "true";
             document.getElementById("pInputMasaTahan").value = "";
+            document.getElementById("pInputJamReset").value = "";
             Produk_aturMasaTahan();
             document.getElementById("pInputGambar").value = "";
             document.getElementById("pInputFileGambar").value = "";
@@ -1172,6 +1177,7 @@
                 document.getElementById("pInputStatus").value = p.status;
                 document.getElementById("pInputResetHarian").value = p.resetHarian === false ? "false" : "true";
                 document.getElementById("pInputMasaTahan").value = p.masaTahanHari ? p.masaTahanHari : "";
+                document.getElementById("pInputJamReset").value = p.jamReset || "";
                 Produk_aturMasaTahan();
                 document.getElementById("pInputGambar").value = p.gambarUrl || "";
                 document.getElementById("pInputFileGambar").value = "";
@@ -1185,11 +1191,11 @@
             });
         }
 
-        // Masa tahan hanya untuk produk akumulasi (stok-batch.js)
+        // Masa tahan untuk produk akumulasi, jam reset untuk produk reset (stok-batch.js)
         function Produk_aturMasaTahan() {
             const akumulasi = document.getElementById("pInputResetHarian").value === "false";
             document.getElementById("pMasaTahanWrap").style.display = akumulasi ? "block" : "none";
-            document.getElementById("pHintReset").style.display = akumulasi ? "none" : "block";
+            document.getElementById("pJamResetWrap").style.display = akumulasi ? "none" : "block";
         }
 
         function Produk_tutupModal() { document.getElementById("modalProduk").classList.remove("open"); }
@@ -1202,6 +1208,7 @@
             const status = document.getElementById("pInputStatus").value;
             const resetHarian = document.getElementById("pInputResetHarian").value === "true";
             const masaTahanHari = resetHarian ? 0 : Math.max(0, Math.floor(Number(document.getElementById("pInputMasaTahan").value) || 0));
+            const jamReset = resetHarian ? document.getElementById("pInputJamReset").value : "";
             const gambarUrl = Produk_normalGambar(document.getElementById("pInputGambar").value);
             const errBox = document.getElementById("pFormError");
             const isTopping = kategori === "Topping";
@@ -1209,7 +1216,7 @@
             if (Produk_sedangUpload) { errBox.textContent = "Gambar masih diupload. Tunggu sampai selesai, lalu simpan."; errBox.style.display = "block"; return; }
             if (!nama) { errBox.textContent = "Nama wajib diisi."; errBox.style.display = "block"; return; }
 
-            const data = { nama: nama, kategori: kategori, status: status, resetHarian: resetHarian, masaTahanHari: masaTahanHari, gambarUrl: gambarUrl, satuan: satuan };
+            const data = { nama: nama, kategori: kategori, status: status, resetHarian: resetHarian, masaTahanHari: masaTahanHari, jamReset: jamReset, gambarUrl: gambarUrl, satuan: satuan };
 
             if (isTopping) {
                 const hargaPerKategori = ambilHargaPerKueDariForm();
