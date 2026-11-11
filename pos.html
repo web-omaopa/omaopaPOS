@@ -8,7 +8,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
-    <script src="roles.js?v=20261027c"></script>
+    <script src="roles.js?v=20261111a"></script>
     <script src="keuangan.js?v=20261110c"></script>
     <script src="kas.js?v=20261027b"></script>
     <script src="stok-batch.js?v=20261110d"></script>
@@ -1331,9 +1331,6 @@
                     '<button type="button" class="btn-promo" id="btnPromo" onclick="bukaInfoPromo()"></button>' +
                     (currentUser.role !== "kasir"
                         ? '<button type="button" class="btn-promo" onclick="gantiOutletKasir()" title="Ganti outlet">📍 ' + escapeHtmlAman(currentUser.outlet) + ' · ganti</button>'
-                        : '') +
-                    (cekAksesHalaman(currentUser.role, "kas")
-                        ? '<a href="kas.html" class="btn-promo" style="text-decoration:none;" title="Uang di laci, pengeluaran, akhiri shift & tutup toko">💰 Shift & Kas</a>'
                         : '') +
                 '</div>' +
                 '<div class="kategori-tabs" id="kategoriTabs"></div>' +

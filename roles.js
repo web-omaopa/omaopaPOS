@@ -129,19 +129,86 @@ function getHalamanUntukRole(role) {
    Dipakai bersama oleh beranda.html, pos.html, stok.html, pengaturan.html
    supaya tampilan & perilaku sidebar konsisten di semua halaman.
    activeKey: "beranda" | "kasir" | "stok" | "pengaturan" | dst */
+/* =====================================================================
+   SIDEBAR BISA DIBUKA-TUTUP
+   Terbuka: logo + nama menu. Tertutup: strip ikon saja (tanpa logo),
+   nama menu muncul sebagai tooltip. Pilihan disimpan per perangkat
+   (localStorage "omaopa_sidebar") dan berlaku di semua halaman.
+   Gaya disisipkan dari sini supaya tidak perlu mengubah CSS tiap halaman.
+========================================================================= */
+const SIDEBAR_KUNCI = "omaopa_sidebar";
+
+(function pasangGayaSidebar() {
+    if (typeof document === "undefined" || document.getElementById("gayaSidebarLipat")) return;
+    const css =
+        ".sidebar { transition: width .18s ease, padding .18s ease; }" +
+        ".sidebar .sb-head { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 18px; }" +
+        ".sidebar .sb-head .sidebar-logo { margin-bottom: 0; min-width: 0; max-width: 118px; }" +
+        ".sidebar .sb-toggle { flex-shrink: 0; width: 32px; height: 32px; border: 0; border-radius: 8px; background: rgba(255,255,255,0.10); color: #B8C7E0; font-size: 16px; line-height: 32px; cursor: pointer; padding: 0; }" +
+        ".sidebar .sb-toggle:hover { background: rgba(255,255,255,0.20); color: #ffffff; }" +
+        ".sidebar .sb-toggle:focus-visible { outline: 2px solid #E8A33D; outline-offset: 2px; }" +
+        ".sidebar .nav-item { position: relative; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }" +
+        ".sidebar .nav-ikon { display: inline-block; width: 18px; text-align: center; margin-right: 6px; }" +
+        ".sidebar .logout-link .nav-ikon { display: none; }" +
+        "html.sb-tutup .sidebar { width: 64px; padding-left: 10px; padding-right: 10px; }" +
+        "html.sb-tutup .sidebar .sb-head { justify-content: center; }" +
+        "html.sb-tutup .sidebar .sidebar-logo, html.sb-tutup .sidebar .nav-teks, html.sb-tutup .sidebar .nav-label," +
+        " html.sb-tutup .sidebar .user-name, html.sb-tutup .sidebar .user-role { display: none; }" +
+        "html.sb-tutup .sidebar .nav-item { text-align: center; padding-left: 0; padding-right: 0; overflow: visible; }" +
+        "html.sb-tutup .sidebar .nav-ikon { margin-right: 0; font-size: 16px; }" +
+        "html.sb-tutup .sidebar #badgeTransfer { position: absolute; top: 2px; right: 2px; float: none !important; }" +
+        "html.sb-tutup .sidebar .user-block { text-align: center; }" +
+        "html.sb-tutup .sidebar .logout-link .nav-ikon { display: inline-block; margin-right: 0; font-size: 16px; }" +
+        "@media (prefers-reduced-motion: reduce) { .sidebar { transition: none; } }";
+    const el = document.createElement("style");
+    el.id = "gayaSidebarLipat";
+    el.textContent = css;
+    (document.head || document.documentElement).appendChild(el);
+    // Pasang status tersimpan secepatnya supaya tidak berkedip saat halaman dibuka
+    if (sidebarTersimpanTutup()) document.documentElement.classList.add("sb-tutup");
+})();
+
+function sidebarTersimpanTutup() {
+    let v = null;
+    try { v = localStorage.getItem(SIDEBAR_KUNCI); } catch (e) { v = null; }
+    if (v === "tutup") return true;
+    if (v === "buka") return false;
+    // Belum pernah dipilih: layar sempit (HP) mulai tertutup
+    return typeof window !== "undefined" && window.innerWidth < 700;
+}
+
+function sidebarToggle() {
+    const tutup = !document.documentElement.classList.contains("sb-tutup");
+    document.documentElement.classList.toggle("sb-tutup", tutup);
+    try { localStorage.setItem(SIDEBAR_KUNCI, tutup ? "tutup" : "buka"); } catch (e) { /* abaikan */ }
+    const btn = document.getElementById("sbToggle");
+    if (btn) {
+        btn.setAttribute("aria-expanded", tutup ? "false" : "true");
+        btn.title = tutup ? "Buka menu" : "Tutup menu";
+    }
+}
+
+function itemSidebarHtml(ikon, judul) {
+    return '<span class="nav-ikon" aria-hidden="true">' + ikon + '</span><span class="nav-teks">' + escapeHtmlAman(judul) + '</span>';
+}
+
 function renderSidebar(currentUser, activeKey) {
     const halamanDiizinkan = getHalamanUntukRole(currentUser.role);
     // Urutan mengikuti HALAMAN_INFO (Pengaturan, lalu Shift & Kas paling bawah)
     const sudahDibangun = halamanDiizinkan.filter(function (h) { return h.dibangun; });
     const belumDibangun = halamanDiizinkan.filter(function (h) { return !h.dibangun; });
 
-    let html = '<img src="logo.png" alt="Oma Opa" class="sidebar-logo">';
+    const tutup = document.documentElement.classList.contains("sb-tutup");
+    let html = '<div class="sb-head">' +
+        '<button type="button" class="sb-toggle" id="sbToggle" onclick="sidebarToggle()" aria-label="Buka/tutup menu" aria-expanded="' + (tutup ? "false" : "true") + '" title="' + (tutup ? "Buka menu" : "Tutup menu") + '">☰</button>' +
+        '<img src="logo.png" alt="Oma Opa" class="sidebar-logo">' +
+        '</div>';
 
     // Kasir langsung kerja di halaman utamanya (pos.html), tidak perlu
     // menu Beranda terpisah. Role lain (admin/owner/forecaster/dst)
     // tetap punya Beranda sebagai halaman ringkasan/navigasi awal.
     if (currentUser.role !== "kasir") {
-        html += '<a href="beranda.html" class="nav-item' + (activeKey === "beranda" ? " active" : "") + '">🏠  Beranda</a>';
+        html += '<a href="beranda.html" class="nav-item' + (activeKey === "beranda" ? " active" : "") + '" title="Beranda">' + itemSidebarHtml("🏠", "Beranda") + '</a>';
         html += '<div class="nav-divider"></div>';
     }
 
@@ -151,21 +218,21 @@ function renderSidebar(currentUser, activeKey) {
         if (h.key === "transfer") {
             badge = '<span id="badgeTransfer" style="display:none; float:right; background:#E8A33D; color:#ffffff; font-size:10px; font-weight:800; min-width:16px; height:16px; line-height:16px; text-align:center; border-radius:8px; padding:0 4px;"></span>';
         }
-        html += '<a href="' + h.href + '" class="nav-item' + activeClass + '">' + h.icon + '  ' + h.title + badge + '</a>';
+        html += '<a href="' + h.href + '" class="nav-item' + activeClass + '" title="' + escapeHtmlAman(h.title) + '">' + itemSidebarHtml(h.icon, h.title) + badge + '</a>';
     });
 
     if (belumDibangun.length > 0) {
         html += '<div class="nav-divider"></div>';
         html += '<div class="nav-label">Segera hadir</div>';
         belumDibangun.forEach(function (h) {
-            html += '<span class="nav-item disabled">' + h.icon + '  ' + h.title + '</span>';
+            html += '<span class="nav-item disabled" title="' + escapeHtmlAman(h.title) + ' (segera hadir)">' + itemSidebarHtml(h.icon, h.title) + '</span>';
         });
     }
 
     html += '<div class="user-block">';
     html += '<div class="user-name">' + escapeHtmlAman(currentUser.nama) + '</div>';
     html += '<div class="user-role">' + escapeHtmlAman(currentUser.role) + (String(currentUser.outlet || "").trim() ? ' · ' + escapeHtmlAman(currentUser.outlet) : '') + '</div>';
-    html += '<button class="logout-link" onclick="logout()">Keluar</button>';
+    html += '<button class="logout-link" onclick="logout()" title="Keluar">' + itemSidebarHtml("⏻", "Keluar") + '</button>';
     html += '</div>';
 
     // Badge angka di menu Transfer (tugas yang menunggu aksi).
