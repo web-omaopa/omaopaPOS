@@ -97,6 +97,43 @@
             cursor: pointer;
         }
         .kategori-tab.active { background: #12305C; border-color: #12305C; color: white; }
+        .kategori-tab.fav .bintang { color: #E8A33D; }
+        .kategori-tab.fav.active .bintang { color: #FFD27A; }
+
+        /* ===== FAVORIT ===== */
+        .product-card { position: relative; }
+        .tanda-fav {
+            position: absolute; top: 6px; right: 6px; width: 30px; height: 30px; border-radius: 50%;
+            border: 0; background: rgba(255,255,255,0.92); color: #b9c3cf; font-size: 16px; line-height: 30px;
+            cursor: pointer; padding: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+        }
+        .tanda-fav.on { color: #E8A33D; }
+        .tanda-fav:focus-visible { outline: 2px solid #12305C; outline-offset: 1px; }
+        .product-card.disabled .tanda-fav { cursor: pointer; }
+        .kartu-fav-tambah {
+            border: 1.5px dashed #b9c6d8; border-radius: 14px; background: #F7F9FC; color: #12305C;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+            min-height: 140px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit;
+        }
+        .kartu-fav-tambah:hover { border-color: #12305C; background: #fff; }
+        .kartu-fav-tambah .plus { font-size: 26px; line-height: 1; }
+        .fav-kosong {
+            grid-column: 1 / -1; border: 1.5px dashed #b9c6d8; border-radius: 14px; padding: 28px 16px;
+            text-align: center; color: #52606d; font-size: 12.5px; background: #F7F9FC; line-height: 1.7;
+        }
+        .fav-kosong b { color: #12305C; display: block; }
+        .fav-kosong .bintang-besar { font-size: 26px; color: #E8A33D; }
+        .btn-fav-tambah { margin-top: 10px; padding: 9px 16px; border-radius: 8px; border: 0; background: #12305C; color: #fff; font-weight: 700; font-size: 12px; cursor: pointer; font-family: inherit; }
+        .fav-daftar { border: 1px solid #e8ecf1; border-radius: 10px; max-height: 340px; overflow-y: auto; margin-top: 10px; }
+        .fav-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-bottom: 1px solid #f0f2f5; font-size: 12.5px; }
+        .fav-item:last-child { border-bottom: 0; }
+        .fav-item .nm { flex: 1; min-width: 0; font-weight: 700; color: #1f2937; }
+        .fav-item .kt { font-size: 11px; color: #6b7280; font-weight: 400; }
+        .fav-urut { display: flex; gap: 4px; width: 64px; flex-shrink: 0; }
+        .fav-urut button { width: 30px; height: 30px; border: 1px solid #dde3ea; background: #fff; border-radius: 6px; font-size: 11px; line-height: 1; color: #12305C; cursor: pointer; padding: 0; }
+        .fav-urut button:disabled { opacity: 0.35; cursor: default; }
+        .fav-bintang { width: 34px; height: 34px; border: 0; background: none; font-size: 20px; color: #b9c3cf; cursor: pointer; flex-shrink: 0; }
+        .fav-bintang.on { color: #E8A33D; }
 
         .mode-section-cart {
             background: #12305C; margin: -18px -18px 16px -18px; padding: 16px 18px;
@@ -140,6 +177,22 @@
             background: #ffffff; border: 1px solid #dde3ea; border-radius: 14px;
             padding: 18px; display: flex; flex-direction: column;
         }
+        /* Keranjang tetap terlihat saat daftar produk digulir; kalau itemnya
+           banyak, yang bergulir hanya daftar item, Total & Bayar tetap tampil. */
+        @media (min-width: 901px) {
+            .pos-grid .cart-card { position: sticky; top: 16px; max-height: calc(100vh - 32px); }
+            .pos-grid .cart-card > * { flex-shrink: 0; }
+            .pos-grid .cart-card > #cartItems { flex-shrink: 1; min-height: 60px; overflow-y: auto; }
+        }
+
+        /* Judul kelompok produk (tab Semua / kategori) */
+        .grup-judul {
+            grid-column: 1 / -1; display: flex; align-items: baseline; gap: 8px;
+            font-size: 12px; font-weight: 800; color: #12305C; text-transform: uppercase; letter-spacing: 0.04em;
+            padding: 6px 2px 0; border-bottom: 1px solid #e8ecf1; padding-bottom: 6px;
+        }
+        .grup-judul:first-child { padding-top: 0; }
+        .grup-judul .jml { font-size: 11px; font-weight: 600; color: #8A95A5; text-transform: none; letter-spacing: 0; }
         .cart-title { font-size: 15px; font-weight: 700; margin-bottom: 12px; }
 
         .cart-item { padding: 10px 0; border-bottom: 1px solid #e8ecf1; }
@@ -467,6 +520,20 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="modalFavorit" onclick="if (event.target === this) tutupTambahFavorit()">
+        <div class="modal-box lebar" role="dialog" aria-labelledby="judulModalFavorit">
+            <h3 id="judulModalFavorit">Tambah Produk Favorit</h3>
+            <div class="modal-sub">Ketuk ☆ untuk menambahkan produk ke Favorit, ▲▼ untuk mengatur urutan. Berlaku untuk semua kasir di outlet ini.</div>
+            <input type="text" class="fld-in" id="favCari" placeholder="Cari produk..." autocomplete="off" oninput="renderDaftarFavorit()">
+            <div class="fav-daftar" id="favDaftar"></div>
+            <div class="err-msg" id="favError" style="display:none; color:#c0392b; font-size:11px; margin-top:8px;"></div>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="tutupTambahFavorit()">Batal</button>
+                <button class="btn-save" id="favSimpan" style="flex:1.3;" onclick="simpanDaftarFavorit()">Simpan</button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="modalMember" onclick="if (event.target === this) tutupCariMember()">
         <div class="modal-box lebar" role="dialog" aria-labelledby="judulModalMember">
             <h3 id="judulModalMember">Pilih Member</h3>
@@ -528,7 +595,7 @@
         let allProducts = [];
         let stockMap = {};
         let cart = {};
-        let kategoriAktif = "Semua";
+        let kategoriAktif = "Favorit";
         let produkUntukTopping = null;
 
         let daftarTopping = [];
@@ -558,6 +625,7 @@
         let promoDinonaktifkanManual = {}; // { [promoId]: true } = kasir matikan manual promo ini untuk transaksi sekarang
 
         let detailKategoriUnsubscribe = null;
+        let favoritUnsubscribe = null;
 
         auth.onAuthStateChanged(function (user) {
             if (!user) { window.location.href = "index.html"; return; }
@@ -586,9 +654,9 @@
         });
 
         function logout() {
-            [stockUnsubscribe, produkUnsubscribe, toppingUnsubscribe, modeUnsubscribe, promoUnsubscribe, sesiKasUnsubscribe, detailKategoriUnsubscribe]
+            [stockUnsubscribe, produkUnsubscribe, toppingUnsubscribe, modeUnsubscribe, promoUnsubscribe, sesiKasUnsubscribe, detailKategoriUnsubscribe, favoritUnsubscribe]
                 .forEach(function (stop) { if (stop) stop(); });
-            stockUnsubscribe = produkUnsubscribe = toppingUnsubscribe = modeUnsubscribe = promoUnsubscribe = sesiKasUnsubscribe = detailKategoriUnsubscribe = null;
+            stockUnsubscribe = produkUnsubscribe = toppingUnsubscribe = modeUnsubscribe = promoUnsubscribe = sesiKasUnsubscribe = detailKategoriUnsubscribe = favoritUnsubscribe = null;
             auth.signOut().then(function () {
                 sessionStorage.removeItem("omaopa_user");
                 sessionStorage.removeItem("omaopa_outlet_kasir");
@@ -806,15 +874,16 @@
             loadModePenjualan();
             loadTopping();
             loadProducts();
+            loadFavorit();
             loadPromo();
         }
 
         function tokoSudahDitutup(jenisTutup) {
             if (sedangMemproses) return; // prosesBayar akan menolak sendiri
             // Layar produk diganti, jadi listener realtime-nya dihentikan
-            [stockUnsubscribe, produkUnsubscribe, toppingUnsubscribe, modeUnsubscribe, promoUnsubscribe]
+            [stockUnsubscribe, produkUnsubscribe, toppingUnsubscribe, modeUnsubscribe, promoUnsubscribe, favoritUnsubscribe]
                 .forEach(function (stop) { if (stop) stop(); });
-            stockUnsubscribe = produkUnsubscribe = toppingUnsubscribe = modeUnsubscribe = promoUnsubscribe = null;
+            stockUnsubscribe = produkUnsubscribe = toppingUnsubscribe = modeUnsubscribe = promoUnsubscribe = favoritUnsubscribe = null;
             ["layarBayar", "layarBerhasil"].forEach(function (id) { document.getElementById(id).classList.remove("open"); });
             document.querySelectorAll(".modal-overlay.open").forEach(function (m) { m.classList.remove("open"); });
             document.body.classList.add("layar-buka");
@@ -1490,15 +1559,22 @@
                 });
         }
 
+        /* Urutan tab: ★ Favorit, kategori (abjad, Topping paling akhir), Semua */
         function renderKategoriTabs() {
             const kategoriSet = new Set();
-            allProducts.forEach(function (p) { if (p.kategori) kategoriSet.add(p.kategori); });
-            const kategoriList = ["Semua"].concat(Array.from(kategoriSet).sort());
+            allProducts.forEach(function (p) { if (p.kategori && p.kategori !== "Favorit" && p.kategori !== "Semua") kategoriSet.add(p.kategori); });
+            const tengah = Array.from(kategoriSet).sort(function (a, b) {
+                if (a === "Topping") return 1;
+                if (b === "Topping") return -1;
+                return a.localeCompare(b);
+            });
+            const kategoriList = ["Favorit"].concat(tengah, ["Semua"]);
 
             const container = document.getElementById("kategoriTabs");
             container.innerHTML = kategoriList.map(function (k) {
-                return '<button class="kategori-tab' + (k === kategoriAktif ? ' active' : '') +
-                    '" onclick="pilihKategori(\'' + k.replace(/'/g, "") + '\')">' + k + '</button>';
+                const label = k === "Favorit" ? '<span class="bintang" aria-hidden="true">★</span> Favorit' : escapeHtmlAman(k);
+                return '<button class="kategori-tab' + (k === "Favorit" ? ' fav' : '') + (k === kategoriAktif ? ' active' : '') +
+                    '" onclick="pilihKategori(\'' + escJsAttr(k) + '\')">' + label + '</button>';
             }).join("");
         }
 
@@ -1527,28 +1603,79 @@
         function renderProdukTampil() {
             const keyword = (document.getElementById("searchBox").value || "").toLowerCase();
 
-            const filtered = pecahToppingPerKue(allProducts).filter(function (p) {
-                const cocokKategori = kategoriAktif === "Semua"
-                    ? p.kategori !== "Topping"
-                    : p.kategori === kategoriAktif;
+            // Favorit + kata kunci: cari di semua produk (kecuali topping),
+            // supaya produk yang belum difavoritkan tetap bisa ditemukan.
+            const modeFavorit = kategoriAktif === "Favorit" && !keyword;
+            let filtered = pecahToppingPerKue(allProducts).filter(function (p) {
+                let cocokKategori;
+                if (kategoriAktif === "Semua" || kategoriAktif === "Favorit") cocokKategori = p.kategori !== "Topping";
+                else cocokKategori = p.kategori === kategoriAktif;
+                if (modeFavorit) cocokKategori = cocokKategori && favoritIds.indexOf(p.id) !== -1;
                 const cocokKeyword = p.nama.toLowerCase().includes(keyword);
                 const cocokMode = p._hargaTopping !== undefined || tersediaDiMode(p, modeAktif);
                 return cocokKategori && cocokKeyword && cocokMode;
             });
+            if (modeFavorit) {
+                filtered.sort(function (a, b) { return favoritIds.indexOf(a.id) - favoritIds.indexOf(b.id); });
+            } else if (kategoriAktif !== "Topping") {
+                filtered = kelompokkanProduk(filtered);
+            }
 
-            renderProductGrid(filtered);
+            renderProductGrid(filtered, modeFavorit);
         }
 
-        function renderProductGrid(products) {
+        /* Kelompokkan per detail kategori (urutan seperti di Pengaturan),
+           stok habis di akhir tiap kelompok. Hasil: daftar produk dengan
+           penanda judul { _judul, _jumlah }. Satu kelompok saja = tanpa judul. */
+        function kelompokkanProduk(daftar) {
+            const urutDetail = (typeof DETAIL_KATEGORI !== "undefined") ? DETAIL_KATEGORI.map(function (d) { return d.nama; }) : [];
+            const grup = {};
+            daftar.forEach(function (p) {
+                const g = p.kategori === "Topping" ? "Topping" : (p.detailKategori || "Lainnya");
+                (grup[g] = grup[g] || []).push(p);
+            });
+            const nama = Object.keys(grup).sort(function (a, b) {
+                const ia = urutDetail.indexOf(a), ib = urutDetail.indexOf(b);
+                return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib) || a.localeCompare(b);
+            });
+            const habis = function (p) { return p.kategori !== "Topping" && !((stockMap[p.id] || 0) > 0); };
+            const hasil = [];
+            nama.forEach(function (g) {
+                const isi = grup[g].slice().sort(function (a, b) {
+                    return (habis(a) ? 1 : 0) - (habis(b) ? 1 : 0) || (a.nama || "").localeCompare(b.nama || "");
+                });
+                if (nama.length > 1) hasil.push({ _judul: g, _jumlah: isi.length });
+                isi.forEach(function (p) { hasil.push(p); });
+            });
+            return hasil;
+        }
+
+        function renderProductGrid(products, modeFavorit) {
             const grid = document.getElementById("productGrid");
             grid.innerHTML = "";
 
+            if (modeFavorit && products.length === 0) {
+                grid.innerHTML =
+                    '<div class="fav-kosong"><div class="bintang-besar" aria-hidden="true">★</div>' +
+                        '<b>Belum ada favorit</b>' +
+                        '<div>Tekan ☆ di kartu produk, atau tambahkan dari daftar produk.</div>' +
+                        '<button type="button" class="btn-fav-tambah" onclick="bukaTambahFavorit()">＋ Tambah produk</button>' +
+                    '</div>';
+                return;
+            }
             if (products.length === 0) {
                 grid.innerHTML = '<div class="empty-state">Produk tidak ditemukan</div>';
                 return;
             }
 
             products.forEach(function (p) {
+                if (p._judul) {
+                    const judul = document.createElement("div");
+                    judul.className = "grup-judul";
+                    judul.innerHTML = escapeHtmlAman(p._judul) + ' <span class="jml">' + p._jumlah + ' produk</span>';
+                    grid.appendChild(judul);
+                    return;
+                }
                 const isTopping = p.kategori === "Topping";
                 const stok = stockMap[p.id] !== undefined ? stockMap[p.id] : 0;
 
@@ -1576,8 +1703,137 @@
                 if (isTopping || stok > 0) {
                     card.onclick = function () { klikProduk(p); };
                 }
+                // Bintang favorit (produk non-topping): satu ketukan tambah/hapus
+                if (!isTopping) {
+                    const fav = favoritIds.indexOf(p.id) !== -1;
+                    const tombol = document.createElement("button");
+                    tombol.type = "button";
+                    tombol.className = "tanda-fav" + (fav ? " on" : "");
+                    tombol.textContent = fav ? "★" : "☆";
+                    tombol.title = fav ? "Hapus dari Favorit" : "Tambah ke Favorit";
+                    tombol.setAttribute("aria-label", tombol.title + ": " + p.nama);
+                    tombol.onclick = function (ev) { ev.stopPropagation(); toggleFavorit(p.id); };
+                    card.appendChild(tombol);
+                }
                 grid.appendChild(card);
             });
+
+            if (modeFavorit) {
+                const tambah = document.createElement("button");
+                tambah.type = "button";
+                tambah.className = "kartu-fav-tambah";
+                tambah.innerHTML = '<span class="plus" aria-hidden="true">＋</span>Tambah produk';
+                tambah.onclick = bukaTambahFavorit;
+                grid.appendChild(tambah);
+            }
+        }
+
+        /* ---------- FAVORIT (per outlet) ----------
+           Koleksi favorit_pos, Document ID = nama outlet:
+             { produkIds: [productId, ...] (urutan tampil), diubahUid, diubahNama, diubahPada }
+           Bisa diubah semua kasir di outlet itu (lihat Firestore Rules). */
+        let favoritIds = [];
+
+        function loadFavorit() {
+            if (favoritUnsubscribe) { favoritUnsubscribe(); favoritUnsubscribe = null; }
+            favoritUnsubscribe = db.collection("favorit_pos").doc(currentUser.outlet).onSnapshot(function (doc) {
+                const ids = doc.exists ? (doc.data().produkIds || []) : [];
+                favoritIds = ids.filter(function (id, i) { return typeof id === "string" && ids.indexOf(id) === i; });
+                renderProdukTampil();
+            }, function (error) {
+                console.warn("Favorit belum bisa dibaca:", error.message);
+            });
+        }
+
+        function simpanFavorit(ids) {
+            return db.collection("favorit_pos").doc(currentUser.outlet).set({
+                produkIds: ids.slice(0, 100),
+                diubahUid: currentUser.uid || "", diubahNama: currentUser.nama || "",
+                diubahPada: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        }
+
+        function toggleFavorit(pid) {
+            const ada = favoritIds.indexOf(pid) !== -1;
+            const baru = ada ? favoritIds.filter(function (x) { return x !== pid; }) : favoritIds.concat([pid]);
+            favoritIds = baru;           // langsung tampil, listener menyusul
+            renderProdukTampil();
+            simpanFavorit(baru).catch(function (error) {
+                tampilkanPesan("Favorit gagal disimpan: " + error.message, "error");
+            });
+        }
+
+        // Jendela "Tambah Produk Favorit": favorit di atas (bisa diurutkan),
+        // produk lain di bawah. Disimpan saat tekan Simpan.
+        let favoritDraf = [];
+
+        function bukaTambahFavorit() {
+            favoritDraf = favoritIds.slice();
+            document.getElementById("favCari").value = "";
+            document.getElementById("favError").style.display = "none";
+            renderDaftarFavorit();
+            document.getElementById("modalFavorit").classList.add("open");
+        }
+
+        function tutupTambahFavorit() { document.getElementById("modalFavorit").classList.remove("open"); }
+
+        function renderDaftarFavorit() {
+            const cari = (document.getElementById("favCari").value || "").trim().toLowerCase();
+            const produk = allProducts.filter(function (p) { return p.kategori !== "Topping"; });
+            const peta = {};
+            produk.forEach(function (p) { peta[p.id] = p; });
+            const fav = favoritDraf.filter(function (id) { return peta[id]; });
+            const lain = produk.filter(function (p) { return fav.indexOf(p.id) === -1; })
+                .sort(function (a, b) { return (a.nama || "").localeCompare(b.nama || ""); });
+            const cocok = function (p) { return !cari || (p.nama || "").toLowerCase().indexOf(cari) !== -1; };
+
+            const baris = function (p, i, adaFav) {
+                const urut = adaFav && !cari
+                    ? '<span class="fav-urut">' +
+                        '<button type="button" onclick="geserFavorit(' + i + ', -1)"' + (i === 0 ? ' disabled' : '') + ' aria-label="Naikkan ' + escapeHtmlAman(p.nama) + '">▲</button>' +
+                        '<button type="button" onclick="geserFavorit(' + i + ', 1)"' + (i === fav.length - 1 ? ' disabled' : '') + ' aria-label="Turunkan ' + escapeHtmlAman(p.nama) + '">▼</button>' +
+                      '</span>'
+                    : '<span class="fav-urut kosong"></span>';
+                return '<div class="fav-item">' + urut +
+                    '<span class="nm">' + escapeHtmlAman(p.nama) + ' <span class="kt">· ' + escapeHtmlAman(p.kategori || "-") + '</span></span>' +
+                    '<button type="button" class="fav-bintang' + (adaFav ? ' on' : '') + '" onclick="toggleFavoritDraf(\'' + escJsAttr(p.id) + '\')" aria-label="' + (adaFav ? 'Hapus ' : 'Tambah ') + escapeHtmlAman(p.nama) + '">' + (adaFav ? '★' : '☆') + '</button>' +
+                '</div>';
+            };
+            const htmlFav = fav.map(function (id, i) { return cocok(peta[id]) ? baris(peta[id], i, true) : ""; }).join("");
+            const htmlLain = lain.filter(cocok).map(function (p) { return baris(p, -1, false); }).join("");
+            document.getElementById("favDaftar").innerHTML = (htmlFav + htmlLain) ||
+                '<div class="cart-empty" style="padding:16px 0;">Produk tidak ditemukan.</div>';
+            document.getElementById("favSimpan").textContent = "Simpan (" + fav.length + " favorit)";
+        }
+
+        function toggleFavoritDraf(pid) {
+            const i = favoritDraf.indexOf(pid);
+            if (i === -1) favoritDraf.push(pid); else favoritDraf.splice(i, 1);
+            renderDaftarFavorit();
+        }
+
+        function geserFavorit(i, arah) {
+            const ada = favoritDraf.filter(function (id) { return allProducts.some(function (p) { return p.id === id; }); });
+            const j = i + arah;
+            if (j < 0 || j >= ada.length) return;
+            const t = ada[i]; ada[i] = ada[j]; ada[j] = t;
+            favoritDraf = ada;
+            renderDaftarFavorit();
+        }
+
+        function simpanDaftarFavorit() {
+            const btn = document.getElementById("favSimpan");
+            const err = document.getElementById("favError");
+            btn.disabled = true;
+            const ids = favoritDraf.filter(function (id) { return allProducts.some(function (p) { return p.id === id; }); });
+            simpanFavorit(ids).then(function () {
+                favoritIds = ids;
+                tutupTambahFavorit();
+                if (kategoriAktif !== "Favorit") pilihKategori("Favorit"); else renderProdukTampil();
+            }).catch(function (error) {
+                err.textContent = "Gagal menyimpan favorit: " + error.message;
+                err.style.display = "block";
+            }).then(function () { btn.disabled = false; });
         }
 
         /* =====================================================
