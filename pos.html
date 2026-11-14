@@ -11,6 +11,7 @@
     <script src="roles.js?v=20261111a"></script>
     <script src="keuangan.js?v=20261110c"></script>
     <script src="kas.js?v=20261027b"></script>
+    <script src="member.js?v=20261114a"></script>
     <script src="stok-batch.js?v=20261110d"></script>
 
     <style>
@@ -152,6 +153,25 @@
         .qty-num { font-size: 12px; font-weight: 700; min-width: 14px; text-align: center; }
 
         .cart-empty { font-size: 12px; color: #6b7280; text-align: center; padding: 24px 0; }
+
+        /* ===== MEMBER (member.js) ===== */
+        .member-box { position: relative; margin-bottom: 10px; }
+        .member-cari { display: flex; align-items: center; gap: 8px; height: 38px; border: 1px dashed #b9c6d8; border-radius: 9px; padding: 0 10px; background: #F7F9FC; }
+        .member-cari:focus-within { border-style: solid; border-color: #12305C; background: #fff; }
+        .member-cari input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; font-size: 12.5px; font-family: inherit; color: #1f2937; height: 100%; }
+        .member-ikon { font-size: 14px; flex-shrink: 0; }
+        .member-hasil { position: absolute; left: 0; right: 0; top: 42px; z-index: 20; background: #fff; border: 1px solid #dde3ea; border-radius: 10px; box-shadow: 0 8px 24px rgba(18,48,92,0.14); max-height: 260px; overflow-y: auto; padding: 4px; }
+        .member-opsi { display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%; text-align: left; border: 0; background: none; padding: 9px 10px; border-radius: 7px; cursor: pointer; font-family: inherit; }
+        .member-opsi:hover, .member-opsi:focus-visible { background: #EEF3FA; outline: none; }
+        .member-opsi .mn { font-size: 12.5px; font-weight: 700; color: #12305C; }
+        .member-opsi .mh { font-size: 12px; color: #52606d; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .member-info { font-size: 11px; color: #6b7280; padding: 8px 10px; }
+        .member-info.peringatan { background: #FFF6E5; color: #8a5a00; border-radius: 7px; margin: 2px 2px 4px; }
+        .member-chip { display: flex; align-items: center; gap: 8px; border: 1px solid #BFD3EE; background: #EEF3FA; border-radius: 9px; padding: 7px 10px; }
+        .member-chip .isi { flex: 1; min-width: 0; }
+        .member-chip .mn { font-size: 12.5px; font-weight: 700; color: #12305C; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .member-chip .mh { font-size: 11px; color: #52606d; font-variant-numeric: tabular-nums; }
+        .member-hapus { width: 24px; height: 24px; border-radius: 6px; border: 1px solid #dde3ea; background: #fff; color: #b03a2e; cursor: pointer; font-size: 13px; line-height: 1; flex-shrink: 0; }
 
         .promo-applied-box {
             background: #E7F6ED; border: 1px solid #BFE6CD; border-radius: 10px;
@@ -1347,6 +1367,7 @@
                                 '<button type="button" class="btn-mini danger" onclick="bersihkanKeranjang()">Bersihkan</button>' +
                             '</div>' +
                         '</div>' +
+                        '<div class="member-box" id="memberBox"></div>' +
                         '<div class="msg-box" id="msgBox"></div>' +
                         '<div id="cartItems"><div class="cart-empty">Belum ada produk dipilih</div></div>' +
                         '<div id="promoAppliedBox"></div>' +
@@ -1362,6 +1383,7 @@
                 '</div>';
 
             renderTombolTersimpan();
+            renderMember();
             document.getElementById("searchBox").addEventListener("input", renderProdukTampil);
         }
 
@@ -1684,8 +1706,112 @@
         function bersihkanKeranjang() {
             cart = {};
             promoDinonaktifkanManual = {};
+            aturMember(null);
             renderCart();
         }
+
+        /* ---------- MEMBER ----------
+           Kasir mengetik nama -> muncul nama + no HP (disamarkan, 4 digit
+           terakhir terlihat). Kalau ada nama yang sama, kasir mencocokkan
+           4 digit terakhir no HP dengan pelanggan. Data dari member.js
+           (nanti API web member). Member ikut tersimpan di transaksi & struk. */
+        let memberAktif = null;          // { id, nama, hp } atau null
+        let memberTimer = null;
+        let memberTokenCari = 0;
+
+        function aturMember(m) {
+            memberAktif = m || null;
+            renderMember();
+        }
+
+        function renderMember() {
+            const box = document.getElementById("memberBox");
+            if (!box) return;
+            if (memberAktif) {
+                box.innerHTML =
+                    '<div class="member-chip">' +
+                        '<span class="member-ikon" aria-hidden="true">👤</span>' +
+                        '<div class="isi"><div class="mn">' + escHtml(memberAktif.nama) + '</div>' +
+                        '<div class="mh">Member · ' + escHtml(memberSamarkanHp(memberAktif.hp)) + '</div></div>' +
+                        '<button type="button" class="member-hapus" title="Lepas member" aria-label="Lepas member" onclick="aturMember(null)">×</button>' +
+                    '</div>';
+                return;
+            }
+            box.innerHTML =
+                '<label class="member-cari" for="memberInput">' +
+                    '<span class="member-ikon" aria-hidden="true">👤</span>' +
+                    '<input type="text" id="memberInput" placeholder="Member: ketik nama pelanggan" autocomplete="off"' +
+                        ' oninput="cariMemberKetik(this.value)" onkeydown="memberTombol(event)" onfocus="cariMemberKetik(this.value)">' +
+                '</label>' +
+                '<div class="member-hasil" id="memberHasil" hidden></div>';
+        }
+
+        function cariMemberKetik(teks) {
+            clearTimeout(memberTimer);
+            const hasil = document.getElementById("memberHasil");
+            if (!hasil) return;
+            if (String(teks || "").trim().length < 2) { hasil.hidden = true; hasil.innerHTML = ""; return; }
+            memberTimer = setTimeout(function () { jalankanCariMember(teks); }, 250);
+        }
+
+        let memberHasilTerakhir = [];
+        function jalankanCariMember(teks) {
+            const token = ++memberTokenCari;
+            const hasil = document.getElementById("memberHasil");
+            hasil.hidden = false;
+            hasil.innerHTML = '<div class="member-info">Mencari...</div>';
+            memberCari(teks).then(function (r) {
+                if (token !== memberTokenCari || !document.getElementById("memberHasil")) return;
+                if (r.status === "belum_tersambung") {
+                    memberHasilTerakhir = [];
+                    hasil.innerHTML = '<div class="member-info">Data member belum tersambung (menunggu API web member).</div>';
+                    return;
+                }
+                memberHasilTerakhir = r.data;
+                if (r.data.length === 0) {
+                    hasil.innerHTML = '<div class="member-info">Member "' + escHtml(teks.trim()) + '" tidak ditemukan.</div>';
+                    return;
+                }
+                // Hitung nama yang sama persis supaya kasir diminta konfirmasi no HP
+                const jumlahNama = {};
+                r.data.forEach(function (m) { const k = m.nama.toLowerCase(); jumlahNama[k] = (jumlahNama[k] || 0) + 1; });
+                const adaKembar = Object.keys(jumlahNama).some(function (k) { return jumlahNama[k] > 1; });
+                hasil.innerHTML =
+                    (adaKembar ? '<div class="member-info peringatan">Ada nama yang sama. Tanyakan no HP pelanggan dan cocokkan 4 digit terakhirnya.</div>' : '') +
+                    r.data.map(function (m, i) {
+                        return '<button type="button" class="member-opsi" onclick="pilihMember(' + i + ')">' +
+                            '<span class="mn">' + escHtml(m.nama) + '</span>' +
+                            '<span class="mh">' + escHtml(memberSamarkanHp(m.hp)) + '</span></button>';
+                    }).join("");
+            }).catch(function (e) {
+                if (token !== memberTokenCari) return;
+                memberHasilTerakhir = [];
+                hasil.innerHTML = '<div class="member-info">Gagal mencari member: ' + escHtml(e.message) + '</div>';
+            });
+        }
+
+        function pilihMember(i) {
+            const m = memberHasilTerakhir[i];
+            if (m) aturMember({ id: m.id, nama: m.nama, hp: m.hp });
+        }
+
+        function memberTombol(ev) {
+            const hasil = document.getElementById("memberHasil");
+            if (ev.key === "Escape") { hasil.hidden = true; ev.target.blur(); return; }
+            if (ev.key === "Enter") {
+                ev.preventDefault();
+                if (!hasil.hidden && memberHasilTerakhir.length === 1) pilihMember(0);
+                else { const b = hasil.querySelector(".member-opsi"); if (b) b.focus(); }
+            }
+            if (ev.key === "ArrowDown") { ev.preventDefault(); const b = hasil.querySelector(".member-opsi"); if (b) b.focus(); }
+        }
+
+        // Tutup daftar hasil kalau klik di luar kolom member
+        document.addEventListener("click", function (ev) {
+            const box = document.getElementById("memberBox");
+            const hasil = document.getElementById("memberHasil");
+            if (box && hasil && !box.contains(ev.target)) hasil.hidden = true;
+        });
 
         function renderCart() {
             sinkronPromoOtomatis();
@@ -1867,6 +1993,7 @@
                 .map(function (d) { return { nama: d.nama, jumlah: d.jumlah }; });
             return Object.assign({
                 outlet: currentUser.outlet, kasirNama: currentUser.nama, mode: modeAktif, waktu: new Date(),
+                member: memberAktif ? { nama: memberAktif.nama, hpSamar: memberSamarkanHp(memberAktif.hp) } : null,
                 items: items, jumlahPcs: r.jumlahPcs, subtotal: r.subtotal, promo: promo, diskon: r.diskon, total: r.total
             }, extra || {});
         }
@@ -1882,6 +2009,7 @@
             h += baris("Tanggal", fmtWaktu(d.waktu));
             h += baris("Kasir", escHtml(d.kasirNama || "-"));
             h += baris("Mode", escHtml(d.mode));
+            if (d.member) h += baris("Member", escHtml(d.member.nama) + '<br><span class="rc-kecil">' + escHtml(d.member.hpSamar) + '</span>');
             h += '<div class="rc-hr"></div>';
             d.items.forEach(function (it) {
                 const tambahan = (it.toppings.length ? '<br><span class="rc-kecil">+ ' + escHtml(it.toppings.join(", ")) + '</span>' : '') +
@@ -2175,6 +2303,7 @@
 
             const trxRef = db.collection("transactions").doc();
             const noNota = buatNoNota(trxRef.id);
+            const memberTransaksi = memberAktif ? { id: memberAktif.id, nama: memberAktif.nama, hp: memberAktif.hp || "" } : null;
             const snapshotStruk = buatSnapshotStruk(r, {
                 draft: false, noNota: noNota, metode: metodeBayar,
                 uangDiterima: bayar.diterima, kembalian: bayar.kembalian
@@ -2232,6 +2361,8 @@
                         promoDipakai: promoResult.promoDipakai, total: total, metodeBayar: metodeBayar,
                         uangDiterima: bayar.diterima, kembalian: bayar.kembalian,
                         modePenjualan: modeAktif, status: "aktif",
+                        // Member pelanggan (member.js), null kalau bukan member
+                        member: memberTransaksi,
                         waktu: firebase.firestore.FieldValue.serverTimestamp()
                     });
                 });
@@ -2242,6 +2373,7 @@
                 transaksiTerakhir = snapshotStruk;
                 cart = {};
                 promoDinonaktifkanManual = {};
+                aturMember(null);
                 renderCart();
                 sedangMemproses = false;
                 document.getElementById("modalKonfirmasiBayar").classList.remove("open");
@@ -2318,7 +2450,7 @@
         function bukaSimpan() {
             if (Object.keys(cart).length === 0) return;
             const r = ringkasanKeranjang();
-            document.getElementById("simpanNama").value = "";
+            document.getElementById("simpanNama").value = memberAktif ? memberAktif.nama : "";
             document.getElementById("simpanCatatan").value = "";
             document.getElementById("simpanRingkas").innerHTML =
                 '<b>' + r.entries.length + ' baris · ' + r.jumlahPcs + ' pcs · ' + rp(r.total) + '</b><br>Keranjang akan dikosongkan setelah disimpan.';
@@ -2341,7 +2473,7 @@
                 nama: document.getElementById("simpanNama").value.trim() || "Tanpa nama",
                 catatan: document.getElementById("simpanCatatan").value.trim(),
                 mode: modeAktif, cart: cartBersih, promoOff: promoDinonaktifkanManual,
-                total: r.total, waktu: Date.now()
+                member: memberAktif, total: r.total, waktu: Date.now()
             });
 
             if (!tulisTersimpan(daftar.slice(0, 20))) {
@@ -2352,6 +2484,7 @@
 
             cart = {};
             promoDinonaktifkanManual = {};
+            aturMember(null);
             tutupSimpan();
             renderCart();
             tampilkanPesan("Transaksi disimpan. Lanjutkan lewat tombol Tersimpan.", "success");
@@ -2410,6 +2543,7 @@
             }
             cart = x.cart;
             promoDinonaktifkanManual = x.promoOff || {};
+            aturMember(x.member || null);
             tulisTersimpan(daftar.filter(function (y) { return y.id !== id; }));
             tutupTersimpan();
             renderCart();
