@@ -177,6 +177,22 @@
             background: #ffffff; border: 1px solid #dde3ea; border-radius: 14px;
             padding: 18px; display: flex; flex-direction: column;
         }
+        /* Keranjang tetap terlihat saat daftar produk digulir; kalau itemnya
+           banyak, yang bergulir hanya daftar item, Total & Bayar tetap tampil. */
+        @media (min-width: 901px) {
+            .pos-grid .cart-card { position: sticky; top: 16px; max-height: calc(100vh - 32px); }
+            .pos-grid .cart-card > * { flex-shrink: 0; }
+            .pos-grid .cart-card > #cartItems { flex-shrink: 1; min-height: 60px; overflow-y: auto; }
+        }
+
+        /* Judul kelompok produk (tab Semua / kategori) */
+        .grup-judul {
+            grid-column: 1 / -1; display: flex; align-items: baseline; gap: 8px;
+            font-size: 12px; font-weight: 800; color: #12305C; text-transform: uppercase; letter-spacing: 0.04em;
+            padding: 6px 2px 0; border-bottom: 1px solid #e8ecf1; padding-bottom: 6px;
+        }
+        .grup-judul:first-child { padding-top: 0; }
+        .grup-judul .jml { font-size: 11px; font-weight: 600; color: #8A95A5; text-transform: none; letter-spacing: 0; }
         .cart-title { font-size: 15px; font-weight: 700; margin-bottom: 12px; }
 
         .cart-item { padding: 10px 0; border-bottom: 1px solid #e8ecf1; }
@@ -1601,9 +1617,37 @@
             });
             if (modeFavorit) {
                 filtered.sort(function (a, b) { return favoritIds.indexOf(a.id) - favoritIds.indexOf(b.id); });
+            } else if (kategoriAktif !== "Topping") {
+                filtered = kelompokkanProduk(filtered);
             }
 
             renderProductGrid(filtered, modeFavorit);
+        }
+
+        /* Kelompokkan per detail kategori (urutan seperti di Pengaturan),
+           stok habis di akhir tiap kelompok. Hasil: daftar produk dengan
+           penanda judul { _judul, _jumlah }. Satu kelompok saja = tanpa judul. */
+        function kelompokkanProduk(daftar) {
+            const urutDetail = (typeof DETAIL_KATEGORI !== "undefined") ? DETAIL_KATEGORI.map(function (d) { return d.nama; }) : [];
+            const grup = {};
+            daftar.forEach(function (p) {
+                const g = p.kategori === "Topping" ? "Topping" : (p.detailKategori || "Lainnya");
+                (grup[g] = grup[g] || []).push(p);
+            });
+            const nama = Object.keys(grup).sort(function (a, b) {
+                const ia = urutDetail.indexOf(a), ib = urutDetail.indexOf(b);
+                return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib) || a.localeCompare(b);
+            });
+            const habis = function (p) { return p.kategori !== "Topping" && !((stockMap[p.id] || 0) > 0); };
+            const hasil = [];
+            nama.forEach(function (g) {
+                const isi = grup[g].slice().sort(function (a, b) {
+                    return (habis(a) ? 1 : 0) - (habis(b) ? 1 : 0) || (a.nama || "").localeCompare(b.nama || "");
+                });
+                if (nama.length > 1) hasil.push({ _judul: g, _jumlah: isi.length });
+                isi.forEach(function (p) { hasil.push(p); });
+            });
+            return hasil;
         }
 
         function renderProductGrid(products, modeFavorit) {
@@ -1625,6 +1669,13 @@
             }
 
             products.forEach(function (p) {
+                if (p._judul) {
+                    const judul = document.createElement("div");
+                    judul.className = "grup-judul";
+                    judul.innerHTML = escapeHtmlAman(p._judul) + ' <span class="jml">' + p._jumlah + ' produk</span>';
+                    grid.appendChild(judul);
+                    return;
+                }
                 const isTopping = p.kategori === "Topping";
                 const stok = stockMap[p.id] !== undefined ? stockMap[p.id] : 0;
 
