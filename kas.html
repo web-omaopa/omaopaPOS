@@ -297,7 +297,7 @@
             <div class="kat-pilih" id="pgKategoriPilih"></div>
             <div class="fld-lbl">Catatan</div>
             <input type="text" class="fld-in" id="pgKeterangan" maxlength="120" placeholder="Contoh: beli es batu 2 bungkus">
-            <div class="fld-lbl">Foto bukti / nota <span style="font-weight:400; color:#8A95A5;">(opsional)</span></div>
+            <div class="fld-lbl">Foto bukti / nota <span style="color:#B03A2E;">* wajib</span></div>
             <div class="bukti-kotak" id="pgBuktiKotak" onclick="pilihBukti()"><span class="plus">📷</span>Tambah foto</div>
             <input type="file" id="pgBuktiFile" accept="image/*" style="display:none;" onchange="uploadBukti(this)">
             <div class="bukti-status" id="pgBuktiStatus"></div>
@@ -978,7 +978,7 @@
 
         function cekFormPengeluaran() {
             document.getElementById("pgSimpan").disabled =
-                sedangUploadBukti || kasParseAngka(document.getElementById("pgNominal").value) <= 0;
+                sedangUploadBukti || !buktiUrlForm || kasParseAngka(document.getElementById("pgNominal").value) <= 0;
         }
 
         function aturBukti(url) {
@@ -988,6 +988,8 @@
                 : '<span class="plus">📷</span>Tambah foto';
             document.getElementById("pgBuktiStatus").textContent = "";
             document.getElementById("pgBuktiFile").value = "";
+            if (url) document.getElementById("pgError").style.display = "none";
+            cekFormPengeluaran();
         }
 
         function pilihBukti() {
@@ -1028,6 +1030,7 @@
             const dariLaci = bolehKelolaSemua() ? document.getElementById("pgDariLaci").checked : true;
             if (!outlet) return tampilError("Pilih outlet.");
             if (nominal <= 0) return tampilError("Isi jumlah pengeluaran.");
+            if (!buktiUrlForm) return tampilError("Foto bukti / nota wajib diupload.");
 
             const btn = document.getElementById("pgSimpan");
             btn.disabled = true; btn.textContent = "Menyimpan...";
