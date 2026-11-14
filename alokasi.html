@@ -765,7 +765,7 @@
                 '<input type="text" class="rusak-ket" id="rusakJenisLain" maxlength="80" placeholder="Tulis alasannya, contoh: dikerubungi semut" style="display:none; margin-bottom:8px;">' +
                 '<div class="foto-rusak">' +
                     '<div class="foto-kotak" id="rusakFotoKotak" onclick="Rusak_pilihFoto()"><span style="font-size:20px;">\ud83d\udcf7</span>Foto</div>' +
-                    '<div><div style="font-size:11.5px; font-weight:700;">Foto kue (opsional)</div><div class="foto-status" id="rusakFotoStatus">Membantu admin memeriksa sebelum ACC.</div></div>' +
+                    '<div><div style="font-size:11.5px; font-weight:700;">Foto kue<span style="color:#c0392b;">*</span></div><div class="foto-status" id="rusakFotoStatus">Untuk diperiksa admin sebelum ACC.</div></div>' +
                 '</div>' +
                 '<input type="file" id="rusakFotoFile" accept="image/*" style="display:none;" onchange="Rusak_uploadFoto(this)">' +
                 '<div class="msg-box" id="rusakMsg" style="margin-top:8px; margin-bottom:0;"></div>' +
@@ -785,7 +785,7 @@
             if (lain) el.focus();
         }
 
-        /* Foto kue rusak (opsional): diupload lewat api/upload-foto.php
+        /* Foto kue rusak (wajib): diupload lewat api/upload-foto.php
            (jenis bukti, boleh role kasir) memakai kasUploadBukti dari kas.js */
         let rusakFotoUrl = "";
         let rusakSedangUpload = false;
@@ -798,7 +798,7 @@
             document.getElementById("rusakFotoFile").value = "";
             const st = document.getElementById("rusakFotoStatus");
             st.style.color = url ? "#1e7d32" : "#52606d";
-            st.textContent = url ? "Foto terupload \u2713" : "Membantu admin memeriksa sebelum ACC.";
+            st.textContent = url ? "Foto terupload \u2713" : "Untuk diperiksa admin sebelum ACC.";
         }
 
         function Rusak_pilihFoto() {
@@ -817,6 +817,8 @@
             st.textContent = "Mengupload foto...";
             kasUploadBukti(file).then(function (url) {
                 Rusak_aturFoto(url);
+                const box = document.getElementById("rusakMsg");
+                if (box && box.classList.contains("msg-error")) box.style.display = "none";
             }).catch(function (e) {
                 input.value = "";
                 st.style.color = "#c0392b";
@@ -862,6 +864,7 @@
             if (!produk) return Rusak_pesan("Pilih menu yang rusak.", "error");
             if (!(qty > 0)) return Rusak_pesan("Isi jumlah kue yang rusak.", "error");
             if (!jenis) return Rusak_pesan("Pilih alasannya.", "error");
+            if (!rusakFotoUrl) return Rusak_pesan("Foto kue wajib diupload.", "error");
             if (jenis === "Lainnya") {
                 jenis = document.getElementById("rusakJenisLain").value.trim();
                 if (!jenis) return Rusak_pesan("Tulis alasannya di kolom yang muncul.", "error");
