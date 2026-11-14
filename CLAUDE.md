@@ -28,6 +28,7 @@ users, outlets, products, stock, transfer_stok, promo, mode_penjualan,
 laporan_stok, kategori_produk, transactions, alokasi_log,
 ringkasan_harian (penjualan/diskon/qty/cogs per detail kategori), detail_kategori (akun detail tambahan, lihat `keuangan.js`),
 products.hpp = HPP Rp per pcs (COGS & nilai waste di Laba Rugi; item transaksi menyimpan `hpp` saat dijual),
+favorit_pos (ID = nama outlet: `produkIds` urutan tab Favorit di Kasir; kasir boleh ubah outletnya sendiri),
 sesi_kas, pengeluaran (skema di komentar atas `kas.js`),
 waste_stok (skema di komentar atas `stok-batch.js`)
 
