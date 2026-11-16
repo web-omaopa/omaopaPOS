@@ -10,7 +10,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
     <script src="roles.js?v=20261116b"></script>
     <script src="keuangan.js?v=20261110c"></script>
-    <script src="stok-batch.js?v=20261110d"></script>
+    <script src="stok-batch.js?v=20261116a"></script>
     <script src="kas.js?v=20261027b"></script>
 
     <!-- Download Excel & PDF -->
@@ -1519,6 +1519,9 @@
                         const d = doc.data({ serverTimestamps: "estimate" });
                         if (d.status && d.status !== "aktif") return;
                         d._waktu = d.waktu && d.waktu.toDate ? d.waktu.toDate() : new Date(0);
+                        // Waste kedaluwarsa ditampilkan pada saat kuenya kedaluwarsa (bisa lebih awal
+                        // dari saat dicatat, karena dicatat ketika aplikasi dibuka)
+                        if (d.alasan === "kedaluwarsa" && d.kedaluwarsaMs && d.kedaluwarsaMs < d._waktu.getTime()) d._waktu = new Date(d.kedaluwarsaMs);
                         hasil.push(d);
                     });
                     hasil.sort(function (a, b) { return b._waktu - a._waktu; });
