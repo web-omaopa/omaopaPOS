@@ -143,6 +143,8 @@
         .pilih-batch label { display: flex; align-items: center; gap: 8px; padding: 3px 0; color: #1f2937; cursor: pointer; }
         .pilih-batch input { accent-color: #12305C; }
         .pilih-batch .n { color: #6b7280; }
+        .rincian-kirim { margin-top: 6px; padding-top: 6px; border-top: 1px dashed #d7dee8; color: #1e7d32; font-size: 11.5px; }
+        .rincian-kirim.campur { color: #9A6B1C; }
         .li .kiri { display: block; min-width: 0; }
         .cb-baru { display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 10.5px; color: #52606d; margin-top: 4px; white-space: nowrap; cursor: pointer; }
 
@@ -564,6 +566,7 @@
         function ubahPilihBatch(tid, pid, nilai) {
             if (!pilihBatch[tid]) pilihBatch[tid] = {};
             pilihBatch[tid][pid] = nilai;
+            renderTetap();   // perbarui rincian kue yang diambil
         }
 
         // Pantau daftar outlet; panggil lanjut() sekali setelah termuat pertama (atau gagal)
@@ -1613,8 +1616,18 @@
                             ' onchange="ubahPilihBatch(\'' + t.id + '\', \'' + esc(it.productId) + '\', \'' + nilai + '\')"> ' +
                             label + ' <span class="n">\u00b7 s/d ' + esc(teksBerlaku(g.ms)) + ' \u00b7 ada ' + g.qty + '</span></label>';
                     };
+                    // Rincian yang akan diambil (bisa campuran lama + baru kalau satu kelompok tidak cukup)
+                    let rincian = "";
+                    try {
+                        const ambil = kelompokBerlaku(ambilUntukKirim(aktif, it.jumlah, pilih).diambil);
+                        const teks = ambil.map(function (g) { return '<b>' + g.qty + ' pcs</b> s/d ' + esc(teksBerlaku(g.ms)); }).join(" + ");
+                        rincian = '<div class="rincian-kirim' + (ambil.length > 1 ? ' campur' : '') + '">' +
+                            (ambil.length > 1 ? 'Campuran: ambil ' : 'Ambil ') + teks + '</div>';
+                    } catch (e) {
+                        rincian = '<div class="rincian-kirim campur">Stok tidak cukup untuk ' + it.jumlah + ' pcs.</div>';
+                    }
                     info += '<div class="pilih-batch"><div class="jdl">Kue mana yang dikirim?</div>' +
-                        opsi("lama", "Yang lama dulu", lama) + opsi("baru", "Yang baru", baru) + '</div>';
+                        opsi("lama", "Yang lama dulu", lama) + opsi("baru", "Yang baru", baru) + rincian + '</div>';
                 } else if (grup.length === 1) {
                     info += htmlBerlaku(grup[0].ms);
                 }
