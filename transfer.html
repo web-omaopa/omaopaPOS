@@ -122,16 +122,23 @@
         .loading-state, .empty-state { text-align: center; color: #6b7280; font-size: 12px; padding: 30px 0; }
 
         /* ===== Rute transfer lintas area (forecaster/admin) ===== */
-        .rute-box { background: #fff; border: 1px solid #dde3ea; border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; }
-        .rute-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
-        .rute-head b { font-size: 13.5px; color: #12305C; }
-        .rute-sub { font-size: 11.5px; color: #6b7280; margin-bottom: 10px; }
         .rute-item { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 10px; border: 1px solid #eef1f5; border-radius: 9px; margin-bottom: 6px; font-size: 12.5px; }
         .rute-item .o { font-weight: 700; color: #1f2937; }
         .rute-item .a { font-size: 10.5px; color: #6b7280; font-weight: 600; background: #F1F4F8; border-radius: 8px; padding: 1px 7px; }
         .rute-item .panah { color: #E8A33D; font-weight: 800; }
         .rute-item .hapus { margin-left: auto; font-size: 11px; color: #b03a2e; font-weight: 700; border: 1px solid #f1d5d2; border-radius: 7px; padding: 4px 10px; background: #fff; cursor: pointer; font-family: inherit; }
-        .rute-kosong { font-size: 12px; color: #8A95A5; padding: 6px 0 2px; }
+        .rute-kosong { font-size: 12px; color: #8A95A5; padding: 12px 0; text-align: center; }
+        .btn-rute { margin-left: auto; }
+        .btn-rute .n { display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 4px; border-radius: 9px; background: #E8A33D; color: #fff; font-size: 10px; font-weight: 800; line-height: 16px; text-align: center; }
+        .rute-tambah { display: flex; align-items: center; gap: 8px; }
+        .rute-tambah .pm-select { flex: 1; min-width: 0; }
+        .rute-tambah .pm-panah { margin: 0; }
+        .rute-tambah .btn { height: 36px; flex-shrink: 0; }
+        @media (max-width: 560px) { .rute-tambah { flex-wrap: wrap; } .rute-tambah .pm-panah { display: none; } .rute-tambah .pm-select, .rute-tambah .btn { flex: 1 1 100%; } }
+        .rute-daftar-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 16px 0 8px; }
+        .rute-cari { height: 30px; border: 1px solid #d1d5db; border-radius: 6px; padding: 0 10px; font-size: 12px; width: 160px; font-family: inherit; }
+        .rute-daftar { max-height: 300px; overflow-y: auto; border: 1px solid #eef1f5; border-radius: 10px; padding: 6px; }
+        .rute-daftar .rute-item:last-child { margin-bottom: 0; }
         .tag-rute { display: inline-block; font-size: 9.5px; font-weight: 800; color: #9A6B1C; background: #FFF1D6; border-radius: 8px; padding: 1px 6px; margin-top: 2px; }
 
         /* ===== Masa berlaku & pilihan kue lama/baru ===== */
@@ -235,19 +242,26 @@
         </div>
     </div>
 
-    <!-- Modal tambah rute lintas area (forecaster/admin) -->
+    <!-- Modal rute lintas area (forecaster/admin): tambah + daftar -->
     <div class="modal-backdrop" id="modalRute" onclick="if (event.target === this) tutupRute()">
-        <div class="modal-box" style="max-width:420px;">
-            <div class="modal-title">Tambah Rute Lintas Area</div>
-            <div class="modal-desc">Pilih dua outlet dari area berbeda yang boleh saling transfer. Rute berlaku dua arah: kasir kedua outlet bisa saling mengajukan permintaan.</div>
-            <div class="pm-label" style="margin-top:14px;">OUTLET 1</div>
-            <select class="pm-select" id="ruteA" onchange="isiPilihanRuteB()"></select>
-            <div class="pm-label" style="margin-top:10px;">OUTLET 2 (area lain)</div>
-            <select class="pm-select" id="ruteB"></select>
+        <div class="modal-box" style="max-width:520px;">
+            <div class="modal-title">🔀 Rute Lintas Area</div>
+            <div class="modal-desc">Outlet beda area yang boleh saling transfer (dua arah). Kasir kedua outlet bisa saling mengajukan permintaan.</div>
+            <div class="pm-label" style="margin-top:14px;">TAMBAH RUTE</div>
+            <div class="rute-tambah">
+                <select class="pm-select" id="ruteA" onchange="isiPilihanRuteB()" aria-label="Outlet 1"></select>
+                <span class="pm-panah" aria-hidden="true">&#8644;</span>
+                <select class="pm-select" id="ruteB" aria-label="Outlet 2 (area lain)"></select>
+                <button class="btn btn-primary" id="btnSimpanRute" onclick="simpanRute()">Tambah</button>
+            </div>
             <div class="pm-error" id="ruteError" style="display:none;"></div>
+            <div class="rute-daftar-head">
+                <div class="pm-label" style="margin:0;" id="ruteJudulDaftar">RUTE TERSIMPAN</div>
+                <input type="text" class="rute-cari" id="ruteCari" placeholder="Cari outlet..." oninput="renderDaftarRute()" autocomplete="off">
+            </div>
+            <div class="rute-daftar" id="ruteDaftar"></div>
             <div class="pm-aksi">
-                <button class="btn" onclick="tutupRute()">Batal</button>
-                <button class="btn btn-primary" id="btnSimpanRute" style="flex:1.3;" onclick="simpanRute()">Simpan rute</button>
+                <button class="btn" onclick="tutupRute()">Tutup</button>
             </div>
         </div>
     </div>
@@ -427,6 +441,7 @@
                 ruteTransfer.sort(function (p, q) { return (p.a + p.b).localeCompare(q.a + q.b); });
                 if (transferSiap) renderTetap();
                 if (pmDasarOlah) pmDasarOlah();
+                if (document.getElementById("modalRute").classList.contains("tampil")) { renderDaftarRute(); isiPilihanRuteB(); }
             }, function (e) {
                 console.warn("Rute transfer belum bisa dibaca:", e.message);
                 ruteTransfer = [];
@@ -434,29 +449,47 @@
             });
         }
 
-        function htmlKotakRute() {
+        // Tombol ringkas di baris filter Area; daftar & tambah rute ada di jendela
+        function htmlTombolRute() {
+            return '<button class="btn btn-sm btn-rute" onclick="bukaRute()">\ud83d\udd00 Rute lintas area' +
+                (ruteTransfer.length ? '<span class="n">' + ruteTransfer.length + '</span>' : '') + '</button>';
+        }
+
+        function renderDaftarRute() {
+            const wadah = document.getElementById("ruteDaftar");
+            if (!wadah) return;
             const area = function (o) { return areaOutletFc[o] || "Area 1"; };
-            let html = '<div class="rute-box"><div class="rute-head"><b>🔀 Rute transfer lintas area</b>' +
-                '<button class="btn btn-primary btn-sm" onclick="bukaRute()">+ Tambah rute</button></div>' +
-                '<div class="rute-sub">Outlet beda area yang boleh saling transfer (dua arah). Kasir kedua outlet bisa saling mengajukan permintaan.</div>';
-            if (ruteTransfer.length === 0) {
-                html += '<div class="rute-kosong">Belum ada rute. Permintaan kasir hanya antar outlet se-area.</div>';
-            } else {
-                ruteTransfer.forEach(function (r) {
-                    html += '<div class="rute-item"><span class="o">' + esc(r.a) + '</span><span class="a">' + esc(area(r.a)) + '</span>' +
-                        '<span class="panah" aria-label="dua arah">⇄</span>' +
-                        '<span class="o">' + esc(r.b) + '</span><span class="a">' + esc(area(r.b)) + '</span>' +
-                        '<button class="hapus" onclick="hapusRute(\'' + esc(r.id) + '\')">Hapus</button></div>';
-                });
+            const cari = (document.getElementById("ruteCari").value || "").trim().toLowerCase();
+            const daftar = ruteTransfer.filter(function (r) {
+                return !cari || (r.a + " " + r.b).toLowerCase().indexOf(cari) !== -1;
+            });
+            document.getElementById("ruteJudulDaftar").textContent = "RUTE TERSIMPAN (" + ruteTransfer.length + ")";
+            document.getElementById("ruteCari").style.display = ruteTransfer.length > 5 ? "" : "none";
+            if (daftar.length === 0) {
+                wadah.innerHTML = '<div class="rute-kosong">' + (ruteTransfer.length ? "Tidak ada rute yang cocok." : "Belum ada rute. Permintaan kasir hanya antar outlet se-area.") + '</div>';
+                return;
             }
-            return html + '</div>';
+            wadah.innerHTML = daftar.map(function (r) {
+                return '<div class="rute-item"><span class="o">' + esc(r.a) + '</span><span class="a">' + esc(area(r.a)) + '</span>' +
+                    '<span class="panah" aria-label="dua arah">\u21c4</span>' +
+                    '<span class="o">' + esc(r.b) + '</span><span class="a">' + esc(area(r.b)) + '</span>' +
+                    '<button class="hapus" onclick="hapusRute(\'' + esc(r.id) + '\')">Hapus</button></div>';
+            }).join("");
+        }
+
+        function isiPilihanRuteA() {
+            const daftar = Object.keys(areaOutletFc).sort();
+            const sel = document.getElementById("ruteA");
+            const lama = sel.value;
+            sel.innerHTML = daftar.map(function (o) { return '<option value="' + esc(o) + '">' + esc(o) + ' \u00b7 ' + esc(areaOutletFc[o]) + '</option>'; }).join("");
+            if (daftar.indexOf(lama) !== -1) sel.value = lama;
+            isiPilihanRuteB();
         }
 
         function bukaRute() {
-            const daftar = Object.keys(areaOutletFc).sort();
-            const sel = document.getElementById("ruteA");
-            sel.innerHTML = daftar.map(function (o) { return '<option value="' + esc(o) + '">' + esc(o) + ' · ' + esc(areaOutletFc[o]) + '</option>'; }).join("");
-            isiPilihanRuteB();
+            document.getElementById("ruteCari").value = "";
+            isiPilihanRuteA();
+            renderDaftarRute();
             document.getElementById("ruteError").style.display = "none";
             document.getElementById("btnSimpanRute").disabled = false;
             document.getElementById("modalRute").classList.add("tampil");
@@ -489,7 +522,10 @@
                 a: urut[0], b: urut[1],
                 dibuatUid: auth.currentUser.uid, dibuatNama: currentUser.nama || "",
                 dibuatPada: firebase.firestore.FieldValue.serverTimestamp()
-            }).then(tutupRute).catch(function (e) {
+            }).then(function () {
+                btn.disabled = false;
+                isiPilihanRuteB();   // daftar rute diperbarui otomatis oleh listener
+            }).catch(function (e) {
                 btn.disabled = false;
                 salah(e.code === "permission-denied" ? "Akun ini tidak punya izin mengatur rute (aturan Firestore)." : "Gagal menyimpan: " + e.message);
             });
@@ -778,10 +814,10 @@
             });
             daftarArea.sort();
 
-            let html = htmlKotakRute() + '<div class="fc-bar"><span class="fc-label">Area</span>' +
+            let html = '<div class="fc-bar"><span class="fc-label">Area</span>' +
                 '<select class="fc-select" onchange="gantiAreaFc(this.value)"><option value="">Semua area</option>' +
                 daftarArea.map(function (a) { return '<option value="' + esc(a) + '"' + (a === areaFc ? ' selected' : '') + '>' + esc(a) + '</option>'; }).join("") +
-                '</select></div>';
+                '</select>' + htmlTombolRute() + '</div>';
 
             html += '<div class="tabs">' +
                 tombolTabFc("acc", "Perlu ACC", grup.acc.length, "#6B3FA0") +
