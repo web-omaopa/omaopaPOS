@@ -111,7 +111,7 @@
         .acc-kolom.tambahan h3 .n { background: #E8A33D; }
         .acc-kolom.tambahan h3 .n.nol, .acc-kolom.pagi h3 .n.nol { background: #c3cbd6; }
         .acc-kolom.tambahan .laporan-card { border-color: #F3D9A4; background: #FFFCF5; }
-        .acc-kosong { border: 1.5px dashed #dde3ea; border-radius: 12px; padding: 22px; text-align: center; font-size: 12px; color: #8A95A5; }
+        .acc-kosong { border: 1.5px dashed #cfe3d4; background: #F6FBF7; border-radius: 12px; padding: 18px; text-align: center; font-size: 12px; color: #1e7d32; font-weight: 700; }
 
         /* Waste */
         .waste-box { margin-top: 28px; }
@@ -648,8 +648,8 @@
                             (daftar.length ? daftar.map(kartu).join("") : '<div class="acc-kosong">' + kosong + '</div>') + '</div>';
                     };
                     container.innerHTML = '<div class="acc-grid">' +
-                        kolom("pagi", "\ud83c\udf05 Stok pagi", pagi, "Tidak ada laporan stok pagi yang menunggu ACC.") +
-                        kolom("tambahan", "\ud83d\ude9a Tambahan dari pabrik", tambahan, "Tidak ada kiriman tambahan yang menunggu ACC.") +
+                        kolom("pagi", "\ud83c\udf05 Stok pagi", pagi, "\u2713 Semua laporan stok pagi sudah di-ACC") +
+                        kolom("tambahan", "\ud83d\ude9a Tambahan dari pabrik", tambahan, "\u2713 Tidak ada kiriman tambahan yang menunggu") +
                         '</div>';
 
                     kembalikanNilaiInput(stateInput);
