@@ -8,7 +8,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
-    <script src="roles.js?v=20261111a"></script>
+    <script src="roles.js?v=20261116a"></script>
     <script src="stok-batch.js?v=20261110d"></script>
     <script src="kas.js?v=20261027b"></script>
 
@@ -88,6 +88,31 @@
         .sisa-info { font-size: 10.5px; margin-top: 3px; color: #52606d; }
         .sisa-info.waste { color: #b03a2e; font-weight: 700; }
 
+        /* Jenis laporan: Stok pagi / Kiriman tambahan dari pabrik */
+        .jenis-lapor { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 4px 0 14px; }
+        @media (max-width: 560px) { .jenis-lapor { grid-template-columns: 1fr; } }
+        .jenis-opsi { border: 1.5px solid #dde3ea; border-radius: 12px; padding: 12px 14px; background: #fff; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; text-align: left; font-family: inherit; width: 100%; }
+        .jenis-opsi:hover { border-color: #12305C; }
+        .jenis-opsi:focus-visible { outline: 2px solid #12305C; outline-offset: 2px; }
+        .jenis-opsi .ik { font-size: 20px; line-height: 1; }
+        .jenis-opsi b { display: block; font-size: 13px; color: #12305C; }
+        .jenis-opsi .ket { display: block; font-size: 11px; color: #6b7280; margin-top: 2px; line-height: 1.45; }
+        .jenis-opsi.on { border-color: #12305C; background: #EEF3FA; box-shadow: 0 0 0 1px #12305C inset; }
+        .jadi-info { font-size: 10.5px; color: #1e7d32; font-weight: 700; margin-top: 2px; }
+        .badge-jenis { display: inline-block; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 9px; margin-left: 6px; vertical-align: middle; }
+        .badge-jenis.pagi { background: #EEF3FA; color: #12305C; }
+        .badge-jenis.tambahan { background: #FFF1D6; color: #9A6B1C; }
+
+        /* Approval dua kolom: kiri stok pagi, kanan tambahan dari pabrik */
+        .acc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
+        @media (max-width: 900px) { .acc-grid { grid-template-columns: 1fr; } }
+        .acc-kolom h3 { font-size: 13px; margin: 0 0 10px; display: flex; align-items: center; gap: 8px; color: #12305C; }
+        .acc-kolom h3 .n { font-size: 11px; font-weight: 800; background: #12305C; color: #fff; border-radius: 10px; padding: 1px 8px; }
+        .acc-kolom.tambahan h3 .n { background: #E8A33D; }
+        .acc-kolom.tambahan h3 .n.nol, .acc-kolom.pagi h3 .n.nol { background: #c3cbd6; }
+        .acc-kolom.tambahan .laporan-card { border-color: #F3D9A4; background: #FFFCF5; }
+        .acc-kosong { border: 1.5px dashed #dde3ea; border-radius: 12px; padding: 22px; text-align: center; font-size: 12px; color: #8A95A5; }
+
         /* Waste */
         .waste-box { margin-top: 28px; }
         .waste-box h3 { font-size: 13px; margin-bottom: 4px; }
@@ -137,22 +162,13 @@
         auth.onAuthStateChanged(function (user) {
             if (!user) { window.location.href = "index.html"; return; }
 
-            const savedUser = sessionStorage.getItem("omaopa_user");
-            if (savedUser) {
-                currentUser = JSON.parse(savedUser);
+            // Data akun (role & outlet) selalu dibaca ulang dari database,
+            // supaya perubahan dari Pengaturan langsung berlaku (roles.js).
+            muatUserAktif(db, user).then(function (dataUser) {
+                if (!dataUser) { window.location.href = "index.html"; return; }
+                currentUser = dataUser;
                 siapkanRole(currentUser.role, mulaiHalaman);
-            } else {
-                db.collection("users").doc(user.uid).get().then(function (doc) {
-                    if (doc.exists) {
-                        currentUser = doc.data();
-                        currentUser.uid = user.uid;
-                        sessionStorage.setItem("omaopa_user", JSON.stringify(currentUser));
-                        siapkanRole(currentUser.role, mulaiHalaman);
-                    } else {
-                        window.location.href = "index.html";
-                    }
-                });
-            }
+            });
         });
 
         /* =====================================================
@@ -215,7 +231,8 @@
                 '</div>' +
                 '<div class="header-outlet">\ud83d\udccd Outlet: ' + escapeHtmlAman(currentUser.outlet) + '</div>' +
                 '<div class="msg-box" id="msgBox"></div>' +
-                '<div id="produkListLapor"><div class="loading-state">Memuat menu...</div></div>' +
+                '<div class="jenis-lapor" id="jenisLapor" role="radiogroup" aria-label="Jenis laporan"></div>' +
+                '<div id="produkListLapor" oninput="Kasir_perbaruiJadi()"><div class="loading-state">Memuat menu...</div></div>' +
                 '<div style="margin-top:14px;">' +
                     '<label style="display:block; font-size:12px; font-weight:700; margin-bottom:6px;">Catatan (opsional)</label>' +
                     '<textarea id="catatanLapor" placeholder="Contoh: 5 Malmil Cheese datang penyok, dll." style="width:100%; min-height:64px; padding:10px 12px; border:1px solid #d1d5db; border-radius:6px; font-size:12px; font-family:inherit; resize:vertical;"></textarea>' +
@@ -225,6 +242,7 @@
                 '<div id="riwayatListLapor"><div class="loading-state">Memuat riwayat...</div></div>' +
                 '<div class="waste-box" id="rusakBox"></div>';
 
+            Kasir_renderJenis();
             Kasir_loadProduk();
             Kasir_dengarkanStok();
             Kasir_loadRiwayat();
@@ -287,11 +305,10 @@
                 const stateInput = simpanNilaiInput(container, false);
 
                 container.innerHTML = daftarProduk.map(function (p) {
-                    const isReset = p.resetHarian !== false;
                     return '<div class="product-row"><div class="info"><div class="nama">' + escapeHtmlAman(p.nama) +
-                        '<span class="tipe-badge ' + (isReset ? "tipe-reset" : "tipe-akumulasi") + '">' + (isReset ? "Reset" : "Tambah") + '</span>' +
                         '</div><div class="meta">' + escapeHtmlAman(p.kategori || "-") + '</div>' +
-                        '<div class="sisa-info" id="sisaLapor_' + p.id + '"></div></div>' +
+                        '<div class="sisa-info" id="sisaLapor_' + p.id + '"></div>' +
+                        '<div class="jadi-info" id="jadiLapor_' + p.id + '"></div></div>' +
                         '<input type="number" min="0" class="qty-input" id="qtyLapor_' + p.id + '" placeholder="0"></div>';
                 }).join("");
 
@@ -308,6 +325,71 @@
         }
 
         let riwayatKasirCache = [];
+
+        /* Jenis laporan stok:
+           - "pagi"     : hitung SEMUA kue di outlet. Kue harian: sisa hari
+                          sebelumnya jadi waste, lapor ulang di hari yang sama
+                          = koreksi (stok diganti angka laporan).
+           - "tambahan" : kiriman tambahan dari pabrik (bukan transfer).
+                          Angkanya DITAMBAHKAN sebagai batch baru, tidak ada
+                          yang diganti atau jadi waste. Masa berlakunya sama
+                          seperti stok pagi (lihat Kasir_kedaluwarsaTambahan).
+           Disimpan di laporan_stok.jenis (laporan lama tanpa field = "pagi"). */
+        let jenisLapor = "pagi";
+
+        function Kasir_renderJenis() {
+            const el = document.getElementById("jenisLapor");
+            if (!el) return;
+            const opsi = [
+                ["pagi", "\ud83c\udf05", "Stok pagi", "Hitung SEMUA kue di outlet. Sisa kemarin jadi waste."],
+                ["tambahan", "\ud83d\ude9a", "Kiriman tambahan dari pabrik", "Isi hanya kue yang BARU datang dari pabrik. Bukan untuk transfer antar outlet."]
+            ];
+            el.innerHTML = opsi.map(function (o) {
+                const on = o[0] === jenisLapor;
+                return '<button type="button" class="jenis-opsi' + (on ? ' on' : '') + '" role="radio" aria-checked="' + on + '" onclick="Kasir_pilihJenis(\'' + o[0] + '\')">' +
+                    '<span class="ik" aria-hidden="true">' + o[1] + '</span><span><b>' + o[2] + '</b><span class="ket">' + o[3] + '</span></span></button>';
+            }).join("");
+            const btn = document.getElementById("submitBtnLapor");
+            if (btn && btn.textContent !== "Mengirim...") btn.textContent = jenisLapor === "tambahan" ? "Tambahkan ke Stok" : "Kirim Laporan ke Admin";
+        }
+
+        function Kasir_pilihJenis(j) {
+            jenisLapor = j;
+            Kasir_renderJenis();
+            Kasir_tampilSisa();
+        }
+
+        /* Masa berlaku batch kiriman tambahan: sama seperti stok pagi.
+           - Kue harian tanpa jam reset (mis. Malmil): ikut batch hari ini yang
+             sudah ada (berakhir bersama stok pagi, sisa jadi waste saat lapor
+             stok pagi besok). Kalau belum ada stok hari ini: 24 jam.
+           - Kue harian dengan jam reset (mis. Ogura 13.59): jam reset berikutnya.
+           - Kue tahan lama: masa tahan sejak datang. */
+        function Kasir_kedaluwarsaTambahan(produk, aktif, nowMs) {
+            const isReset = produk.resetHarian !== false;
+            if (isReset && !sbJamReset(produk)) {
+                const hariIni = sbTanggalIso(nowMs);
+                const batasHariIni = aktif.reduce(function (m, b) {
+                    return sbTanggalIso(b.masukMs) === hariIni && b.kedaluwarsaMs && b.kedaluwarsaMs > m ? b.kedaluwarsaMs : m;
+                }, 0);
+                if (batasHariIni > nowMs) return batasHariIni;
+            }
+            return sbKedaluwarsa(produk, nowMs);
+        }
+
+        // "+10 -> jadi 30" di bawah tiap menu saat mode kiriman tambahan
+        function Kasir_perbaruiJadi() {
+            const nowMs = Date.now();
+            daftarProduk.forEach(function (p) {
+                const el = document.getElementById("jadiLapor_" + p.id);
+                const inp = document.getElementById("qtyLapor_" + p.id);
+                if (!el || !inp) return;
+                const n = Number(inp.value) || 0;
+                if (jenisLapor !== "tambahan" || n <= 0) { el.textContent = ""; return; }
+                const sekarang = sbTotal(sbPisah(sbNormalkan(sbBatch(stokKasirData[p.id], nowMs), p), nowMs).aktif);
+                el.textContent = "+" + n + " \u2192 jadi " + (sekarang + n);
+            });
+        }
 
         function Kasir_kirim() {
             const submitBtn = document.getElementById("submitBtnLapor");
@@ -332,14 +414,16 @@
                konfirmasi dulu sebelum kirim laporan baru lagi.
             ====================================================== */
             const hariIni = new Date().toDateString();
-            const sudahLaporHariIni = riwayatKasirCache.some(function (d) {
-                return d.waktuLapor && d.waktuLapor.toDate().toDateString() === hariIni;
+            const jenis = jenisLapor;
+            const sudahLaporHariIni = jenis === "pagi" && riwayatKasirCache.some(function (d) {
+                return (d.jenis || "pagi") === "pagi" && d.waktuLapor && d.waktuLapor.toDate().toDateString() === hariIni;
             });
 
             if (sudahLaporHariIni) {
                 const lanjut = confirm(
-                    "Anda sudah mengirim laporan stok hari ini.\n" +
-                    "Yakin ingin mengirim laporan baru? Stok POS akan langsung mengikuti laporan TERBARU ini."
+                    "Anda sudah mengirim laporan stok pagi hari ini.\n" +
+                    "Yakin ingin mengirim laporan baru? Stok POS akan langsung mengikuti laporan TERBARU ini.\n\n" +
+                    "Kalau ini kue yang baru datang dari pabrik, batalkan lalu pilih \"Kiriman tambahan dari pabrik\"."
                 );
                 if (!lanjut) return;
             }
@@ -381,9 +465,15 @@
                     };
                     pisah.basi.forEach(function (b) { catatWaste(b, "kedaluwarsa"); });
 
-                    const batchBaru = { qty: item.jumlahDiterima, masukMs: nowMs, kedaluwarsaMs: sbKedaluwarsa(produk, nowMs), laporanId: laporanRef.id };
+                    const kedaluwarsaBaru = jenis === "tambahan"
+                        ? Kasir_kedaluwarsaTambahan(produk, pisah.aktif, nowMs)
+                        : sbKedaluwarsa(produk, nowMs);
+                    const batchBaru = { qty: item.jumlahDiterima, masukMs: nowMs, kedaluwarsaMs: kedaluwarsaBaru, laporanId: laporanRef.id };
                     let hasil;
-                    if (isReset) {
+                    if (jenis === "tambahan") {
+                        // Kiriman tambahan: ditambahkan, stok yang ada tidak diganti
+                        hasil = pisah.aktif.concat([batchBaru]);
+                    } else if (isReset) {
                         pisah.aktif.forEach(function (b) {
                             if (sbTanggalIso(b.masukMs) !== hariIni) catatWaste(b, "diganti_lapor");
                         });
@@ -398,7 +488,7 @@
 
                     return Object.assign({}, item, {
                         stokSebelumLaporan: sbTotal(pisah.aktif),
-                        batchSebelum: isReset ? pisah.aktif : [],
+                        batchSebelum: (isReset && jenis !== "tambahan") ? pisah.aktif : [],
                         wasteIds: wasteIds,
                         masukMs: nowMs, kedaluwarsaMs: batchBaru.kedaluwarsaMs
                     });
@@ -406,20 +496,25 @@
 
                 batch.set(laporanRef, {
                     outlet: currentUser.outlet, items: itemsDenganBaseline, status: "pending", catatan: catatan,
+                    jenis: jenis,
                     kasirUid: currentUser.uid, kasirNama: currentUser.nama,
                     waktuLapor: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
                 return batch.commit();
             }).then(function () {
-                tampilkanPesan("Laporan terkirim, stok POS langsung diperbarui. Menunggu ACC admin.", "success");
+                tampilkanPesan(jenis === "tambahan"
+                    ? "Kiriman tambahan dicatat, stok POS langsung bertambah. Menunggu ACC admin."
+                    : "Laporan terkirim, stok POS langsung diperbarui. Menunggu ACC admin.", "success");
                 daftarProduk.forEach(function (p) { const el = document.getElementById("qtyLapor_" + p.id); if (el) el.value = ""; });
                 if (catatanEl) catatanEl.value = "";
                 // Riwayat tidak perlu dimuat ulang: listener Kasir_loadRiwayat otomatis menampilkan laporan baru
             }).catch(function (error) {
                 tampilkanPesan("Gagal: " + error.message, "error");
             }).finally(function () {
-                submitBtn.disabled = false; submitBtn.textContent = "Kirim Laporan ke Admin";
+                submitBtn.disabled = false;
+                submitBtn.textContent = jenisLapor === "tambahan" ? "Tambahkan ke Stok" : "Kirim Laporan ke Admin";
+                Kasir_perbaruiJadi();
             });
         }
 
@@ -453,7 +548,8 @@
 
                         return '<div class="riwayat-item" style="cursor:pointer;" onclick="toggleRiwayatDetail(\'' + i + '\')">' +
                             '<div style="display:flex; justify-content:space-between; margin-bottom:4px;">' +
-                                '<span>' + waktu + '</span><span class="status-tag status-' + d.status + '">' + statusLabel + '</span></div>' +
+                                '<span>' + waktu + (d.jenis === "tambahan" ? '<span class="badge-jenis tambahan">\ud83d\ude9a Tambahan dari pabrik</span>' : '<span class="badge-jenis pagi">\ud83c\udf05 Stok pagi</span>') + '</span>' +
+                                '<span class="status-tag status-' + d.status + '">' + statusLabel + '</span></div>' +
                             '<div style="display:flex; justify-content:space-between; align-items:center; color:#6b7280;">' +
                                 '<span>' + d.items.length + ' menu dilaporkan</span>' +
                                 '<span id="riwayatChevron_' + i + '" style="color:#a89a8c; font-size:10px;">' + (terbuka ? "Tutup detail ▴" : "Lihat detail ▾") + '</span>' +
@@ -510,43 +606,51 @@
                     if (snapshot.empty) { container.innerHTML = '<div class="empty-state">Tidak ada laporan yang menunggu ACC.</div>'; return; }
 
                     /* =====================================================
-                       Dedupe: kalau 1 outlet ada beberapa laporan pending,
-                       cuma tampilkan yang PALING BARU (waktuLapor terbesar).
-                       Karena query sudah orderBy waktuLapor asc, cukup timpa
-                       entri per outlet setiap kali ketemu yang lebih baru.
+                       Kiri: STOK PAGI. Kalau 1 outlet ada beberapa laporan
+                       pagi pending, cuma tampilkan yang PALING BARU (laporan
+                       pagi ulang = koreksi). Query sudah orderBy waktuLapor
+                       asc, cukup timpa entri per outlet.
+                       Kanan: KIRIMAN TAMBAHAN DARI PABRIK, semua ditampilkan
+                       (tiap kiriman berdiri sendiri).
                     ====================================================== */
-                    const terbaruPerOutlet = {};
+                    const pagiPerOutlet = {};
+                    const tambahan = [];
                     snapshot.docs.forEach(function (doc) {
                         const d = doc.data();
-                        terbaruPerOutlet[d.outlet] = doc; // yang belakangan (lebih baru) menimpa yang lama
+                        if (d.jenis === "tambahan") tambahan.push(doc);
+                        else pagiPerOutlet[d.outlet] = doc; // yang belakangan (lebih baru) menimpa yang lama
                     });
-                    const daftarLaporan = Object.values(terbaruPerOutlet).sort(function (a, b) {
-                        const ta = a.data().waktuLapor ? a.data().waktuLapor.toMillis() : 0;
-                        const tb = b.data().waktuLapor ? b.data().waktuLapor.toMillis() : 0;
-                        return ta - tb;
-                    });
+                    const waktuMs = function (doc) { return doc.data().waktuLapor ? doc.data().waktuLapor.toMillis() : 0; };
+                    const pagi = Object.values(pagiPerOutlet).sort(function (a, b) { return waktuMs(a) - waktuMs(b); });
 
-                    container.innerHTML = daftarLaporan.map(function (doc) {
+                    const kartu = function (doc) {
                         const d = doc.data();
                         const waktu = d.waktuLapor ? d.waktuLapor.toDate().toLocaleString("id-ID") : "-";
                         return '<div class="laporan-card">' +
                             '<div class="laporan-header"><div><div class="outlet">' + escapeHtmlAman(d.outlet) + '</div>' +
                             '<div class="meta">Dilaporkan oleh ' + escapeHtmlAman(d.kasirNama) + ' \u00b7 ' + waktu + '</div>' +
+                            (d.jenis === "tambahan" ? '<div class="meta" style="margin-top:4px; color:#9A6B1C;">Ditambahkan ke stok yang ada. Tolak = hanya kiriman ini yang dibatalkan.</div>' : '') +
                             (d.catatan ? '<div class="meta" style="margin-top:4px; font-style:italic;">\ud83d\udcdd ' + escapeHtmlAman(d.catatan) + '</div>' : '') +
                             '</div></div>' +
-                            '<table class="item-table"><thead><tr><th>Menu</th><th>Diterima</th><th>Tipe</th></tr></thead><tbody>' +
+                            '<table class="item-table"><thead><tr><th>Menu</th><th>Diterima</th></tr></thead><tbody>' +
                             d.items.map(function (item) {
-                                const isReset = item.resetHarian !== false;
                                 return '<tr><td>' + escapeHtmlAman(item.nama) + '</td>' +
-                                    '<td><input type="number" min="0" class="qty-input" style="width:70px; height:32px;" id="acc_' + doc.id + '_' + item.productId + '" value="' + item.jumlahDiterima + '"></td>' +
-                                    '<td><span class="tipe-badge ' + (isReset ? "tipe-reset" : "tipe-akumulasi") + '">' + (isReset ? "Reset" : "Tambah") + '</span></td></tr>';
+                                    '<td><input type="number" min="0" class="qty-input" style="width:70px; height:32px;" id="acc_' + doc.id + '_' + item.productId + '" value="' + item.jumlahDiterima + '"></td></tr>';
                             }).join("") +
                             '</tbody></table>' +
                             '<div class="laporan-actions">' +
                                 '<button class="btn-tolak" onclick="Approval_tolak(\'' + doc.id + '\')">Tolak</button>' +
                                 '<button class="btn-acc" onclick="Approval_acc(\'' + doc.id + '\')">ACC & Update Stok</button>' +
                             '</div></div>';
-                    }).join("");
+                    };
+                    const kolom = function (kelas, judul, daftar, kosong) {
+                        return '<div class="acc-kolom ' + kelas + '"><h3>' + judul + ' <span class="n' + (daftar.length ? '' : ' nol') + '">' + daftar.length + '</span></h3>' +
+                            (daftar.length ? daftar.map(kartu).join("") : '<div class="acc-kosong">' + kosong + '</div>') + '</div>';
+                    };
+                    container.innerHTML = '<div class="acc-grid">' +
+                        kolom("pagi", "\ud83c\udf05 Stok pagi", pagi, "Tidak ada laporan stok pagi yang menunggu ACC.") +
+                        kolom("tambahan", "\ud83d\ude9a Tambahan dari pabrik", tambahan, "Tidak ada kiriman tambahan yang menunggu ACC.") +
+                        '</div>';
 
                     kembalikanNilaiInput(stateInput);
                 }, function (error) {
@@ -556,6 +660,7 @@
 
         function Approval_acc(laporanId) {
             if (!confirm("ACC laporan ini? Stok outlet akan langsung terupdate.")) return;
+            // (berlaku untuk stok pagi maupun kiriman tambahan: koreksi admin hanya mengubah batch laporan ini)
 
             const laporanRef = db.collection("laporan_stok").doc(laporanId);
             laporanRef.get().then(function (doc) {
@@ -612,7 +717,7 @@
                         }), { merge: true });
 
                         batch.set(db.collection("alokasi_log").doc(), {
-                            sumber: "acc-admin", laporanId: laporanId, outlet: data.outlet,
+                            sumber: data.jenis === "tambahan" ? "acc-admin-tambahan" : "acc-admin", laporanId: laporanId, outlet: data.outlet,
                             productId: item.productId, namaProduk: item.nama,
                             tipe: isReset ? "reset" : "akumulasi", jumlahInput: item.jumlahDiterima,
                             stokSebelum: stokSaatIni, stokSesudah: dataBaru.jumlah,
@@ -717,6 +822,21 @@
                 const total = sbTotal(pisah.aktif);
                 const isReset = p.resetHarian !== false;
                 el.className = "sisa-info";
+                if (jenisLapor === "tambahan") {
+                    const exp = Kasir_kedaluwarsaTambahan(p, pisah.aktif, nowMs);
+                    let berlaku;
+                    if (!isReset) {
+                        const hari = Number(p.masaTahanHari) || 0;
+                        berlaku = hari > 0 ? "tahan " + hari + " hari" : "tanpa batas hari";
+                    } else if (sbJamReset(p)) {
+                        const d = new Date(exp);
+                        berlaku = "berlaku s/d " + (sbTanggalIso(exp) !== hariIni ? "besok " : "") + ("0" + d.getHours()).slice(-2) + "." + ("0" + d.getMinutes()).slice(-2);
+                    } else {
+                        berlaku = "berlaku s/d lapor stok pagi besok";
+                    }
+                    el.textContent = "Stok sekarang " + total + " \u00b7 " + berlaku;
+                    return;
+                }
                 if (isReset) {
                     const sisaLama = sbTotal(pisah.aktif.filter(function (b) { return sbTanggalIso(b.masukMs) !== hariIni; }));
                     const jr = sbJamReset(p);
@@ -740,6 +860,7 @@
                     el.textContent = "Stok sekarang " + total + (hari > 0 ? " · tahan " + hari + " hari" : " · tanpa batas hari");
                 }
             });
+            Kasir_perbaruiJadi();
         }
 
         /* =====================================================================

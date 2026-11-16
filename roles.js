@@ -84,6 +84,26 @@ function escapeHtmlAman(t) {
         return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
     });
 }
+/* Data akun yang login, SELALU dibaca dari koleksi users (bukan hanya dari
+   sessionStorage), supaya perubahan role / outlet dari Pengaturan langsung
+   berlaku tanpa perlu keluar-masuk. Kalau database tidak bisa dibaca
+   (mis. sinyal putus), pakai simpanan sessionStorage milik akun yang sama.
+   Hasil Promise: data user + uid, atau null kalau akunnya tidak ada. */
+function muatUserAktif(db, user) {
+    let simpanan = null;
+    try { simpanan = JSON.parse(sessionStorage.getItem("omaopa_user") || "null"); } catch (e) { simpanan = null; }
+    return db.collection("users").doc(user.uid).get().then(function (doc) {
+        if (!doc.exists) return null;
+        const data = doc.data();
+        data.uid = user.uid;
+        try { sessionStorage.setItem("omaopa_user", JSON.stringify(data)); } catch (e) { /* abaikan */ }
+        return data;
+    }).catch(function (error) {
+        console.warn("Data akun belum bisa dibaca ulang, pakai data login:", error.message);
+        return simpanan && simpanan.uid === user.uid ? simpanan : null;
+    });
+}
+
 function escJsAttr(t) {
     return String(t == null ? "" : t).replace(/[^a-zA-Z0-9 ._-]/g, function (c) {
         const code = c.charCodeAt(0);

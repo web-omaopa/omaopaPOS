@@ -15,7 +15,7 @@ Sistem kasir (POS) multi-outlet untuk Oma Opa. Situs: https://pos.omaopa.store (
 - `stok.html`, `alokasi.html` (Manajemen Menu), `transfer.html` : stok antar outlet
 - `pengaturan.html`, `produk.html`, `user.html` : pengelolaan produk, outlet, user
 - `api/upload-foto.php`, `api/foto.php` : upload & tampil foto produk (`?f=`) dan bukti pengeluaran (`jenis=bukti`, `?b=`) di Hostinger (PHP). Disimpan di `foto_produk/` dan `bukti_pengeluaran/` di luar `public_html` supaya tidak hilang saat deploy ulang.
-- `roles.js` : sumber tunggal hak akses per role (`ROLE_PERMISSIONS`, `HALAMAN_INFO`)
+- `roles.js` : sumber tunggal hak akses per role (`ROLE_PERMISSIONS`, `HALAMAN_INFO``, `muatUserAktif` = data akun selalu dibaca ulang dari koleksi users saat halaman dibuka)
 - `stok-batch.js` : stok outlet per batch (masa berlaku kue reset 24 jam / akumulasi `masaTahanHari`), jual paling lama dulu, sisa & kedaluwarsa dicatat ke `waste_stok`. Dipakai `pos.html`, `alokasi.html`, `transfer.html`, `stok.html`
 - `kas.html` + `kas.js` : "Shift & Kas": buka toko / mulai shift dengan kas awal di `pos.html`, dasbor uang di laci (realtime), pengeluaran outlet, Akhiri Shift / Tutup Toko 3 langkah (hitung per pecahan, cek selisih, cetak), Rekap Shift + unduh CSV
 - `laporan.html` : daftar laporan + Rekap penjualan, Penjualan per produk, Laba Rugi (termasuk beban pengeluaran outlet & selisih kas), Kas & Pengeluaran, Waste (filter, download Excel/PDF)
@@ -25,7 +25,7 @@ Sistem kasir (POS) multi-outlet untuk Oma Opa. Situs: https://pos.omaopa.store (
 
 ## Koleksi Firestore yang dipakai
 users, outlets, products, stock, transfer_stok, promo, mode_penjualan,
-laporan_stok, kategori_produk, transactions, alokasi_log,
+laporan_stok (`jenis`: "pagi" = hitung semua stok / "tambahan" = kiriman tambahan dari pabrik, ditambahkan; laporan lama tanpa field = pagi), kategori_produk, transactions, alokasi_log,
 ringkasan_harian (penjualan/diskon/qty/cogs per detail kategori), detail_kategori (akun detail tambahan, lihat `keuangan.js`),
 products.hpp = HPP Rp per pcs (COGS & nilai waste di Laba Rugi; item transaksi menyimpan `hpp` saat dijual),
 favorit_pos (ID = nama outlet: `produkIds` urutan tab Favorit di Kasir; kasir boleh ubah outletnya sendiri),
