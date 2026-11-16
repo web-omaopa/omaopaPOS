@@ -104,6 +104,7 @@
         .badge-menipis { background: #fdf1de; color: #b06d09; }
         .badge-habis { background: #fdeaea; color: #c0392b; }
 
+        .cb-baru { display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 10.5px; color: #52606d; margin-top: 4px; white-space: nowrap; cursor: pointer; }
         .qty-input {
             width: 68px; height: 30px; text-align: center;
             border: 1px solid #d1d5db; border-radius: 6px;
@@ -301,6 +302,7 @@
         let stokTujuan = {};          // { productId: {jumlah, minStok} }
         let daftarOutlet = [];
         let qty = {};                 // { productId: jumlah transfer }
+        let mintaBaru = {};           // { productId: true } minta outlet asal mengirim kue yang baru (lihat transfer.html)
 
         // Pembagian area (field "area" di koleksi outlets, diatur di Pengaturan)
         const DAFTAR_AREA = ["Area 1", "Area 2", "Area 3"];
@@ -441,6 +443,7 @@
                 outletTujuan = this.value;
                 this.classList.toggle("dipilih", !!outletTujuan);
                 qty = {};
+                mintaBaru = {};
                 dengarkanStokTujuan();
                 if (stokAsalSiap) {
                     renderTabel();
@@ -482,6 +485,7 @@
                         outletTujuan = "";
                         sel.classList.remove("dipilih");
                         qty = {};
+                        mintaBaru = {};
                         dengarkanStokTujuan();
                         if (stokAsalSiap) renderTabelTetapFokus();
                         updateBar();
@@ -607,6 +611,7 @@
                 hentikanStokAsal();
                 hentikanStokTujuan();
                 qty = {};
+                mintaBaru = {};
                 outletTujuan = "";
                 stokTujuan = {};
                 updateBar();
@@ -815,6 +820,7 @@
             hentikanStokAsal();
             const token = tokenStokAsal;
             qty = {};
+            mintaBaru = {};
             stokAsal = [];
             updateBar();
 
@@ -966,7 +972,8 @@
                     } else {
                         const nilai = qty[p.id] > 0 ? qty[p.id] : "";
                         html += '<td class="c col-tf"><input class="qty-input' + (nilai ? " terisi" : "") + '" data-id="' + esc(p.id) + '" type="number" min="0" max="' + p.jumlah + '" ' +
-                                'placeholder="0" value="' + nilai + '" oninput="ubahQty(\'' + esc(p.id) + '\', this, ' + p.jumlah + ')"></td>';
+                                'placeholder="0" value="' + nilai + '" oninput="ubahQty(\'' + esc(p.id) + '\', this, ' + p.jumlah + ')">' +
+                                '<label class="cb-baru"><input type="checkbox"' + (mintaBaru[p.id] ? ' checked' : '') + ' onchange="mintaBaru[\'' + esc(p.id) + '\'] = this.checked"> minta yang baru</label></td>';
                     }
                 }
 
@@ -1020,6 +1027,7 @@
 
         function kosongkanTransfer() {
             qty = {};
+            mintaBaru = {};
             renderTabel();
             updateBar();
         }
@@ -1067,7 +1075,9 @@
                 dari: outletAsal,
                 ke: outletTujuan,
                 items: terpilih.map(function (p) {
-                    return { productId: p.id, nama: p.nama, jumlah: qty[p.id] };
+                    const item = { productId: p.id, nama: p.nama, jumlah: qty[p.id] };
+                    if (mintaBaru[p.id]) item.mintaBaru = true;   // kasir pengirim diminta kirim kue yang baru
+                    return item;
                 }),
                 status: "menunggu_kirim",
                 selisih: false,
@@ -1081,6 +1091,7 @@
                 tutupKonfirmasi();
                 const tujuanSaja = outletTujuan;
                 qty = {};
+                mintaBaru = {};
                 renderTabel();
                 updateBar();
                 tampilToast('Perintah transfer ke <b>' + esc(tujuanSaja) + '</b> dibuat. Kasir ' + esc(outletAsal) +
