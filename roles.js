@@ -162,6 +162,9 @@ const SIDEBAR_KUNCI = "omaopa_sidebar";
     if (typeof document === "undefined" || document.getElementById("gayaSidebarLipat")) return;
     const css =
         ".sidebar { transition: width .18s ease, padding .18s ease; }" +
+        // Sidebar diam di kiri setinggi layar; yang bergulir hanya isi halaman.
+        // Kalau menunya lebih tinggi dari layar, sidebar bergulir sendiri.
+        ".app-layout > .sidebar { position: sticky; top: 0; height: 100vh; height: 100dvh; align-self: flex-start; overflow-y: auto; overflow-x: hidden; }" +
         ".sidebar .sb-head { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 18px; }" +
         ".sidebar .sb-head .sidebar-logo { margin-bottom: 0; min-width: 0; max-width: 118px; }" +
         ".sidebar .sb-toggle { flex-shrink: 0; width: 32px; height: 32px; border: 0; border-radius: 8px; background: rgba(255,255,255,0.10); color: #B8C7E0; font-size: 16px; line-height: 32px; cursor: pointer; padding: 0; }" +
