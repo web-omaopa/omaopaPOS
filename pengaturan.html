@@ -9,7 +9,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-storage-compat.js"></script>
-    <script src="roles.js?v=20261111a"></script>
+    <script src="roles.js?v=20261116a"></script>
     <script src="keuangan.js?v=20261110c"></script>
 
     <style>
@@ -468,22 +468,13 @@
         auth.onAuthStateChanged(function (user) {
             if (!user) { window.location.href = "index.html"; return; }
 
-            const savedUser = sessionStorage.getItem("omaopa_user");
-            if (savedUser) {
-                currentUser = JSON.parse(savedUser);
+            // Data akun (role & outlet) selalu dibaca ulang dari database,
+            // supaya perubahan dari Pengaturan langsung berlaku (roles.js).
+            muatUserAktif(db, user).then(function (dataUser) {
+                if (!dataUser) { window.location.href = "index.html"; return; }
+                currentUser = dataUser;
                 siapkanRole(currentUser.role, mulai);
-            } else {
-                db.collection("users").doc(user.uid).get().then(function (doc) {
-                    if (doc.exists) {
-                        currentUser = doc.data();
-                        currentUser.uid = user.uid;
-                        sessionStorage.setItem("omaopa_user", JSON.stringify(currentUser));
-                        siapkanRole(currentUser.role, mulai);
-                    } else {
-                        window.location.href = "index.html";
-                    }
-                });
-            }
+            });
         });
 
         function logout() {
