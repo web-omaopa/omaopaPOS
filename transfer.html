@@ -121,6 +121,31 @@
 
         .loading-state, .empty-state { text-align: center; color: #6b7280; font-size: 12px; padding: 30px 0; }
 
+        /* ===== Rute transfer lintas area (forecaster/admin) ===== */
+        .rute-box { background: #fff; border: 1px solid #dde3ea; border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; }
+        .rute-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+        .rute-head b { font-size: 13.5px; color: #12305C; }
+        .rute-sub { font-size: 11.5px; color: #6b7280; margin-bottom: 10px; }
+        .rute-item { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 10px; border: 1px solid #eef1f5; border-radius: 9px; margin-bottom: 6px; font-size: 12.5px; }
+        .rute-item .o { font-weight: 700; color: #1f2937; }
+        .rute-item .a { font-size: 10.5px; color: #6b7280; font-weight: 600; background: #F1F4F8; border-radius: 8px; padding: 1px 7px; }
+        .rute-item .panah { color: #E8A33D; font-weight: 800; }
+        .rute-item .hapus { margin-left: auto; font-size: 11px; color: #b03a2e; font-weight: 700; border: 1px solid #f1d5d2; border-radius: 7px; padding: 4px 10px; background: #fff; cursor: pointer; font-family: inherit; }
+        .rute-kosong { font-size: 12px; color: #8A95A5; padding: 6px 0 2px; }
+        .tag-rute { display: inline-block; font-size: 9.5px; font-weight: 800; color: #9A6B1C; background: #FFF1D6; border-radius: 8px; padding: 1px 6px; margin-top: 2px; }
+
+        /* ===== Masa berlaku & pilihan kue lama/baru ===== */
+        .exp { display: block; font-size: 10.5px; font-weight: 700; color: #52606d; margin-top: 2px; }
+        .exp.segera { color: #b06d09; }
+        .minta-baru { display: inline-block; font-size: 10px; font-weight: 800; color: #9A6B1C; background: #FFF1D6; border-radius: 8px; padding: 1px 7px; margin-left: 6px; }
+        .pilih-batch { margin: 6px 0 2px; padding: 8px 10px; background: #F7F9FC; border: 1px solid #e3e9f1; border-radius: 9px; font-size: 11.5px; }
+        .pilih-batch .jdl { font-weight: 700; color: #52606d; margin-bottom: 4px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .03em; }
+        .pilih-batch label { display: flex; align-items: center; gap: 8px; padding: 3px 0; color: #1f2937; cursor: pointer; }
+        .pilih-batch input { accent-color: #12305C; }
+        .pilih-batch .n { color: #6b7280; }
+        .li .kiri { display: block; min-width: 0; }
+        .cb-baru { display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 10.5px; color: #52606d; margin-top: 4px; white-space: nowrap; cursor: pointer; }
+
         /* ===== Modal permintaan transfer (kasir) ===== */
         .modal-backdrop {
             display: none; position: fixed; inset: 0; background: rgba(18,48,92,0.35);
@@ -208,12 +233,29 @@
         </div>
     </div>
 
+    <!-- Modal tambah rute lintas area (forecaster/admin) -->
+    <div class="modal-backdrop" id="modalRute" onclick="if (event.target === this) tutupRute()">
+        <div class="modal-box" style="max-width:420px;">
+            <div class="modal-title">Tambah Rute Lintas Area</div>
+            <div class="modal-desc">Pilih dua outlet dari area berbeda yang boleh saling transfer. Rute berlaku dua arah: kasir kedua outlet bisa saling mengajukan permintaan.</div>
+            <div class="pm-label" style="margin-top:14px;">OUTLET 1</div>
+            <select class="pm-select" id="ruteA" onchange="isiPilihanRuteB()"></select>
+            <div class="pm-label" style="margin-top:10px;">OUTLET 2 (area lain)</div>
+            <select class="pm-select" id="ruteB"></select>
+            <div class="pm-error" id="ruteError" style="display:none;"></div>
+            <div class="pm-aksi">
+                <button class="btn" onclick="tutupRute()">Batal</button>
+                <button class="btn btn-primary" id="btnSimpanRute" style="flex:1.3;" onclick="simpanRute()">Simpan rute</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal permintaan transfer (kasir) -->
     <div class="modal-backdrop" id="modalPermintaan">
         <div class="modal-box">
             <div class="modal-title">Ajukan Permintaan Transfer</div>
             <div class="modal-desc">
-                Bandingkan stok outlet se-area di bawah, pilih dari mana ke mana, lalu isi jumlahnya.
+                Bandingkan stok outlet se-area (dan outlet rute khusus) di bawah, pilih dari mana ke mana, lalu isi jumlahnya.
                 Permintaan dikirim ke Forecaster dan transfer baru berjalan setelah di-ACC.
             </div>
 
@@ -279,6 +321,11 @@
         let hasilTransfer = [];      // per kueri: { docId: snapshot dokumen } (kasir: 3 kueri, forecaster: 1)
         let transferSiap = false;    // semua kueri transfer sudah termuat minimal sekali
         let langgananOutletFc = null; // fungsi berhenti memantau daftar outlet (area) di tampilan forecaster
+        let ruteTransfer = [];       // [{ id, a, b }] rute lintas area (koleksi rute_transfer)
+        let langgananRute = null;    // fungsi berhenti memantau rute_transfer
+        let stokSendiri = {};        // kasir: { productId: data stok outlet sendiri } untuk pilihan kue lama/baru
+        let langgananStokSendiri = null;
+        let pilihBatch = {};         // { transferId: { productId: "lama" | "baru" } }
 
         function esc(t) {
             return String(t == null ? "" : t).replace(/[&<>"']/g, function (c) {
@@ -327,10 +374,12 @@
             // inisialisasi ulang: lepas dulu semua listener lama supaya tidak menumpuk
             hentikanSemuaPantauan();
 
+            pantauRute();
             if (canBuat) {
                 // area tiap outlet untuk filter & label di tampilan forecaster (real time)
                 pantauAreaOutletFc(muatTransfer);
             } else {
+                pantauStokSendiri();
                 muatTransfer();
                 if (window.location.hash === "#permintaan") bukaPermintaan();
             }
@@ -338,10 +387,183 @@
 
         function hentikanSemuaPantauan() {
             hentikanPantauTransfer();
+            if (langgananRute) { langgananRute(); langgananRute = null; }
+            if (langgananStokSendiri) { langgananStokSendiri(); langgananStokSendiri = null; }
             if (langgananOutletFc) { langgananOutletFc(); langgananOutletFc = null; }
             pantauStokFc([]);
             hentikanPantauStok();
             hentikanPantauDasar();
+        }
+
+        /* =====================================================================
+           RUTE TRANSFER LINTAS AREA
+           Koleksi rute_transfer, Document ID = dua nama outlet diurutkan lalu
+           digabung "__" (mis. "Boyolali__UKSW"): { a, b, dibuatUid, dibuatNama,
+           dibuatPada }. Berlaku dua arah. Diatur forecaster/admin/owner/
+           management; kasir kedua outlet boleh saling mengajukan permintaan
+           (dicek juga di Firestore Rules).
+        ========================================================================= */
+        function idRute(a, b) { return [a, b].sort().join("__"); }
+
+        function mitraRute(outlet) {
+            const hasil = [];
+            ruteTransfer.forEach(function (r) {
+                if (r.a === outlet && hasil.indexOf(r.b) === -1) hasil.push(r.b);
+                if (r.b === outlet && hasil.indexOf(r.a) === -1) hasil.push(r.a);
+            });
+            return hasil.sort();
+        }
+
+        function pantauRute() {
+            if (langgananRute) { langgananRute(); langgananRute = null; }
+            langgananRute = db.collection("rute_transfer").onSnapshot(function (snap) {
+                ruteTransfer = [];
+                snap.forEach(function (d) {
+                    const x = d.data();
+                    if (x.a && x.b) ruteTransfer.push({ id: d.id, a: x.a, b: x.b });
+                });
+                ruteTransfer.sort(function (p, q) { return (p.a + p.b).localeCompare(q.a + q.b); });
+                if (transferSiap) renderTetap();
+                if (pmDasarOlah) pmDasarOlah();
+            }, function (e) {
+                console.warn("Rute transfer belum bisa dibaca:", e.message);
+                ruteTransfer = [];
+                if (pmDasarOlah) pmDasarOlah();
+            });
+        }
+
+        function htmlKotakRute() {
+            const area = function (o) { return areaOutletFc[o] || "Area 1"; };
+            let html = '<div class="rute-box"><div class="rute-head"><b>🔀 Rute transfer lintas area</b>' +
+                '<button class="btn btn-primary btn-sm" onclick="bukaRute()">+ Tambah rute</button></div>' +
+                '<div class="rute-sub">Outlet beda area yang boleh saling transfer (dua arah). Kasir kedua outlet bisa saling mengajukan permintaan.</div>';
+            if (ruteTransfer.length === 0) {
+                html += '<div class="rute-kosong">Belum ada rute. Permintaan kasir hanya antar outlet se-area.</div>';
+            } else {
+                ruteTransfer.forEach(function (r) {
+                    html += '<div class="rute-item"><span class="o">' + esc(r.a) + '</span><span class="a">' + esc(area(r.a)) + '</span>' +
+                        '<span class="panah" aria-label="dua arah">⇄</span>' +
+                        '<span class="o">' + esc(r.b) + '</span><span class="a">' + esc(area(r.b)) + '</span>' +
+                        '<button class="hapus" onclick="hapusRute(\'' + esc(r.id) + '\')">Hapus</button></div>';
+                });
+            }
+            return html + '</div>';
+        }
+
+        function bukaRute() {
+            const daftar = Object.keys(areaOutletFc).sort();
+            const sel = document.getElementById("ruteA");
+            sel.innerHTML = daftar.map(function (o) { return '<option value="' + esc(o) + '">' + esc(o) + ' · ' + esc(areaOutletFc[o]) + '</option>'; }).join("");
+            isiPilihanRuteB();
+            document.getElementById("ruteError").style.display = "none";
+            document.getElementById("btnSimpanRute").disabled = false;
+            document.getElementById("modalRute").classList.add("tampil");
+        }
+
+        function tutupRute() { document.getElementById("modalRute").classList.remove("tampil"); }
+
+        function isiPilihanRuteB() {
+            const a = document.getElementById("ruteA").value;
+            const ada = mitraRute(a);
+            const daftar = Object.keys(areaOutletFc).filter(function (o) {
+                return o !== a && areaOutletFc[o] !== areaOutletFc[a] && ada.indexOf(o) === -1;
+            }).sort();
+            document.getElementById("ruteB").innerHTML = daftar.length
+                ? daftar.map(function (o) { return '<option value="' + esc(o) + '">' + esc(o) + ' · ' + esc(areaOutletFc[o]) + '</option>'; }).join("")
+                : '<option value="">Tidak ada outlet area lain yang bisa dipilih</option>';
+        }
+
+        function simpanRute() {
+            const a = document.getElementById("ruteA").value;
+            const b = document.getElementById("ruteB").value;
+            const err = document.getElementById("ruteError");
+            const salah = function (p) { err.textContent = p; err.style.display = "block"; };
+            if (!a || !b) return salah("Pilih dua outlet dari area yang berbeda.");
+            if (areaOutletFc[a] === areaOutletFc[b]) return salah("Kedua outlet sudah se-area, tidak perlu rute khusus.");
+            const btn = document.getElementById("btnSimpanRute");
+            btn.disabled = true;
+            const urut = [a, b].sort();
+            db.collection("rute_transfer").doc(idRute(a, b)).set({
+                a: urut[0], b: urut[1],
+                dibuatUid: auth.currentUser.uid, dibuatNama: currentUser.nama || "",
+                dibuatPada: firebase.firestore.FieldValue.serverTimestamp()
+            }).then(tutupRute).catch(function (e) {
+                btn.disabled = false;
+                salah(e.code === "permission-denied" ? "Akun ini tidak punya izin mengatur rute (aturan Firestore)." : "Gagal menyimpan: " + e.message);
+            });
+        }
+
+        function hapusRute(id) {
+            const r = ruteTransfer.find(function (x) { return x.id === id; });
+            if (!r || !confirm("Hapus rute " + r.a + " ⇄ " + r.b + "?\nKasir kedua outlet tidak bisa lagi saling mengajukan permintaan. Transfer yang sudah berjalan tidak terpengaruh.")) return;
+            db.collection("rute_transfer").doc(id).delete().catch(function (e) { alert("Gagal menghapus rute: " + e.message); });
+        }
+
+        /* =====================================================================
+           MASA BERLAKU (stok-batch.js) & PILIHAN KUE LAMA / BARU SAAT KIRIM
+           Kasir pengirim memilih kue yang lama dulu (bawaan) atau yang baru
+           kalau stoknya punya lebih dari satu masa berlaku. Item permintaan
+           bisa membawa mintaBaru: true (pilihan "yang baru" otomatis terpilih).
+        ========================================================================= */
+        function pantauStokSendiri() {
+            if (langgananStokSendiri) { langgananStokSendiri(); langgananStokSendiri = null; }
+            langgananStokSendiri = db.collection("outlets").doc(currentUser.outlet).collection("stock").onSnapshot(function (snap) {
+                stokSendiri = {};
+                snap.forEach(function (d) { stokSendiri[d.id] = d.data(); });
+                if (transferSiap && tabAktif === "kirim") renderTetap();
+            }, function () { /* pilihan kue lama/baru tidak tampil */ });
+        }
+
+        function teksBerlaku(ms) {
+            if (ms === null || ms === undefined) return "tanpa batas";
+            const d = new Date(ms), kini = new Date();
+            const besok = new Date(kini.getFullYear(), kini.getMonth(), kini.getDate() + 1);
+            const jam = ("0" + d.getHours()).slice(-2) + "." + ("0" + d.getMinutes()).slice(-2);
+            if (d.toDateString() === kini.toDateString()) return "hari ini " + jam;
+            if (d.toDateString() === besok.toDateString()) return "besok " + jam;
+            return ("0" + d.getDate()).slice(-2) + "/" + ("0" + (d.getMonth() + 1)).slice(-2);
+        }
+
+        function nilaiKedaluwarsa(b) { return b.kedaluwarsaMs === null || b.kedaluwarsaMs === undefined ? Infinity : b.kedaluwarsaMs; }
+
+        // Kelompok batch per tanggal kedaluwarsa, paling cepat habis dulu: [{ ms, qty }]
+        function kelompokBerlaku(batch) {
+            const peta = {};
+            (batch || []).forEach(function (b) {
+                const k = String(nilaiKedaluwarsa(b));
+                if (!peta[k]) peta[k] = { ms: b.kedaluwarsaMs === undefined ? null : b.kedaluwarsaMs, qty: 0, urut: nilaiKedaluwarsa(b) };
+                peta[k].qty += Number(b.qty) || 0;
+            });
+            return Object.keys(peta).map(function (k) { return peta[k]; })
+                .filter(function (g) { return g.qty > 0; })
+                .sort(function (a, b) { return a.urut - b.urut; });
+        }
+
+        function htmlBerlaku(ms) {
+            const segera = ms !== null && ms !== undefined && new Date(ms).toDateString() === new Date().toDateString();
+            return '<span class="exp' + (segera ? ' segera' : '') + '">⏱ berlaku s/d ' + esc(teksBerlaku(ms)) + '</span>';
+        }
+
+        /* Ambil batch untuk dikirim. "lama" = paling lama dulu (bawaan);
+           "baru" = yang paling lama masa berlakunya dulu (kue baru). */
+        function ambilUntukKirim(aktif, qty, pilihan) {
+            if (pilihan !== "baru") return sbAmbil(aktif, qty);
+            const urut = aktif.slice().sort(function (a, b) {
+                return (nilaiKedaluwarsa(b) - nilaiKedaluwarsa(a)) || (b.masukMs - a.masukMs);
+            });
+            const hasil = sbAmbil(urut, qty);
+            hasil.sisa.sort(function (a, b) { return a.masukMs - b.masukMs; });
+            return hasil;
+        }
+
+        function pilihanKirim(tid, it) {
+            const p = pilihBatch[tid] && pilihBatch[tid][it.productId];
+            return p || (it.mintaBaru ? "baru" : "lama");
+        }
+
+        function ubahPilihBatch(tid, pid, nilai) {
+            if (!pilihBatch[tid]) pilihBatch[tid] = {};
+            pilihBatch[tid][pid] = nilai;
         }
 
         // Pantau daftar outlet; panggil lanjut() sekali setelah termuat pertama (atau gagal)
@@ -553,7 +775,7 @@
             });
             daftarArea.sort();
 
-            let html = '<div class="fc-bar"><span class="fc-label">Area</span>' +
+            let html = htmlKotakRute() + '<div class="fc-bar"><span class="fc-label">Area</span>' +
                 '<select class="fc-select" onchange="gantiAreaFc(this.value)"><option value="">Semua area</option>' +
                 daftarArea.map(function (a) { return '<option value="' + esc(a) + '"' + (a === areaFc ? ' selected' : '') + '>' + esc(a) + '</option>'; }).join("") +
                 '</select></div>';
@@ -839,8 +1061,17 @@
         let pmLangganan = [];        // fungsi untuk berhenti memantau stok (onSnapshot)
         let pmLanggananDasar = [];   // fungsi untuk berhenti memantau outlets & products (onSnapshot)
         let pmSemua = false;         // tampilkan semua outlet walau asal & tujuan sudah dipilih
+        let pmArea = {};             // { outlet: area } untuk label rute khusus
+        let pmMitra = [];            // outlet rute khusus (beda area) milik outlet kasir
+        let pmBaru = {};             // { productId: true } minta kue yang baru
+        let pmDasarOlah = null;      // panggil ulang saat rute berubah selama form terbuka
+
+        function labelOutletPm(o) {
+            return pmMitra.indexOf(o) !== -1 ? o + " (" + (pmArea[o] || "-") + " \u00b7 rute khusus)" : o;
+        }
 
         function hentikanPantauDasar() {
+            pmDasarOlah = null;
             pmLanggananDasar.forEach(function (stop) { stop(); });
             pmLanggananDasar = [];
             pmDasar = null;
@@ -856,7 +1087,10 @@
                     if (!area || !snapProduk) return;   // tunggu outlet & produk termuat sekali
                     const outletLama = pmOutlet.join("|");
                     const areaSaya = area[currentUser.outlet] || "Area 1";
-                    pmOutlet = Object.keys(area).filter(function (o) { return area[o] === areaSaya; });
+                    pmArea = area;
+                    // Se-area + outlet rute khusus (beda area) milik outlet kasir
+                    pmMitra = mitraRute(currentUser.outlet).filter(function (o) { return area[o] && area[o] !== areaSaya; });
+                    pmOutlet = Object.keys(area).filter(function (o) { return area[o] === areaSaya; }).concat(pmMitra);
 
                     pmProduk = [];
                     snapProduk.forEach(function (d) {
@@ -873,6 +1107,7 @@
                     hentikanPantauStok();
                     tampilGagalPm(e);
                 };
+                pmDasarOlah = olah;
                 pmLanggananDasar.push(db.collection("outlets").onSnapshot(function (snap) {
                     const a = {};
                     snap.forEach(function (d) { a[d.id] = d.data().area || "Area 1"; });
@@ -902,7 +1137,7 @@
 
             pantauStokPermintaan().then(function () {
                 if (!document.getElementById("modalPermintaan").classList.contains("tampil")) { hentikanPantauStok(); return; }
-                const opsi = pmOutlet.map(function (o) { return '<option value="' + esc(o) + '">' + esc(o) + '</option>'; }).join("");
+                const opsi = pmOutlet.map(function (o) { return '<option value="' + esc(o) + '">' + esc(labelOutletPm(o)) + '</option>'; }).join("");
                 const dariSel = document.getElementById("pmDari");
                 const dariLama = dariSel.value;
                 dariSel.innerHTML = opsi;
@@ -914,7 +1149,7 @@
                 const keLama = keSel.value;
                 const pilihan = pmOutlet.filter(function (o) { return o !== dariSel.value; });
                 keSel.innerHTML = '<option value="">- pilih tujuan -</option>' +
-                    pilihan.map(function (o) { return '<option value="' + esc(o) + '">' + esc(o) + '</option>'; }).join("");
+                    pilihan.map(function (o) { return '<option value="' + esc(o) + '">' + esc(labelOutletPm(o)) + '</option>'; }).join("");
                 keSel.value = pilihan.indexOf(keLama) !== -1 ? keLama : "";
                 renderPmTetap();
             }).catch(function (e) {
@@ -964,6 +1199,7 @@
 
         function bukaPermintaan() {
             pmQty = {};
+            pmBaru = {};
             pmSemua = false;
             document.getElementById("pmAlasan").value = "";
             document.getElementById("pmError").style.display = "none";
@@ -974,7 +1210,7 @@
 
             muatDasarPermintaan().then(pantauStokPermintaan).then(function () {
                 if (!document.getElementById("modalPermintaan").classList.contains("tampil")) { hentikanPantauStok(); return; }
-                const opsi = pmOutlet.map(function (o) { return '<option value="' + esc(o) + '">' + esc(o) + '</option>'; }).join("");
+                const opsi = pmOutlet.map(function (o) { return '<option value="' + esc(o) + '">' + esc(labelOutletPm(o)) + '</option>'; }).join("");
                 document.getElementById("pmDari").innerHTML = opsi;
                 document.getElementById("pmDari").value = currentUser.outlet;
                 document.getElementById("pmKe").value = "";
@@ -998,7 +1234,7 @@
             const keLama = keSel.value;
             const pilihan = pmOutlet.filter(function (o) { return o !== dari; });
             keSel.innerHTML = '<option value="">- pilih tujuan -</option>' +
-                pilihan.map(function (o) { return '<option value="' + esc(o) + '">' + esc(o) + '</option>'; }).join("");
+                pilihan.map(function (o) { return '<option value="' + esc(o) + '">' + esc(labelOutletPm(o)) + '</option>'; }).join("");
             if (pilihan.indexOf(keLama) !== -1) keSel.value = keLama;
             pmQty = {};   // batas jumlah ikut stok asal yang baru
             pmSemua = false;
@@ -1041,7 +1277,7 @@
             } else {
                 toggle.style.display = "none";
             }
-            document.getElementById("pmJudulTabel").textContent = ringkas ? "STOK ASAL & TUJUAN" : "STOK OUTLET SE-AREA";
+            document.getElementById("pmJudulTabel").textContent = ringkas ? "STOK ASAL & TUJUAN" : (pmMitra.length ? "STOK OUTLET SE-AREA & RUTE KHUSUS" : "STOK OUTLET SE-AREA");
 
             if (pmProduk.length === 0) {
                 wadah.innerHTML = '<div class="empty-state" style="padding:18px 0;">Belum ada produk.</div>';
@@ -1055,7 +1291,8 @@
             let html = '<table class="pm-tabel"><thead><tr><th>Produk</th>';
             urut.forEach(function (o) {
                 html += '<th class="' + kelasKolom(o).trim() + '">' + esc(o) +
-                        (o === dari ? '<div class="sub" style="color:#1F5FA8;">asal</div>' : o === ke ? '<div class="sub" style="color:#1E7D32;">tujuan</div>' : '') + '</th>';
+                        (o === dari ? '<div class="sub" style="color:#1F5FA8;">asal</div>' : o === ke ? '<div class="sub" style="color:#1E7D32;">tujuan</div>' : '') +
+                        (pmMitra.indexOf(o) !== -1 ? '<div class="tag-rute">' + esc(pmArea[o] || "") + ' \u00b7 rute khusus</div>' : '') + '</th>';
             });
             html += '<th class="col-jml">Jumlah diminta</th></tr></thead><tbody>';
 
@@ -1073,7 +1310,9 @@
                 html += '<td class="col-jml"><input class="pm-qty' + (nilai ? " terisi" : "") + '" type="number" min="0" max="' + maks + '" ' +
                         'placeholder="0" value="' + nilai + '" data-pid="' + esc(p.id) + '" oninput="ubahPmQty(this)"' +
                         (maks <= 0 ? ' disabled title="Stok ' + esc(dari) + ' kosong"' : '') + '>' +
-                        '<div class="pm-catatan-qty" data-catatan="' + esc(p.id) + '" style="display:none;"></div></td></tr>';
+                        '<div class="pm-catatan-qty" data-catatan="' + esc(p.id) + '" style="display:none;"></div>' +
+                        '<label class="cb-baru"><input type="checkbox"' + (pmBaru[p.id] ? ' checked' : '') + ' onchange="pmBaru[\'' + esc(p.id) + '\'] = this.checked"' +
+                        (maks <= 0 ? ' disabled' : '') + '> minta yang baru</label></td></tr>';
             });
 
             wadah.innerHTML = html + '</tbody></table>';
@@ -1142,7 +1381,9 @@
                 if (!(v > 0)) return;
                 const s = stokPm(dari, p.id);
                 if (!s || v > s.jumlah) lebih = p.nama;
-                items.push({ productId: p.id, nama: p.nama, jumlah: v });
+                const item = { productId: p.id, nama: p.nama, jumlah: v };
+                if (pmBaru[p.id]) item.mintaBaru = true;
+                items.push(item);
             });
             if (lebih) return salah("Jumlah " + lebih + " melebihi stok " + dari + ".");
             if (items.length === 0) return salah("Isi jumlah minimal satu produk.");
@@ -1359,7 +1600,25 @@
             let html = '<div class="card aktif"><div class="card-title">Kirim ke ' + esc(t.ke) + ' <span class="badge s-perlu">PERLU DIKIRIM</span></div>' +
                        '<div class="card-meta">' + asalPerintah(t) + '</div>';
             (t.items || []).forEach(function (it) {
-                html += '<div class="li"><span>' + esc(it.nama) + '</span><b>' + it.jumlah + '</b></div>';
+                // Masa berlaku stok outlet sendiri; kalau lebih dari satu, kasir memilih kue lama / baru
+                const aktif = sbPisah(sbBatch(stokSendiri[it.productId], Date.now()), Date.now()).aktif;
+                const grup = kelompokBerlaku(aktif);
+                let info = it.mintaBaru ? '<span class="minta-baru">\u2b50 diminta yang baru</span>' : '';
+                if (grup.length > 1) {
+                    const pilih = pilihanKirim(t.id, it);
+                    const lama = grup[0], baru = grup[grup.length - 1];
+                    const nama = "pb_" + t.id + "_" + it.productId;
+                    const opsi = function (nilai, label, g) {
+                        return '<label><input type="radio" name="' + esc(nama) + '"' + (pilih === nilai ? ' checked' : '') +
+                            ' onchange="ubahPilihBatch(\'' + t.id + '\', \'' + esc(it.productId) + '\', \'' + nilai + '\')"> ' +
+                            label + ' <span class="n">\u00b7 s/d ' + esc(teksBerlaku(g.ms)) + ' \u00b7 ada ' + g.qty + '</span></label>';
+                    };
+                    info += '<div class="pilih-batch"><div class="jdl">Kue mana yang dikirim?</div>' +
+                        opsi("lama", "Yang lama dulu", lama) + opsi("baru", "Yang baru", baru) + '</div>';
+                } else if (grup.length === 1) {
+                    info += htmlBerlaku(grup[0].ms);
+                }
+                html += '<div class="li"><span class="kiri">' + esc(it.nama) + info + '</span><b>' + it.jumlah + '</b></div>';
             });
             html += '<div class="card-foot"><div class="foot-note">Siapkan ' + totalPcs + ' pcs, lalu klik Kirim. Stok ' + esc(t.dari) + ' berkurang otomatis. Tidak ada tombol Tolak.</div>' +
                     '<button class="btn btn-primary btn-big" id="btnKirim_' + t.id + '" onclick="kirimTransfer(\'' + t.id + '\')">Kirim →</button></div>' +
@@ -1379,7 +1638,11 @@
             let html = '<div class="card aktif"><div class="card-title">Dari ' + esc(t.dari) + ' <span class="badge s-dikirim">SUDAH DIKIRIM</span></div>' +
                        '<div class="card-meta">Dikirim ' + waktu(t.dikirimPada) + (t.catatan ? ' · Catatan: ' + esc(t.catatan) : '') + '</div>';
             (t.items || []).forEach(function (it) {
-                html += '<div class="li"><span>' + esc(it.nama) + '</span><span style="display:flex; align-items:center;">' +
+                // Masa berlaku kue yang dikirim (ikut dari outlet pengirim)
+                const grup = Array.isArray(it.batchDikirim) ? kelompokBerlaku(it.batchDikirim) : [];
+                const info = grup.length === 1 ? htmlBerlaku(grup[0].ms)
+                    : grup.map(function (g) { return '<span class="exp' + (g.ms && new Date(g.ms).toDateString() === new Date().toDateString() ? ' segera' : '') + '">\u23f1 ' + g.qty + ' pcs berlaku s/d ' + esc(teksBerlaku(g.ms)) + '</span>'; }).join("");
+                html += '<div class="li"><span class="kiri">' + esc(it.nama) + info + '</span><span style="display:flex; align-items:center;">' +
                         '<span class="sent">dikirim ' + it.jumlah + '</span>' +
                         '<input class="qty-in" type="number" min="0" max="' + it.jumlah + '" value="' + it.jumlah + '" ' +
                         'data-tid="' + t.id + '" data-pid="' + esc(it.productId) + '" data-sent="' + it.jumlah + '" ' +
@@ -1463,7 +1726,8 @@
                     if (sisa < it.jumlah) {
                         throw new Error("Stok " + it.nama + " tidak cukup (tersisa " + sisa + ", dikirim " + it.jumlah + "). Hubungi Forecaster.");
                     }
-                    const hasil = sbAmbil(pisah.aktif, it.jumlah);
+                    // Kue lama dulu (bawaan) atau kue baru, sesuai pilihan kasir pengirim
+                    const hasil = ambilUntukKirim(pisah.aktif, it.jumlah, pilihanKirim(id, it));
                     tx.set(refs[i], sbDataStok(hasil.sisa.concat(pisah.basi), nowMs), { merge: true });
                     return Object.assign({}, it, { batchDikirim: hasil.diambil });
                 });
@@ -1476,6 +1740,7 @@
                 });
             }).then(function () {
                 delete sedangProses[id];
+                delete pilihBatch[id];
                 muatTransfer();
                 muatBadgeTransfer(currentUser);
             }).catch(function (e) {

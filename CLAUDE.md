@@ -29,6 +29,8 @@ laporan_stok (`jenis`: "pagi" = hitung semua stok / "tambahan" = kiriman tambaha
 ringkasan_harian (penjualan/diskon/qty/cogs per detail kategori), detail_kategori (akun detail tambahan, lihat `keuangan.js`),
 products.hpp = HPP Rp per pcs (COGS & nilai waste di Laba Rugi; item transaksi menyimpan `hpp` saat dijual),
 favorit_pos (ID = nama outlet: `produkIds` urutan tab Favorit di Kasir; kasir boleh ubah outletnya sendiri),
+rute_transfer (ID = dua nama outlet urut abjad digabung "__": rute transfer lintas area dua arah, diatur forecaster/admin di halaman Transfer; kasir boleh mengajukan permintaan ke outlet se-area atau ber-rute),
+transfer_stok.items[].mintaBaru (minta kue yang baru; pengirim memilih kue lama/baru saat Kirim, batchDikirim membawa masa berlaku),
 sesi_kas, pengeluaran (skema di komentar atas `kas.js`),
 waste_stok (skema di komentar atas `stok-batch.js`)
 
