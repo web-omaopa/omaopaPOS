@@ -20,7 +20,8 @@
 
    Waste dicatat di koleksi waste_stok:
      { outlet, productId, nama, qty, alasan: "kedaluwarsa" | "diganti_lapor" | "rusak",
-       masukMs, kedaluwarsaMs, tanggal: "yyyy-mm-dd", laporanId,
+       masukMs, kedaluwarsaMs, tanggal: "yyyy-mm-dd" (kedaluwarsa: tanggal kuenya
+       kedaluwarsa; lainnya: tanggal dicatat), laporanId,
        status: "aktif" | "batal" | "menunggu" | "ditolak", olehUid, olehNama, waktu }
    Waste "rusak" (sebelum waktunya) dilaporkan kasir dengan status "menunggu";
    stoknya langsung disisihkan (batchDiambil) supaya tidak terjual. Admin ACC
@@ -160,13 +161,21 @@ function sbDataStok(batch, nowMs) {
     };
 }
 
-/* Isi dokumen waste_stok untuk satu batch */
+/* Isi dokumen waste_stok untuk satu batch.
+   Waste "kedaluwarsa" dicatat di TANGGAL KUENYA KEDALUWARSA, bukan tanggal
+   saat disapu: penyapuan baru jalan ketika aplikasi dibuka (mis. kasir
+   baru login 2 hari kemudian), tapi laporan harus tetap di hari yang benar. */
+function sbTanggalWaste(b, alasan, nowMs) {
+    const ms = (alasan === "kedaluwarsa" && b.kedaluwarsaMs) ? Math.min(b.kedaluwarsaMs, nowMs) : nowMs;
+    return sbTanggalIso(ms);
+}
+
 function sbDataWaste(info, b, alasan, nowMs) {
     return {
         outlet: info.outlet, productId: info.productId, nama: info.nama || info.productId,
         qty: b.qty, alasan: alasan,
         masukMs: b.masukMs, kedaluwarsaMs: b.kedaluwarsaMs,
-        tanggal: sbTanggalIso(nowMs), laporanId: info.laporanId || null,
+        tanggal: sbTanggalWaste(b, alasan, nowMs), laporanId: info.laporanId || null,
         status: "aktif",
         olehUid: info.olehUid || "", olehNama: info.olehNama || "",
         waktu: firebase.firestore.FieldValue.serverTimestamp()
