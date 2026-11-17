@@ -11,7 +11,8 @@
     <script src="roles.js?v=20261116b"></script>
     <script src="keuangan.js?v=20261110c"></script>
     <script src="kas.js?v=20261027b"></script>
-    <script src="member.js?v=20261114a"></script>
+    <script src="member.js?v=20261117a"></script>
+    <script src="member-bridge.js?v=20261117a"></script>
     <script src="stok-batch.js?v=20261116a"></script>
 
     <style>
@@ -704,6 +705,8 @@
                     '<div class="empty-state" style="padding:40px 0;">Akun kasir ini belum punya outlet. Minta admin mengatur outletnya di Pengaturan &gt; User.</div>';
                 return;
             }
+            // Poin member yang tertunda (server member sempat tidak terjangkau) dicoba kirim lagi
+            if (window.MemberBridge && MemberBridge.jumlahAntrian() > 0) MemberBridge.kirimAntrian();
             cekSesiKas();
         }
 
@@ -2284,6 +2287,7 @@
             h += baris("Kasir", escHtml(d.kasirNama || "-"));
             h += baris("Mode", escHtml(d.mode));
             if (d.member) h += baris("Member", escHtml(d.member.nama) + '<br><span class="rc-kecil">' + escHtml(d.member.hpSamar) + '</span>');
+            if (d.member && d.poinMember > 0) h += baris("Poin didapat", "+" + angka(d.poinMember));
             h += '<div class="rc-hr"></div>';
             d.items.forEach(function (it) {
                 const tambahan = (it.toppings.length ? '<br><span class="rc-kecil">+ ' + escHtml(it.toppings.join(", ")) + '</span>' : '') +
@@ -2577,10 +2581,14 @@
 
             const trxRef = db.collection("transactions").doc();
             const noNota = buatNoNota(trxRef.id);
-            const memberTransaksi = memberAktif ? { id: memberAktif.id, nama: memberAktif.nama, hp: memberAktif.hp || "" } : null;
+            // poin = poin yang didapat dari transaksi ini (1 poin / Rp4.000); 0 kalau bukan member
+            const poinMember = (memberAktif && window.MemberBridge) ? MemberBridge.hitungPoin(total) : 0;
+            const memberTransaksi = memberAktif ? { id: memberAktif.id, nama: memberAktif.nama, hp: memberAktif.hp || "", poin: poinMember } : null;
             const snapshotStruk = buatSnapshotStruk(r, {
                 draft: false, noNota: noNota, metode: metodeBayar,
-                uangDiterima: bayar.diterima, kembalian: bayar.kembalian
+                uangDiterima: bayar.diterima, kembalian: bayar.kembalian,
+                poinMember: poinMember,
+                statusPoin: memberTransaksi ? "mengirim" : null
             });
 
             db.runTransaction(function (transaction) {
@@ -2645,6 +2653,19 @@
                 catatRingkasanHarian(itemsRingkasan, diskonPromo);
                 catatPenjualanSesiKas(sesiKasId, metodeBayar, total);
                 transaksiTerakhir = snapshotStruk;
+                // Poin member dikirim di belakang layar. Gagal tidak membatalkan
+                // transaksi: poin masuk antrian & dicoba lagi otomatis (member-bridge.js).
+                if (memberTransaksi && poinMember > 0 && window.MemberBridge) {
+                    MemberBridge.tambahPoinAman({
+                        uid: memberTransaksi.id, nominal: total, noNota: noNota,
+                        outlet: currentUser.outlet, kasirNama: currentUser.nama
+                    }).then(function (h) {
+                        snapshotStruk.statusPoin = h;
+                        perbaruiStatusPoin();
+                    });
+                } else if (memberTransaksi) {
+                    snapshotStruk.statusPoin = { ok: true, poin: 0 };
+                }
                 cart = {};
                 promoDinonaktifkanManual = {};
                 aturMember(null);
@@ -2682,6 +2703,12 @@
                         '<div class="kb-row" style="border-top:none; padding:4px 0;"><span>Metode</span><b>' + escHtml(d.metode.replace("/", " / ")) + (d.metode === "Tunai" ? ' · diterima ' + rp(d.uangDiterima) : '') + '</b></div>' +
                         barisTunai +
                     '</div>' +
+                    (d.member
+                        ? '<div class="sukses-kartu" style="margin-top:12px; padding:12px 18px; text-align:center;">' +
+                              '<div style="font-size:12px; font-weight:700; color:#12305C;">Member: ' + escHtml(d.member.nama) + '</div>' +
+                              '<div id="statusPoinMember" style="font-size:12px; color:#52606d; margin-top:4px;"></div>' +
+                          '</div>'
+                        : '') +
                     '<div style="display:flex; gap:10px; width:100%; margin-top:22px;">' +
                         '<button class="btn-aksi2" style="flex:0 0 auto; height:48px; padding:0 20px; font-size:13px; border-radius:10px;" onclick="cetakStruk(transaksiTerakhir)">' +
                             '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#12305C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7"/></svg>Cetak Struk</button>' +
@@ -2689,6 +2716,21 @@
                     '</div>' +
                 '</div>';
             document.getElementById("layarBerhasil").classList.add("open");
+            perbaruiStatusPoin();
+        }
+
+        /* Status poin member di layar "Pembayaran Berhasil" (diisi setelah poin dikirim) */
+        function teksStatusPoin(s) {
+            if (!s || s === "mengirim") return "Mengirim poin ke member...";
+            if (s.ok && !s.poin) return "Belanja di bawah Rp" + angka(MemberBridge.EARN_PER_POINT) + ", belum dapat poin.";
+            if (s.ok) return s.dobel ? "Poin transaksi ini sudah tercatat sebelumnya." : "✅ +" + angka(s.poin) + " poin masuk ke member";
+            if (s.tertunda) return "⏳ Poin belum terkirim (koneksi ke data member bermasalah). Akan dicoba lagi otomatis.";
+            return "⚠️ Poin belum masuk: " + (s.alasan || "gagal") + ". Hubungi admin.";
+        }
+
+        function perbaruiStatusPoin() {
+            const el = document.getElementById("statusPoinMember");
+            if (el && transaksiTerakhir && transaksiTerakhir.member) el.textContent = teksStatusPoin(transaksiTerakhir.statusPoin);
         }
 
         function tutupLayarBerhasil() {
