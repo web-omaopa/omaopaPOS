@@ -21,7 +21,7 @@ Sistem kasir (POS) multi-outlet untuk Oma Opa. Situs: https://pos.omaopa.store (
 - `laporan.html` : daftar laporan + Rekap penjualan, Penjualan per produk, Laba Rugi (termasuk beban pengeluaran outlet & selisih kas), Kas & Pengeluaran, Waste (filter, download Excel/PDF)
 - `keuangan.js` : akun penjualan/COGS/diskon per detail kategori (bawaan + tambahan dari Pengaturan › Pemetaan & HPP, koleksi `detail_kategori`; halaman memanggil `keuDengarDetailKategori`/`keuMuatDetailKategori`), `AKUN_LR` (susunan Laba Rugi = Profit Loss Report ESB), `AKUN_PENGELUARAN` (kategori pengeluaran -> akun beban), akun waste & selisih kas
 - `member.js` : pencarian member di Kasir (baris "+ Pilih member" di atas Subtotal membuka jendela kecil; nama -> nama + no HP disamarkan). Data dari API web member (`MEMBER_API_URL`, belum diisi); sebelum tersambung pakai data contoh hanya di localhost / `?member=contoh`. Transaksi menyimpan `member: {id, nama, hp}` atau null
-- Halaman terencana tapi belum ada: `riwayat.html`
+- `riwayat.html` : Riwayat Penjualan (menu sidebar, juga untuk kasir): filter tanggal / shift (`?shift=<id sesi_kas>` dari kartu Penjualan di Shift & Kas), cari nota/member, metode, status; detail transaksi + cetak ulang struk. Kasir hanya melihat transaksinya sendiri (kueri `kasirUid` + `waktu`, butuh index gabungan transactions kasirUid+waktu); admin semua outlet
 
 ## Koleksi Firestore yang dipakai
 users, outlets, products, stock, transfer_stok, promo, mode_penjualan,

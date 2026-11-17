@@ -8,7 +8,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
-    <script src="roles.js?v=20261116b"></script>
+    <script src="roles.js?v=20261117a"></script>
     <script src="kas.js?v=20261027b"></script>
 
     <style>
@@ -115,6 +115,21 @@
 
         /* ===== Penjualan ===== */
         .angka-besar { font-size: 26px; font-weight: 800; color: #1f2937; }
+        .panel-klik { cursor: pointer; transition: box-shadow .15s, outline-color .15s; outline: 1.5px solid transparent; }
+        .panel-klik:hover { box-shadow: 0 6px 18px rgba(18,48,92,0.12); outline-color: #12305C; }
+        .panel-klik:focus-visible { outline: 2px solid #12305C; }
+        .link-lihat { font-size: 11.5px; font-weight: 700; color: #12305C; white-space: nowrap; }
+        .besar-lbl { font-size: 10.5px; color: #6b7280; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+        .panel-klik .angka-besar { font-size: 30px; color: #12305C; font-variant-numeric: tabular-nums; }
+        .stat3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+        .stat3 .stat { background: #F5F7FA; border-radius: 10px; padding: 9px 11px; min-width: 0; }
+        .stat3 .l { font-size: 10.5px; color: #6b7280; font-weight: 700; }
+        .stat3 .v { font-size: 15px; font-weight: 800; margin-top: 3px; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .stat3 .tunai .v { color: #1e7d32; }
+        .stat3 .non .v { color: #1F5FA8; }
+        @media (max-width: 640px) { .stat3 { grid-template-columns: 1fr 1fr; } }
+        .panel-foot { margin-top: 12px; padding-top: 10px; border-top: 1px dashed #e3e8ef; font-size: 11.5px; color: #6b7280; }
+        .panel-foot b { color: #12305C; }
         .meta-row { display: flex; gap: 16px; flex-wrap: wrap; font-size: 11.5px; color: #6b7280; margin-top: 4px; }
         .meta-row b { color: #1f2937; }
         .bar-list { margin-top: 16px; }
@@ -589,6 +604,12 @@
             window.location.href = "pos.html";
         }
 
+        // Buka Riwayat Penjualan yang langsung difilter ke shift berjalan
+        function bukaRiwayatShift() {
+            if (!sesiAktif) return;
+            window.location.href = "riwayat.html?shift=" + encodeURIComponent(sesiAktif.id);
+        }
+
         function renderShift() {
             const s = sesiAktif.data, r = ringkasanAktif;
             const buka = kasToDate(s.waktuBuka);
@@ -650,15 +671,20 @@
                     '</div>' +
                 '</div>' +
                 '<div class="dua-kolom">' +
-                    '<div class="panel">' +
-                        '<div class="panel-judul"><h3>Penjualan shift ini</h3></div>' +
+                    // Kartu penjualan: total sebagai sorotan, lalu transaksi / tunai / non-tunai.
+                    // Seluruh kartu bisa diketuk untuk membuka Riwayat Penjualan shift ini.
+                    '<div class="panel panel-klik" role="link" tabindex="0" title="Lihat riwayat penjualan shift ini" onclick="bukaRiwayatShift()" onkeydown="if (event.key === \'Enter\') bukaRiwayatShift()">' +
+                        '<div class="panel-judul"><h3>Penjualan shift ini</h3><span class="link-lihat">Lihat riwayat \u203a</span></div>' +
+                        '<div class="besar-lbl">Total penjualan</div>' +
                         '<div class="angka-besar">' + rp(totalJual) + '</div>' +
-                        '<div class="meta-row"><span><b>' + angka(r.jumlahTrx) + '</b> transaksi</span>' +
-                            '<span>Rata-rata <b>' + rp(r.jumlahTrx ? Math.round(totalJual / r.jumlahTrx) : 0) + '</b></span>' +
-                            '<span>Non-tunai <b>' + rp(r.penjualanNonTunai) + '</b></span></div>' +
+                        '<div class="stat3">' +
+                            '<div class="stat"><div class="l">Transaksi</div><div class="v">' + angka(r.jumlahTrx) + '</div></div>' +
+                            '<div class="stat tunai"><div class="l">\ud83d\udcb5 Tunai</div><div class="v">' + rp(r.penjualanTunai) + '</div></div>' +
+                            '<div class="stat non"><div class="l">\ud83d\udcb3 Non-tunai</div><div class="v">' + rp(r.penjualanNonTunai) + '</div></div>' +
+                        '</div>' +
                         '<div class="bar-list">' + bar + '</div>' +
                         produkHtml +
-                        (r.sumberPenjualan === "catatan" ? '<div class="hint-text">Angka dari catatan shift di layar Kasir (detail transaksi tidak bisa dibaca akun ini).</div>' : '') +
+                        '<div class="panel-foot">Rata-rata <b>' + rp(r.jumlahTrx ? Math.round(totalJual / r.jumlahTrx) : 0) + '</b> / transaksi</div>' +
                     '</div>' +
                     '<div class="panel">' +
                         '<div class="panel-judul"><h3>Pengeluaran shift ini<span class="sub">' + rp(r.totalPengeluaran) + '</span></h3>' +
