@@ -35,7 +35,7 @@ function memberModeContoh() {
         /[?&]member=contoh\b/.test(location.search || "");
 }
 
-function memberTersambung() { return !!MEMBER_API_URL || memberModeContoh(); }
+function memberTersambung() { return !!MEMBER_API_URL || !!window.MemberBridge || memberModeContoh(); }
 
 /* Rapikan satu data member dari sumber mana pun */
 function memberRapikan(m) {
@@ -57,12 +57,26 @@ function memberDariApi(teks) {
     });
 }
 
+/* Sumber utama: jembatan ke Firebase web member (member-bridge.js).
+   id = UID member di web member; no HP diubah ke format 08xx. */
+function memberDariBridge(teks) {
+    return MemberBridge.cari(teks).then(function (daftar) {
+        return daftar.map(function (m) {
+            const hp = String(m.hp || "");
+            return memberRapikan({ id: m.uid, nama: m.nama, hp: hp.indexOf("62") === 0 ? "0" + hp.slice(2) : hp });
+        }).filter(Boolean);
+    });
+}
+
 /* Cari member berdasarkan nama (minimal 2 huruf).
    Hasil Promise: { status: "ok", data: [...] } atau { status: "belum_tersambung" }.
    Melempar error kalau API gagal. */
 function memberCari(teks) {
     const q = String(teks || "").trim();
     if (q.length < 2) return Promise.resolve({ status: "ok", data: [] });
+    if (window.MemberBridge && !memberModeContoh()) {
+        return memberDariBridge(q).then(function (data) { return { status: "ok", data: data.slice(0, 10) }; });
+    }
     if (MEMBER_API_URL) {
         return memberDariApi(q).then(function (data) { return { status: "ok", data: data.slice(0, 20) }; });
     }
