@@ -17,7 +17,7 @@ const HALAMAN_INFO = {
     stok:           { href: "stok.html",           icon: "📦", title: "Stok",            desc: "Lihat & pantau stok outlet",        dibangun: true },
     alokasi:        { href: "alokasi.html",        icon: "📋", title: "Manajemen Menu", desc: "Rencana, lapor & approval stok", dibangun: true },
     transfer:       { href: "transfer.html",       icon: "🚚", title: "Transfer",        desc: "Kirim & terima stok antar outlet",  dibangun: true },
-    riwayat:        { href: "riwayat.html",        icon: "🕘", title: "Riwayat",         desc: "Riwayat transaksi & transfer",      dibangun: false },
+    riwayat:        { href: "riwayat.html",        icon: "🕘", title: "Riwayat Penjualan", desc: "Riwayat transaksi & cetak ulang struk", dibangun: true },
     laporan:        { href: "laporan.html",        icon: "📊", title: "Laporan",         desc: "Rekap & download laporan penjualan",         dibangun: true },
     pengaturan:     { href: "pengaturan.html",     icon: "⚙️", title: "Pengaturan",      desc: "Kelola produk, outlet, & user",     dibangun: true },
     // Shift & Kas sengaja paling bawah di menu
@@ -32,7 +32,7 @@ const ROLE_PERMISSIONS = {
     management: ["kasir", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
     admin:      ["kasir", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
     owner:      ["kasir", "stok", "pengaturan", "alokasi", "transfer", "riwayat", "laporan"],
-    kasir:      ["kasir", "kas", "alokasi", "stok", "transfer"],
+    kasir:      ["kasir", "kas", "alokasi", "stok", "transfer", "riwayat"],
     forecaster: ["stok", "transfer", "laporan"]
 };
 
