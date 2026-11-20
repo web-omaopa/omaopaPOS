@@ -10,6 +10,8 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
     <script src="roles.js?v=20261117a"></script>
     <script src="kas.js?v=20261120a"></script>
+    <script src="keuangan.js?v=20261120a"></script>
+    <script src="stok-batch.js?v=20261116a"></script>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -131,6 +133,46 @@
             body.mode-cetak #areaCetak { display: block !important; width: 58mm; padding: 2mm; font-family: Arial, Helvetica, sans-serif; }
             body.mode-cetak #areaCetak * { color: #000 !important; background: none !important; }
         }
+        .status.tunggu { background: #FFF4D6; color: #8A5A00; }
+        .aksi-dua { display: flex; gap: 8px; margin-top: 14px; }
+        .aksi-dua .btn-cetak { margin-top: 0; flex: 1.4; }
+        .btn-void { flex: 1; height: 42px; border-radius: 9px; border: 1.5px solid #E2A9A2; background: #fff; color: #B03A2E; font-size: 13px; font-weight: 800; cursor: pointer; font-family: inherit; }
+        .btn-void.ajukan { border-color: #E8C77A; color: #8A5A00; }
+        .btn-void:hover { background: #FDF3F2; }
+        .btn-void:focus-visible { outline: 2px solid #E8A33D; outline-offset: 2px; }
+        .info-void { font-size: 11px; color: #6b7280; margin-top: 8px; line-height: 1.5; }
+        .info-void.batal { background: #FDEAEA; color: #8C2F25; border-radius: 9px; padding: 9px 11px; margin: 12px 0 0; }
+        .info-void.ditolak { background: #F3F4F6; color: #52606d; border-radius: 9px; padding: 9px 11px; margin: 12px 0 0; }
+        .acc-void { background: #FFF8E6; border: 1px solid #F1D58C; border-radius: 10px; padding: 10px 12px; margin-top: 12px; font-size: 12px; color: #5C4300; line-height: 1.5; }
+        .acc-void .tb { display: flex; gap: 8px; margin-top: 9px; }
+        .acc-void button { flex: 1; height: 36px; border-radius: 8px; font-size: 12.5px; font-weight: 800; cursor: pointer; font-family: inherit; }
+        .acc-void .tolak { background: #fff; border: 1.5px solid #d5dbe3; color: #52606d; }
+        .acc-void .acc { background: #B03A2E; border: 0; color: #fff; }
+        .banner-void { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; background: #FFF8E6; border: 1px solid #F1D58C; border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; font-size: 12.5px; color: #5C4300; }
+        .banner-void button { height: 32px; padding: 0 14px; border-radius: 8px; border: 0; background: #8A5A00; color: #fff; font-weight: 800; font-size: 12px; cursor: pointer; font-family: inherit; }
+        .mv-latar { position: fixed; inset: 0; background: rgba(15, 23, 42, .45); display: none; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
+        .mv-latar.tampil { display: flex; }
+        .mv { background: #fff; border-radius: 14px; width: 100%; max-width: 400px; padding: 18px 20px; box-shadow: 0 20px 50px rgba(0,0,0,.25); max-height: 92vh; overflow-y: auto; }
+        .mv h3 { margin: 0; font-size: 16px; color: #B03A2E; }
+        .mv h3.kuning { color: #8A5A00; }
+        .mv .sub { font-size: 12px; color: #6b7280; margin: 4px 0 12px; line-height: 1.5; }
+        .mv-ringkas { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; background: #F6F8FB; border-radius: 9px; padding: 10px 12px; font-size: 12px; color: #6b7280; }
+        .mv-ringkas b { color: #12305C; text-align: right; }
+        .mv label { display: block; font-size: 11.5px; font-weight: 700; color: #52606d; margin: 12px 0 6px; }
+        .mv label i { color: #D33; font-style: normal; }
+        .mv-alasan { display: flex; flex-wrap: wrap; gap: 6px; }
+        .mv-alasan button { height: 30px; padding: 0 11px; border-radius: 15px; border: 1px solid #d5dbe3; background: #fff; font-size: 12px; color: #374151; cursor: pointer; font-family: inherit; }
+        .mv-alasan button.on { background: #12305C; border-color: #12305C; color: #fff; font-weight: 700; }
+        .mv textarea { width: 100%; box-sizing: border-box; border: 1px solid #d5dbe3; border-radius: 8px; padding: 8px 10px; font-size: 12.5px; font-family: inherit; resize: vertical; min-height: 54px; }
+        .mv-efek { background: #FDF3F2; color: #8C2F25; border-radius: 9px; padding: 9px 11px; font-size: 11.5px; line-height: 1.6; margin-top: 12px; }
+        .mv-efek.kuning { background: #FFF8E6; color: #5C4300; }
+        .mv-error { display: none; background: #FDEAEA; color: #B03A2E; border-radius: 8px; padding: 8px 10px; font-size: 12px; margin-top: 10px; }
+        .mv-tombol { display: flex; gap: 8px; margin-top: 14px; }
+        .mv-tombol button { flex: 1; height: 40px; border-radius: 9px; font-size: 13px; font-weight: 800; cursor: pointer; font-family: inherit; }
+        .mv-tombol .batal { background: #fff; border: 1.5px solid #d5dbe3; color: #52606d; }
+        #vSimpan { background: #B03A2E; border: 0; color: #fff; }
+        #vSimpan.kuning { background: #8A5A00; }
+        #vSimpan:disabled { opacity: .55; cursor: default; }
     </style>
 </head>
 <body>
@@ -145,6 +187,22 @@
         </div>
     </div>
     <div id="areaCetak"></div>
+
+    <!-- Void / Ajukan void -->
+    <div class="mv-latar" id="modalVoid" onclick="if (event.target === this) tutupVoid()">
+        <div class="mv" role="dialog" aria-modal="true" aria-labelledby="vJudul">
+            <h3 id="vJudul">⛔ Void transaksi</h3>
+            <div class="sub" id="vSub"></div>
+            <div class="mv-ringkas" id="vRingkas"></div>
+            <label>Alasan void <i>*</i></label>
+            <div class="mv-alasan" id="vAlasan"></div>
+            <label for="vCatatan">Catatan</label>
+            <textarea id="vCatatan" maxlength="200" placeholder="mis. pelanggan ganti pesanan"></textarea>
+            <div class="mv-efek" id="vEfek"></div>
+            <div class="mv-error" id="vError"></div>
+            <div class="mv-tombol"><button class="batal" onclick="tutupVoid()">Batal</button><button id="vSimpan" onclick="simpanVoid()">Void sekarang</button></div>
+        </div>
+    </div>
 
     <script>
         const firebaseConfig = {
@@ -224,8 +282,15 @@
                 ? db.collection("sesi_kas").doc(idShift).get().then(function (doc) { return doc.exists ? { id: doc.id, data: doc.data({ serverTimestamps: "estimate" }) } : null; })
                 : (currentUser.role === "kasir" ? kasCariSesiAktif(db, currentUser.outlet) : Promise.resolve(null));
 
-            Promise.all([muatOutlet, muatShift.catch(function () { return null; })]).then(function (h) {
+            const muatSesiKasir = currentUser.role === "kasir"
+                ? kasCariSesiAktif(db, currentUser.outlet).catch(function () { return null; })
+                : Promise.resolve(null);
+            keuMuatDetailKategori(db);
+            pantauPermintaanVoid();
+
+            Promise.all([muatOutlet, muatShift.catch(function () { return null; }), muatSesiKasir]).then(function (h) {
                 sesiShift = h[1];
+                sesiBukaKasir = h[2];
                 if (sesiShift) {
                     f.lingkup = "shift";
                     f.outlet = sesiShift.data.outlet || f.outlet;
@@ -249,7 +314,7 @@
             html += '<input type="text" class="f-in cari" id="fCari" placeholder="Cari no. nota atau nama member..." value="' + esc(f.cari) + '" oninput="ubahFilter(\'cari\', this.value)" autocomplete="off">' +
                 '<select class="f-sel" id="fMetode" onchange="ubahFilter(\'metode\', this.value)" aria-label="Metode bayar"><option value="">Semua metode</option></select>' +
                 '<select class="f-sel" id="fStatus" onchange="ubahFilter(\'status\', this.value)" aria-label="Status">' +
-                    '<option value="">Semua status</option><option value="berhasil"' + (f.status === "berhasil" ? ' selected' : '') + '>Berhasil</option><option value="batal"' + (f.status === "batal" ? ' selected' : '') + '>Void (dibatalkan)</option></select>';
+                    '<option value="">Semua status</option><option value="berhasil"' + (f.status === "berhasil" ? ' selected' : '') + '>Berhasil</option><option value="batal"' + (f.status === "batal" ? ' selected' : '') + '>Void (dibatalkan)</option><option value="menunggu"' + (f.status === "menunggu" ? ' selected' : '') + '>Menunggu ACC void</option></select>';
             document.getElementById("barFilter").innerHTML = html;
 
             const s = sesiShift && f.lingkup === "shift" ? sesiShift.data : null;
@@ -337,7 +402,8 @@
             const cari = f.cari.trim().toLowerCase();
             return transaksi.filter(function (t) {
                 if (f.metode && (t.metodeBayar || "Tunai") !== f.metode) return false;
-                if (f.status === "berhasil" && dibatalkan(t)) return false;
+                if (f.status === "berhasil" && (dibatalkan(t) || menungguVoid(t))) return false;
+                if (f.status === "menunggu" && !menungguVoid(t)) return false;
                 if (f.status === "batal" && !dibatalkan(t)) return false;
                 if (cari) {
                     const teks = ((t.noNota || "") + " " + (t.member && t.member.nama ? t.member.nama : "")).toLowerCase();
@@ -355,8 +421,16 @@
             return "";
         }
 
+        function htmlBannerVoid() {
+            if (!bolehSemuaOutlet() || !permintaanVoid.length) return "";
+            return modePermintaan
+                ? '<div class="banner-void"><span>Menampilkan <b>' + permintaanVoid.length + ' permintaan void</b> yang menunggu ACC (semua tanggal &amp; outlet).</span><button onclick="tampilPermintaan(false)">Kembali ke daftar</button></div>'
+                : '<div class="banner-void"><span>⏳ Ada <b>' + permintaanVoid.length + ' permintaan void</b> menunggu ACC.</span><button onclick="tampilPermintaan(true)">Tampilkan</button></div>';
+        }
+
         function renderIsi() {
-            const daftar = terfilter();
+            const daftar = modePermintaan ? permintaanVoid : terfilter();
+            const banner = htmlBannerVoid();
             // Ringkasan dari transaksi yang tidak dibatalkan
             let total = 0, tunai = 0, n = 0, batal = 0;
             daftar.forEach(function (t) {
@@ -364,6 +438,7 @@
                 n++; total += Number(t.total) || 0;
                 if ((t.metodeBayar || "Tunai") === "Tunai") tunai += Number(t.total) || 0;
             });
+            document.getElementById("ringkas").style.display = modePermintaan ? "none" : "";
             document.getElementById("ringkas").innerHTML =
                 '<div class="tot">Total penjualan<b>' + rp(total) + '</b></div>' +
                 '<div>Transaksi<b>' + angka(n) + '</b></div>' +
@@ -373,16 +448,16 @@
 
             if (daftar.length === 0) {
                 dipilihId = null;
-                document.getElementById("isi").innerHTML = '<div class="daftar"><div class="kosong">' +
+                document.getElementById("isi").innerHTML = banner + '<div class="daftar"><div class="kosong">' +
                     (transaksi.length ? "Tidak ada transaksi yang cocok dengan filter." : "Belum ada transaksi di " + (f.lingkup === "shift" ? "shift ini." : "tanggal ini.")) +
                     (currentUser.role === "kasir" ? '<div class="catatan">Yang tampil hanya transaksi yang kamu buat sendiri.</div>' : '') + '</div></div>';
                 return;
             }
             if (!dipilihId || !daftar.some(function (t) { return t._id === dipilihId; })) dipilihId = daftar[0]._id;
 
-            const semuaOutlet = bolehSemuaOutlet() && !f.outlet && f.lingkup !== "shift";
-            const tglHead = f.lingkup === "shift" ? "SHIFT INI" : new Date(rentang().dari).toLocaleDateString("id-ID", { weekday: "long", day: "2-digit", month: "short", year: "numeric" }).toUpperCase();
-            let html = '<div class="dua"><div class="daftar kotak"><div class="head"><span>' + esc(tglHead) + '</span><span>' + daftar.length + ' TRANSAKSI</span></div>';
+            const semuaOutlet = bolehSemuaOutlet() && (modePermintaan || (!f.outlet && f.lingkup !== "shift"));
+            const tglHead = modePermintaan ? "PERMINTAAN VOID" : f.lingkup === "shift" ? "SHIFT INI" : new Date(rentang().dari).toLocaleDateString("id-ID", { weekday: "long", day: "2-digit", month: "short", year: "numeric" }).toUpperCase();
+            let html = banner + '<div class="dua"><div class="daftar kotak"><div class="head"><span>' + esc(tglHead) + '</span><span>' + daftar.length + ' TRANSAKSI</span></div>';
             daftar.forEach(function (t) {
                 const batalT = dibatalkan(t);
                 const d = t._waktu;
@@ -393,7 +468,7 @@
                 };
                 html += '<button type="button" class="kt' + (t._id === dipilihId ? ' on' : '') + (batalT ? ' dibatal' : '') + '" onclick="pilihTrx(\'' + escJsAttr(t._id) + '\')">' +
                     '<span class="kt-atas"><span class="no">' + esc(t.noNota || t._id) + '</span>' +
-                        '<span class="status' + (batalT ? ' batal' : '') + '">' + (batalT ? 'Void' : '✓ Berhasil') + '</span></span>' +
+                        htmlStatus(t) + '</span>' +
                     '<span class="kt-grid">' +
                         kol("Tanggal", tgl + " | " + jamDetik) +
                         kol("Member", t.member && t.member.nama ? '👤 ' + esc(t.member.nama) : "-") +
@@ -405,6 +480,8 @@
             });
             html += '</div>' + htmlDetail(daftar.find(function (t) { return t._id === dipilihId; })) + '</div>';
             document.getElementById("isi").innerHTML = html;
+            const dipilih = daftar.find(function (t) { return t._id === dipilihId; });
+            if (dipilih) aturTombolVoid(dipilih);
         }
 
         function pilihTrx(id) {
@@ -426,7 +503,7 @@
                 : "-";
             let html = '<div class="detail"><div class="dh"><div><div class="no">' + esc(t.noNota || t._id) + '</div>' +
                 '<div class="wkt">' + esc(tglPanjang(t._waktu)) + ' · ' + jam(t._waktu) + '</div></div>' +
-                '<span class="status' + (batalT ? ' batal' : '') + '">' + (batalT ? 'Void' : '✓ Berhasil') + '</span></div>' +
+                htmlStatus(t) + '</div>' +
                 '<div class="kv">' +
                     '<div><span>KASIR</span><b>' + esc(t.kasirNama || "-") + '</b></div>' +
                     '<div><span>OUTLET · MODE</span><b>' + esc(t.outlet || "-") + ' · ' + esc(t.modePenjualan || "Offline") + '</b></div>' +
@@ -452,13 +529,280 @@
                     '<div class="sm"><span>Kembalian</span><span>' + rp(t.kembalian) + '</span></div>';
             }
             if (t.member && Number(t.member.poin) > 0) html += '<div class="sm"><span>Poin member didapat</span><span>+' + angka(t.member.poin) + '</span></div>';
-            html += '<button class="btn-cetak" onclick="cetakUlang(\'' + escJsAttr(t._id) + '\')">🖨 Cetak Ulang Struk</button></div>';
+            html += htmlAksiDetail(t) + '</div>';
             return html;
         }
 
+        /* =====================================================================
+           VOID TRANSAKSI
+           - Kasir, transaksi dari shift outletnya yang MASIH BUKA: void langsung.
+           - Kasir, shift sudah ditutup / hari sebelumnya: "Ajukan void"
+             (voidStatus "menunggu", voidMinta {alasan, catatan, uid, nama, waktu}).
+           - Admin/owner/management: void langsung atau ACC / Tolak permintaan.
+           Saat void: status "batal" + voidAlasan, voidCatatan, voidUid, voidNama,
+           voidPada, voidCara ("langsung" | "acc"), voidSesiId; ringkasan_harian
+           dikurangi; kalau shift transaksi masih buka: stok dikembalikan dan
+           catatan penjualan shift (sesi_kas) dikurangi.
+           Poin member belum dikurangi (perlu dukungan web member).
+        ========================================================================= */
+        const ALASAN_VOID = ["Salah input", "Pelanggan batal", "Salah metode bayar", "Pesanan dobel", "Lainnya"];
+        let sesiBukaKasir = null;      // shift berjalan di outlet kasir (null = tidak ada)
+        let voidTrxId = null, voidMode = "langsung", voidAlasan = "";
+        let permintaanVoid = [];       // admin: transaksi dengan voidStatus "menunggu"
+        let pantauPermintaan = null;
+        let modePermintaan = false;    // admin sedang menampilkan daftar permintaan void
+
+        function menungguVoid(t) { return !dibatalkan(t) && t.voidStatus === "menunggu"; }
+
+        function htmlStatus(t) {
+            if (dibatalkan(t)) return '<span class="status batal">Void</span>';
+            if (menungguVoid(t)) return '<span class="status tunggu">⏳ Menunggu ACC void</span>';
+            return '<span class="status">✓ Berhasil</span>';
+        }
+
+        // Shift berjalan (sesi_kas status buka) yang mencakup transaksi ini, atau null
+        function sesiBukaUntuk(t) {
+            if (currentUser.role === "kasir") {
+                const s = sesiBukaKasir;
+                if (!s || s.data.outlet !== t.outlet) return Promise.resolve(null);
+                const b = keDate(s.data.waktuBuka);
+                return Promise.resolve(b && t._waktu >= b ? s : null);
+            }
+            return kasCariSesiAktif(db, t.outlet).then(function (s) {
+                const b = s ? keDate(s.data.waktuBuka) : null;
+                return b && t._waktu >= b ? s : null;
+            }).catch(function () { return null; });
+        }
+
+        function htmlAksiDetail(t) {
+            let html = "";
+            if (t.voidStatus === "ditolak" && !dibatalkan(t)) {
+                html += '<div class="info-void ditolak">Permintaan void ditolak' + (t.voidTolakNama ? ' oleh ' + esc(t.voidTolakNama) : '') +
+                    (t.voidTolakAlasan ? ': ' + esc(t.voidTolakAlasan) : '') + '</div>';
+            }
+            if (dibatalkan(t)) {
+                html += '<div class="info-void batal"><b>Void</b>' + (t.voidNama ? ' oleh ' + esc(t.voidNama) : '') +
+                    (keDate(t.voidPada) ? ' · ' + esc(tglPanjang(keDate(t.voidPada))) + ' ' + jam(keDate(t.voidPada)) : '') +
+                    (t.voidAlasan ? '<br>Alasan: <b>' + esc(t.voidAlasan) + '</b>' + (t.voidCatatan ? ', ' + esc(t.voidCatatan) : '') : '') + '</div>';
+            } else if (menungguVoid(t)) {
+                const m = t.voidMinta || {};
+                html += '<div class="acc-void"><b>Permintaan void</b> dari ' + esc(m.nama || "-") +
+                    (keDate(m.waktu) ? ' · ' + jam(keDate(m.waktu)) + ', ' + esc(keDate(m.waktu).toLocaleDateString("id-ID")) : '') +
+                    '<br>Alasan: <b>' + esc(m.alasan || "-") + '</b>' + (m.catatan ? ', ' + esc(m.catatan) : '') +
+                    (bolehSemuaOutlet()
+                        ? '<div class="tb"><button class="tolak" onclick="tolakVoid(\'' + escJsAttr(t._id) + '\')">Tolak</button>' +
+                          '<button class="acc" onclick="bukaVoid(\'' + escJsAttr(t._id) + '\', \'acc\')">ACC void</button></div>'
+                        : '<div style="margin-top:4px;">Menunggu persetujuan admin.</div>') + '</div>';
+            }
+            const tombolVoid = !dibatalkan(t) && !menungguVoid(t)
+                ? '<button class="btn-void" id="btnVoid" onclick="bukaVoid(\'' + escJsAttr(t._id) + '\')">⛔ Void</button>' : '';
+            html += '<div class="aksi-dua"><button class="btn-cetak" onclick="cetakUlang(\'' + escJsAttr(t._id) + '\')">🖨 Cetak Ulang Struk</button>' + tombolVoid + '</div>';
+            if (tombolVoid) html += '<div class="info-void" id="infoVoid">Memeriksa shift…</div>';
+            return html;
+        }
+
+        // Setelah detail digambar: sesuaikan tombol Void (langsung / ajukan) dengan status shift
+        function aturTombolVoid(t) {
+            const btn = document.getElementById("btnVoid");
+            if (!btn) return;
+            sesiBukaUntuk(t).then(function (s) {
+                const info = document.getElementById("infoVoid");
+                if (!document.getElementById("btnVoid") || dipilihId !== t._id) return;
+                if (s || bolehSemuaOutlet()) {
+                    btn.textContent = "⛔ Void";
+                    if (info) info.textContent = s ? "Shift masih berjalan: void langsung berlaku." : "Shift sudah ditutup: void mengoreksi laporan (stok & rekap shift tidak diubah).";
+                } else {
+                    btn.textContent = "⏳ Ajukan void";
+                    btn.classList.add("ajukan");
+                    if (info) info.textContent = "Shift sudah ditutup: void perlu persetujuan admin.";
+                }
+            });
+        }
+
+        function bukaVoid(id, mode) {
+            const t = transaksi.concat(permintaanVoid).find(function (x) { return x._id === id; });
+            if (!t) return;
+            voidTrxId = id;
+            voidAlasan = mode === "acc" && t.voidMinta ? t.voidMinta.alasan : "";
+            document.getElementById("vCatatan").value = mode === "acc" && t.voidMinta ? (t.voidMinta.catatan || "") : "";
+            document.getElementById("vError").style.display = "none";
+            document.getElementById("vRingkas").innerHTML =
+                '<span>No. Nota</span><b>' + esc(t.noNota || t._id) + '</b>' +
+                '<span>Waktu</span><b>' + esc(t._waktu.toLocaleDateString("id-ID")) + ' | ' + jam(t._waktu) + '</b>' +
+                '<span>Total · ' + esc(t.metodeBayar || "Tunai") + '</span><b>' + rp(t.total) + '</b>';
+            document.getElementById("vEfek").textContent = "Memeriksa shift…";
+            const btn = document.getElementById("vSimpan");
+            btn.disabled = true;
+            document.getElementById("modalVoid").classList.add("tampil");
+            renderAlasanVoid();
+            sesiBukaUntuk(t).then(function (s) {
+                if (voidTrxId !== id) return;
+                const pcs = (t.items || []).filter(function (it) { return it.kategori !== "Topping"; }).reduce(function (a, it) { return a + (Number(it.qty) || 0); }, 0);
+                if (mode === "acc") voidMode = "acc";
+                else voidMode = (s || bolehSemuaOutlet()) ? "langsung" : "ajukan";
+                const judul = document.getElementById("vJudul");
+                judul.textContent = voidMode === "ajukan" ? "⏳ Ajukan void" : voidMode === "acc" ? "⛔ ACC void" : "⛔ Void transaksi";
+                judul.className = voidMode === "ajukan" ? "kuning" : "";
+                document.getElementById("vSub").innerHTML = voidMode === "ajukan"
+                    ? 'Transaksi ini dari shift yang <b>sudah ditutup</b>, jadi void perlu persetujuan admin.'
+                    : 'Transaksi akan dibatalkan. Tindakan ini tercatat atas nama kamu.';
+                const efek = document.getElementById("vEfek");
+                efek.className = "mv-efek" + (voidMode === "ajukan" ? " kuning" : "");
+                efek.innerHTML = voidMode === "ajukan"
+                    ? "Setelah di-ACC admin: penjualan &amp; laporan dikoreksi. Stok tidak dikembalikan dan rekap shift yang sudah ditutup tidak diubah."
+                    : s
+                        ? "✓ Stok " + pcs + " pcs dikembalikan ke " + esc(t.outlet) + "<br>✓ Penjualan shift berkurang <b>" + rp(t.total) + "</b> (" + esc(t.metodeBayar || "Tunai") + ")<br>✓ Penjualan &amp; laporan dikoreksi"
+                        : "✓ Penjualan &amp; laporan dikoreksi<br>Shift transaksi ini sudah ditutup: stok &amp; rekap shift tidak diubah.";
+                btn.textContent = voidMode === "ajukan" ? "Ajukan ke admin" : voidMode === "acc" ? "ACC void" : "Void sekarang";
+                btn.className = voidMode === "ajukan" ? "kuning" : "";
+                btn.disabled = false;
+                btn.dataset.sesi = s ? s.id : "";
+            });
+        }
+
+        function renderAlasanVoid() {
+            document.getElementById("vAlasan").innerHTML = ALASAN_VOID.map(function (a) {
+                return '<button type="button" class="' + (a === voidAlasan ? 'on' : '') + '" onclick="pilihAlasanVoid(\'' + escJsAttr(a) + '\')">' + esc(a) + '</button>';
+            }).join("");
+        }
+        function pilihAlasanVoid(a) { voidAlasan = a; renderAlasanVoid(); }
+        function tutupVoid() { document.getElementById("modalVoid").classList.remove("tampil"); voidTrxId = null; }
+
+        function simpanVoid() {
+            const err = document.getElementById("vError");
+            const salah = function (p) { err.innerHTML = p; err.style.display = "block"; };
+            err.style.display = "none";
+            if (!voidAlasan) return salah("Pilih alasan void.");
+            const catatan = document.getElementById("vCatatan").value.trim();
+            if (voidAlasan === "Lainnya" && !catatan) return salah("Tulis alasannya di kolom catatan.");
+            const btn = document.getElementById("vSimpan");
+            const id = voidTrxId, sesiId = btn.dataset.sesi || "";
+            btn.disabled = true;
+            const proses = voidMode === "ajukan"
+                ? db.collection("transactions").doc(id).update({
+                    voidStatus: "menunggu",
+                    voidMinta: { alasan: voidAlasan, catatan: catatan, uid: currentUser.uid, nama: currentUser.nama || "", waktu: firebase.firestore.FieldValue.serverTimestamp() }
+                })
+                : jalankanVoid(id, voidAlasan, catatan, sesiId, voidMode);
+            proses.then(function () {
+                tutupVoid();
+            }).catch(function (e) {
+                btn.disabled = false;
+                salah(e.code === "permission-denied"
+                    ? "Ditolak aturan Firestore. Kalau shift transaksi ini sudah ditutup, gunakan <b>Ajukan void</b>."
+                    : "Gagal: " + esc(e.message));
+            });
+        }
+
+        /* Void dalam satu transaksi Firestore: status transaksi, ringkasan
+           harian, dan (kalau shift masih buka) stok + catatan penjualan shift. */
+        function jalankanVoid(id, alasan, catatan, sesiId, cara) {
+            const trxRef = db.collection("transactions").doc(id);
+            const sesiRef = sesiId ? db.collection("sesi_kas").doc(sesiId) : null;
+            return keuMuatDetailKategori(db).then(function () {
+                return db.runTransaction(function (tx) {
+                    return tx.get(trxRef).then(function (doc) {
+                        if (!doc.exists) throw new Error("Transaksi tidak ditemukan.");
+                        const t = doc.data();
+                        if (t.status === "batal") throw new Error("Transaksi ini sudah di-void.");
+                        const tWaktu = keDate(t.waktu) || new Date();
+                        // Item yang stoknya dilacak (topping tidak)
+                        const perProduk = {};
+                        if (sesiRef) {
+                            (t.items || []).forEach(function (it) {
+                                if (!it.productId || it.kategori === "Topping") return;
+                                perProduk[it.productId] = (perProduk[it.productId] || 0) + (Number(it.qty) || 0);
+                            });
+                        }
+                        const pids = Object.keys(perProduk);
+                        const stokRefs = pids.map(function (p) { return db.collection("outlets").doc(t.outlet).collection("stock").doc(p); });
+                        const produkRefs = pids.map(function (p) { return db.collection("products").doc(p); });
+                        const baca = [sesiRef ? tx.get(sesiRef) : Promise.resolve(null)]
+                            .concat(stokRefs.map(function (r) { return tx.get(r); }))
+                            .concat(produkRefs.map(function (r) { return tx.get(r); }));
+                        return Promise.all(baca).then(function (h) {
+                            const sesiDoc = h[0];
+                            const sesiMasihBuka = sesiDoc && sesiDoc.exists && sesiDoc.data().status === "buka";
+                            const nowMs = Date.now();
+                            const naik = firebase.firestore.FieldValue.increment;
+                            // 1. Kembalikan stok (hanya shift masih buka)
+                            if (sesiMasihBuka) {
+                                pids.forEach(function (pid, i) {
+                                    const snap = h[1 + i], produk = h[1 + pids.length + i].exists ? h[1 + pids.length + i].data() : {};
+                                    const daftar = sbBatch(snap.exists ? snap.data() : null, nowMs);
+                                    const pisah = sbPisah(sbNormalkan(daftar, produk), nowMs);
+                                    const qty = perProduk[pid];
+                                    if (pisah.aktif.length) {
+                                        pisah.aktif[0] = Object.assign({}, pisah.aktif[0], { qty: pisah.aktif[0].qty + qty });
+                                    } else {
+                                        const exp = sbKedaluwarsa(produk, tWaktu.getTime());
+                                        if (exp === null || exp > nowMs) pisah.aktif.push({ qty: qty, masukMs: tWaktu.getTime(), kedaluwarsaMs: exp, laporanId: null });
+                                    }
+                                    tx.set(stokRefs[i], sbDataStok(pisah.aktif.concat(pisah.basi), nowMs), { merge: true });
+                                });
+                                // 2. Catatan penjualan shift
+                                const per = {};
+                                per[t.metodeBayar || "Tunai"] = naik(-(Number(t.total) || 0));
+                                tx.set(sesiRef, { jumlahTrx: naik(-1), penjualanPerMetode: per }, { merge: true });
+                            }
+                            // 3. Ringkasan harian (Laba Rugi)
+                            const r = keuRingkasTransaksi(t);
+                            const tgl = keuTanggalIso(tWaktu);
+                            const data = { outlet: t.outlet, tanggal: tgl, tahun: tWaktu.getFullYear(), bulan: tWaktu.getMonth() + 1, trx: naik(-1) };
+                            ["penjualan", "diskon", "qty", "cogs", "qtyTanpaHpp"].forEach(function (k) {
+                                const isi = {};
+                                Object.keys(r[k] || {}).forEach(function (d) { isi[d] = naik(-r[k][d]); });
+                                if (Object.keys(isi).length) data[k] = isi;
+                            });
+                            tx.set(db.collection("ringkasan_harian").doc(keuIdRingkasan(t.outlet, tgl)), data, { merge: true });
+                            // 4. Status transaksi
+                            const ubah = {
+                                status: "batal", voidAlasan: alasan, voidCatatan: catatan || "",
+                                voidUid: currentUser.uid, voidNama: currentUser.nama || "",
+                                voidPada: firebase.firestore.FieldValue.serverTimestamp(),
+                                voidCara: cara === "acc" ? "acc" : "langsung", voidSesiId: sesiMasihBuka ? sesiId : null
+                            };
+                            if (cara === "acc") ubah.voidStatus = "disetujui";
+                            tx.update(trxRef, ubah);
+                        });
+                    });
+                });
+            });
+        }
+
+        function tolakVoid(id) {
+            const alasan = prompt("Alasan menolak permintaan void (opsional):", "");
+            if (alasan === null) return;
+            db.collection("transactions").doc(id).update({
+                voidStatus: "ditolak", voidTolakAlasan: alasan || "",
+                voidTolakUid: currentUser.uid, voidTolakNama: currentUser.nama || "",
+                voidTolakPada: firebase.firestore.FieldValue.serverTimestamp()
+            }).catch(function (e) { alert("Gagal menolak: " + e.message); });
+        }
+
+        // Admin: pantau semua permintaan void yang menunggu (semua tanggal)
+        function pantauPermintaanVoid() {
+            if (!bolehSemuaOutlet()) return;
+            if (pantauPermintaan) pantauPermintaan();
+            pantauPermintaan = db.collection("transactions").where("voidStatus", "==", "menunggu").onSnapshot(function (snap) {
+                permintaanVoid = [];
+                snap.forEach(function (doc) {
+                    const t = doc.data({ serverTimestamps: "estimate" });
+                    if (t.status === "batal") return;
+                    t._id = doc.id; t._waktu = keDate(t.waktu) || new Date(0);
+                    permintaanVoid.push(t);
+                });
+                permintaanVoid.sort(function (a, b) { return b._waktu - a._waktu; });
+                if (modePermintaan && permintaanVoid.length === 0) modePermintaan = false;
+                if (pantauTrx || modePermintaan) renderIsi();
+            }, function (e) { console.warn("Permintaan void belum bisa dibaca:", e.message); });
+        }
+
+        function tampilPermintaan(v) { modePermintaan = v; dipilihId = null; renderIsi(); }
+
         // Struk sama seperti di layar Kasir, ditandai "CETAK ULANG"
         function cetakUlang(id) {
-            const t = transaksi.find(function (x) { return x._id === id; });
+            const t = transaksi.concat(permintaanVoid).find(function (x) { return x._id === id; });
             if (!t) return;
             const baris = function (k, v, gaya) { return '<div class="rc-row"' + (gaya ? ' style="' + gaya + '"' : '') + '><span>' + k + '</span><span>' + v + '</span></div>'; };
             let h = '<div class="rc-judul">Oma Opa ' + esc(t.outlet || "") + '</div>' +
