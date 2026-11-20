@@ -68,10 +68,43 @@ function terapkanDataRole(nama, data) {
 function siapkanRole(role, lanjut) {
     ROLE_PERMISSIONS[ROLE_TERKUNCI] = SEMUA_HALAMAN.slice();
     if (!role || role === ROLE_TERKUNCI) { lanjut(); return; }
-    firebase.firestore().collection("roles").doc(role).get()
-        .then(function (doc) { if (doc.exists) terapkanDataRole(role, doc.data()); })
+    /* Cepat: pakai simpanan sesi (sessionStorage) dulu supaya halaman langsung
+       tampil, lalu baca ulang di belakang layar untuk halaman berikutnya. */
+    const kunci = "omaopa_role_" + role;
+    let simpanan;
+    try { simpanan = JSON.parse(sessionStorage.getItem(kunci) || "null"); } catch (e) { simpanan = null; }
+    const baca = firebase.firestore().collection("roles").doc(role).get().then(function (doc) {
+        const data = doc.exists ? doc.data() : false;
+        try { sessionStorage.setItem(kunci, JSON.stringify(data)); } catch (e) { /* abaikan */ }
+        return data;
+    });
+    if (simpanan !== null) {
+        if (simpanan) terapkanDataRole(role, simpanan);
+        lanjut();
+        baca.catch(function () { /* pakai simpanan */ });
+        return;
+    }
+    baca.then(function (data) { if (data) terapkanDataRole(role, data); })
         .catch(function (error) { console.warn("Role dari database belum bisa dibaca, pakai bawaan:", error.message); })
         .then(function () { lanjut(); });
+}
+
+/* Firestore untuk semua halaman, dengan cache di perangkat (IndexedDB):
+   data yang pernah dibuka (produk, stok, dll) langsung tampil dari cache
+   saat halaman dibuka lagi, lalu diperbarui otomatis dari server.
+   Panggil SEKALI per halaman, sebelum Firestore dipakai. Kalau browser
+   tidak mendukung (mis. mode penyamaran), tetap jalan tanpa cache. */
+function siapkanFirestore() {
+    const db = firebase.firestore();
+    if (!window.__omaopaCache) {
+        window.__omaopaCache = true;
+        try {
+            db.enablePersistence({ synchronizeTabs: true }).catch(function (e) {
+                console.info("Cache Firestore tidak aktif:", e.code || e.message);
+            });
+        } catch (e) { /* abaikan */ }
+    }
+    return db;
 }
 
 /* Helper keamanan: escape data dari Firestore sebelum disisipkan ke HTML.
@@ -84,23 +117,42 @@ function escapeHtmlAman(t) {
         return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
     });
 }
-/* Data akun yang login, SELALU dibaca dari koleksi users (bukan hanya dari
-   sessionStorage), supaya perubahan role / outlet dari Pengaturan langsung
-   berlaku tanpa perlu keluar-masuk. Kalau database tidak bisa dibaca
-   (mis. sinyal putus), pakai simpanan sessionStorage milik akun yang sama.
+/* Data akun yang login (role, outlet, nama).
+   Supaya halaman cepat tampil, data simpanan sesi (sessionStorage) milik
+   akun yang sama langsung dipakai, lalu koleksi users SELALU dibaca ulang
+   di belakang layar: kalau role / outlet / nama berubah dari Pengaturan,
+   simpanan diperbarui dan halaman dimuat ulang otomatis; kalau akunnya
+   sudah dihapus, keluar ke halaman login.
+   Tanpa simpanan (pertama kali), menunggu data dari database.
    Hasil Promise: data user + uid, atau null kalau akunnya tidak ada. */
 function muatUserAktif(db, user) {
     let simpanan = null;
     try { simpanan = JSON.parse(sessionStorage.getItem("omaopa_user") || "null"); } catch (e) { simpanan = null; }
-    return db.collection("users").doc(user.uid).get().then(function (doc) {
+    if (simpanan && simpanan.uid !== user.uid) simpanan = null;
+    const baca = db.collection("users").doc(user.uid).get().then(function (doc) {
         if (!doc.exists) return null;
         const data = doc.data();
         data.uid = user.uid;
         try { sessionStorage.setItem("omaopa_user", JSON.stringify(data)); } catch (e) { /* abaikan */ }
         return data;
-    }).catch(function (error) {
-        console.warn("Data akun belum bisa dibaca ulang, pakai data login:", error.message);
-        return simpanan && simpanan.uid === user.uid ? simpanan : null;
+    });
+    if (simpanan && simpanan.role) {
+        baca.then(function (data) {
+            if (!data) {
+                try { sessionStorage.removeItem("omaopa_user"); } catch (e) { /* abaikan */ }
+                firebase.auth().signOut().then(function () { window.location.href = "index.html"; });
+                return;
+            }
+            const berubah = ["role", "outlet", "nama", "username"].some(function (k) { return (data[k] || "") !== (simpanan[k] || ""); });
+            if (berubah) window.location.reload();
+        }).catch(function (error) {
+            console.warn("Data akun belum bisa dibaca ulang, pakai data login:", error.message);
+        });
+        return Promise.resolve(simpanan);
+    }
+    return baca.catch(function (error) {
+        console.warn("Data akun belum bisa dibaca ulang:", error.message);
+        return null;
     });
 }
 
