@@ -10,7 +10,8 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-storage-compat.js"></script>
     <script src="roles.js?v=20261117a"></script>
-    <script src="keuangan.js?v=20261110c"></script>
+    <script src="keuangan.js?v=20261120a"></script>
+    <script src="kas.js?v=20261120a"></script>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -98,6 +99,16 @@
         .dk-badge { display: inline-block; font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: 9px; margin-left: 4px; vertical-align: middle; }
         .dk-badge.baru { background: #e6f4ea; color: #1e7d32; }
         .dk-badge.nonaktif { background: #f1f3f5; color: #6b7280; }
+        .kpg-ikon { font-size: 17px; width: 40px; text-align: center; }
+        .kpg-akun { font-size: 11px; color: #374151; }
+        .kpg-akun b { font-family: ui-monospace, Menlo, monospace; color: #12305C; }
+        .kpg-akun .tanpa { color: #b06d09; font-weight: 700; }
+        .ikon-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
+        .ikon-grid button { height: 34px; border: 1px solid #dde3ea; border-radius: 7px; background: #fff; font-size: 17px; cursor: pointer; padding: 0; }
+        .ikon-grid button.on { border: 2px solid #12305C; background: #EEF3FA; }
+        .ikon-grid button:focus-visible { outline: 2px solid #12305C; outline-offset: 1px; }
+        .akun-baru { margin-top: 8px; padding: 10px 12px; background: #F7F9FC; border: 1px solid #e3e9f1; border-radius: 8px; }
+        .akun-baru label:first-child { margin-top: 0; }
         .denied-state { text-align: center; color: #6b7280; font-size: 12px; padding: 40px 0; }
 
         .mode-overlay { z-index: 20; }
@@ -356,6 +367,41 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="modalKpg">
+        <div class="modal-box" style="max-width:420px;">
+            <h3 id="kpgJudul">Tambah Kategori Pengeluaran</h3>
+            <div class="modal-hint">Muncul di pilihan kategori saat kasir catat pengeluaran di Shift &amp; Kas.</div>
+            <label for="kpgNama">Nama kategori</label>
+            <input type="text" id="kpgNama" maxlength="40" placeholder="Mis. Beli Gas LPG" autocomplete="off">
+            <div class="field-hint" id="kpgHintNama">Nama tidak bisa diganti setelah disimpan.</div>
+            <label>Ikon</label>
+            <div class="ikon-grid" id="kpgIkon"></div>
+            <label for="kpgAkun">Akun Laba Rugi</label>
+            <select id="kpgAkun" onchange="Kpg_aturAkunBaru()"></select>
+            <div class="field-hint">Menentukan baris tempat pengeluaran ini masuk di Laba Rugi.</div>
+            <div class="akun-baru" id="kpgAkunBaru" style="display:none;">
+                <label for="kpgAkunKelompok">Kelompok</label>
+                <select id="kpgAkunKelompok" onchange="Kpg_isiKodeBaru()">
+                    <option value="operasional">Operational Expense (beban operasional)</option>
+                    <option value="lain">Other Income &amp; Expense (lain-lain)</option>
+                </select>
+                <label for="kpgAkunKode">Kode akun</label>
+                <input type="text" id="kpgAkunKode" placeholder="6 1 07 16" oninput="this.setAttribute('data-manual','1')">
+                <label for="kpgAkunNamaBaru">Nama akun</label>
+                <input type="text" id="kpgAkunNamaBaru" maxlength="60" placeholder="Mis. Biaya Gas">
+                <div class="field-hint">Akun baru otomatis jadi baris baru di Laba Rugi. Samakan kode dengan Chart of Account ESB.</div>
+            </div>
+            <label id="kpgNonaktifBaris" style="display:none; align-items:center; gap:8px; font-weight:400; font-size:12px; margin-top:12px;">
+                <input type="checkbox" id="kpgNonaktif" style="width:14px; height:14px;"> Nonaktif (tidak muncul di pilihan kasir; data lama tetap di laporan)
+            </label>
+            <div class="err-text" id="kpgError"></div>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="Kpg_tutup()">Batal</button>
+                <button class="btn-save" id="kpgSimpan" onclick="Kpg_simpan()">Simpan</button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="modalDetail">
         <div class="modal-box" style="max-width:420px;">
             <h3 id="modalDetailTitle">Tambah Detail Kategori</h3>
@@ -449,6 +495,8 @@
         let roleUnsubscribe = null;
         let hppUnsubscribe = null;
         let hppProdukUnsubscribe = null;
+        let kpgUnsubscribe = null;
+        let kpgAkunUnsubscribe = null;
 
         function hentikanListenerSection() {
             if (kategoriUnsubscribe) { kategoriUnsubscribe(); kategoriUnsubscribe = null; }
@@ -463,6 +511,8 @@
             if (roleUnsubscribe) { roleUnsubscribe(); roleUnsubscribe = null; }
             if (hppUnsubscribe) { hppUnsubscribe(); hppUnsubscribe = null; }
             if (hppProdukUnsubscribe) { hppProdukUnsubscribe(); hppProdukUnsubscribe = null; }
+            if (kpgUnsubscribe) { kpgUnsubscribe(); kpgUnsubscribe = null; }
+            if (kpgAkunUnsubscribe) { kpgAkunUnsubscribe(); kpgAkunUnsubscribe = null; }
         }
 
         auth.onAuthStateChanged(function (user) {
@@ -533,6 +583,11 @@
                         '<div class="hub-title">Pemetaan & HPP</div>' +
                         '<div class="hub-desc">Akun laporan keuangan & HPP per detail kategori</div>' +
                     '</div>' +
+                    '<div class="hub-card" onclick="bukaSection(\'kpg\')">' +
+                        '<div class="hub-icon">💸</div>' +
+                        '<div class="hub-title">Kategori Pengeluaran</div>' +
+                        '<div class="hub-desc">Kategori yang dipilih kasir saat catat pengeluaran di Shift &amp; Kas</div>' +
+                    '</div>' +
                 '</div>';
         }
 
@@ -548,7 +603,7 @@
             }
             // User dan Role tampil sebagai satu bagian dengan dua tab (tab Role khusus management)
             const bisaRole = currentUser.role === ROLE_TERKUNCI;
-            const judul = { produk: "Produk", outlet: "Outlet", user: bisaRole ? "User & Role" : "User", promo: "Promo", role: "User & Role", hpp: "Pemetaan & HPP" }[nama];
+            const judul = { produk: "Produk", outlet: "Outlet", user: bisaRole ? "User & Role" : "User", promo: "Promo", role: "User & Role", hpp: "Pemetaan & HPP", kpg: "Kategori Pengeluaran" }[nama];
             const gayaTabAktif = "background:#12305C; color:#ffffff; border-style:solid;";
             const tabUserRole = (bisaRole && (nama === "user" || nama === "role"))
                 ? '<div class="kategori-chips" style="margin-bottom:14px;">' +
@@ -594,6 +649,8 @@
                     '<div style="font-size:10px; color:#9aa5b1; margin-top:14px; line-height:1.5;">Role bawaan (admin, owner, kasir, forecaster) bisa diubah; tombol Hapus pada role bawaan mengembalikannya ke pengaturan awal. Perubahan berlaku saat user membuka halaman berikutnya.</div>';
             } else if (nama === "hpp") {
                 kontenHtml = Hpp_renderKerangka();
+            } else if (nama === "kpg") {
+                kontenHtml = Kpg_renderKerangka();
             }
 
             document.getElementById("mainContent").innerHTML =
@@ -604,6 +661,7 @@
 
             if (nama === "produk") { Produk_load(); Kategori_load(); ModePenjualan_load(); }
             if (nama === "hpp") Hpp_load();
+            if (nama === "kpg") Kpg_load();
             if (nama === "outlet") Outlet_load();
             if (nama === "user") { User_isiDropdownRole(); User_muatDaftarRole(); User_loadOutletDropdown(); User_load(); }
             if (nama === "promo") Promo_load();
@@ -2029,6 +2087,189 @@
                 status.style.color = "#c0392b";
                 status.textContent = "Gagal menyimpan: " + error.message;
             }).then(function () { btn.disabled = false; });
+        }
+
+        /* =====================================================
+           KATEGORI PENGELUARAN (Shift & Kas)
+           Koleksi kategori_pengeluaran, Document ID = nama kategori:
+             { ikon, akun (kode akun Laba Rugi), nonaktif, diubahUid, diubahNama, diubahPada }
+           Kategori bawaan ada di kas.js (KATEGORI_PENGELUARAN_BAWAAN); dokumen
+           untuk kategori bawaan hanya mengubah ikon / akun / nonaktif.
+           "+ Buat akun baru" menyimpan akun beban ke koleksi akun_lr
+           (Document ID = kode): { kode, nama, kelompok, dibuatUid, dibuatNama, dibuatPada }.
+        ====================================================== */
+        const KPG_IKON = ["💸", "🔥", "🧊", "🅿️", "🧴", "🛒", "🍽️", "🧹", "🔋", "📦", "🪣", "🧯", "🧻", "🚿", "🛵", "🎁",
+                          "🧾", "🤝", "📣", "⚙️", "🧽", "⛽", "💡", "🚰", "🚚", "🔧", "✏️", "📱", "☕", "🔌", "👥", "⭐"];
+        let Kpg_dipakai = {};         // { kategori: jumlah dipakai bulan ini }
+        let Kpg_dipakaiSiap = false;
+        let Kpg_editNama = null;
+        let Kpg_ikonDipilih = KPG_IKON[0];
+
+        function Kpg_renderKerangka() {
+            return '<div class="header-row">' +
+                    '<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">' +
+                        '<input type="text" id="kpgCari" placeholder="Cari kategori..." oninput="Kpg_renderTabel()" autocomplete="off" style="height:34px; border:1px solid #d1d5db; border-radius:6px; padding:0 10px; font-size:12px; width:220px;">' +
+                        '<span id="kpgRingkas" style="font-size:11px; color:#6b7280;"></span>' +
+                    '</div>' +
+                    '<button class="add-btn" onclick="Kpg_buka(null)">+ Tambah kategori</button></div>' +
+                '<table><thead><tr><th></th><th>Kategori</th><th>Akun Laba Rugi</th><th style="text-align:right;">Dipakai bulan ini</th><th></th></tr></thead>' +
+                '<tbody id="kpgBody"><tr><td colspan="5" class="loading-state">Memuat...</td></tr></tbody></table>' +
+                '<div style="font-size:10.5px; color:#9aa5b1; margin-top:10px; line-height:1.5;">Kategori baru langsung muncul di pilihan Catat Pengeluaran kasir. Akun Laba Rugi menentukan baris tempat pengeluaran masuk di laporan keuangan.</div>';
+        }
+
+        function Kpg_load() {
+            if (kpgUnsubscribe) { kpgUnsubscribe(); kpgUnsubscribe = null; }
+            if (kpgAkunUnsubscribe) { kpgAkunUnsubscribe(); kpgAkunUnsubscribe = null; }
+            if (sectionAktif !== "kpg") return;
+            kpgAkunUnsubscribe = keuDengarAkunLR(db, Kpg_renderTabel);
+            kpgUnsubscribe = kasDengarKategori(db, Kpg_renderTabel);
+            // Jumlah pemakaian bulan ini (sekali baca, hanya info)
+            const n = new Date();
+            const awal = n.getFullYear() + "-" + ("0" + (n.getMonth() + 1)).slice(-2) + "-01";
+            db.collection("pengeluaran").where("tanggal", ">=", awal).get().then(function (snap) {
+                Kpg_dipakai = {};
+                Kpg_dipakaiSiap = true;
+                snap.forEach(function (d) {
+                    const x = d.data();
+                    if (x.status === "dihapus") return;
+                    Kpg_dipakai[x.kategori] = (Kpg_dipakai[x.kategori] || 0) + 1;
+                });
+                Kpg_renderTabel();
+            }).catch(function () { /* kolom dipakai tampil "-" */ });
+            Kpg_renderTabel();
+        }
+
+        function Kpg_renderTabel() {
+            const tbody = document.getElementById("kpgBody");
+            if (!tbody) return;
+            const cari = ((document.getElementById("kpgCari") || {}).value || "").trim().toLowerCase();
+            const semua = KAS_KATEGORI_SEMUA;
+            const daftar = semua.filter(function (k) { return !cari || k.nama.toLowerCase().indexOf(cari) !== -1; });
+            const nTambahan = semua.filter(function (k) { return !k.bawaan; }).length;
+            const nNonaktif = semua.filter(function (k) { return k.nonaktif; }).length;
+            document.getElementById("kpgRingkas").textContent = semua.length + " kategori" +
+                (nTambahan ? " · " + nTambahan + " tambahan" : "") + (nNonaktif ? " · " + nNonaktif + " nonaktif" : "");
+            if (daftar.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Tidak ada kategori yang cocok.</td></tr>'; return; }
+            tbody.innerHTML = daftar.map(function (k) {
+                const akun = cariAkunPengeluaran(k.nama);
+                const teksAkun = akun ? '<b>' + escapeHtmlAman(akun[0]) + '</b> · ' + escapeHtmlAman(akun[1]) : '<span class="tanpa">Belum ada akun</span>';
+                const dipakai = Kpg_dipakaiSiap ? (Kpg_dipakai[k.nama] || 0) + "x" : "-";
+                return '<tr' + (k.nonaktif ? ' style="opacity:0.55;"' : '') + '>' +
+                    '<td class="kpg-ikon">' + escapeHtmlAman(k.ikon) + '</td>' +
+                    '<td style="font-weight:700;">' + escapeHtmlAman(k.nama) +
+                        (!k.bawaan ? '<span class="dk-badge baru">Tambahan</span>' : '') + (k.nonaktif ? '<span class="dk-badge nonaktif">Nonaktif</span>' : '') + '</td>' +
+                    '<td class="kpg-akun">' + teksAkun + '</td>' +
+                    '<td style="text-align:right;">' + dipakai + '</td>' +
+                    '<td><button class="action-btn" onclick="Kpg_buka(\'' + escJsAttr(k.nama) + '\')">Edit</button></td></tr>';
+            }).join("");
+        }
+
+        function Kpg_renderIkon() {
+            document.getElementById("kpgIkon").innerHTML = KPG_IKON.map(function (ik) {
+                return '<button type="button"' + (ik === Kpg_ikonDipilih ? ' class="on"' : '') + ' aria-label="Ikon ' + ik + '" onclick="Kpg_pilihIkon(\'' + ik + '\')">' + ik + '</button>';
+            }).join("");
+        }
+
+        function Kpg_pilihIkon(ik) { Kpg_ikonDipilih = ik; Kpg_renderIkon(); }
+
+        function Kpg_opsiAkun(dipilih) {
+            const grup = function (label, daftar) {
+                return '<optgroup label="' + label + '">' + daftar.map(function (a) {
+                    return '<option value="' + escapeHtmlAman(a[0]) + '"' + (a[0] === dipilih ? ' selected' : '') + '>' + escapeHtmlAman(a[0] + " · " + a[1]) + '</option>';
+                }).join("") + '</optgroup>';
+            };
+            return grup("Operational Expense", AKUN_LR.operasional) + grup("Other Income & Expense", AKUN_LR.lain) +
+                '<option value="__baru">+ Buat akun baru…</option>';
+        }
+
+        function Kpg_buka(nama) {
+            const k = nama ? KAS_KATEGORI_SEMUA.find(function (x) { return x.nama === nama; }) : null;
+            if (nama && !k) return;
+            Kpg_editNama = k ? k.nama : null;
+            document.getElementById("kpgJudul").textContent = k ? "Edit Kategori Pengeluaran" : "Tambah Kategori Pengeluaran";
+            const inNama = document.getElementById("kpgNama");
+            inNama.value = k ? k.nama : "";
+            inNama.disabled = !!k;
+            document.getElementById("kpgHintNama").textContent = k
+                ? (k.bawaan ? "Kategori bawaan. Nama tidak bisa diganti." : "Nama tidak bisa diganti karena sudah dipakai di catatan pengeluaran.")
+                : "Nama tidak bisa diganti setelah disimpan.";
+            Kpg_ikonDipilih = k ? k.ikon : KPG_IKON[0];
+            Kpg_renderIkon();
+            const akun = k ? cariAkunPengeluaran(k.nama) : null;
+            document.getElementById("kpgAkun").innerHTML = Kpg_opsiAkun(akun ? akun[0] : "6 1 01 08");
+            document.getElementById("kpgAkunKode").value = "";
+            document.getElementById("kpgAkunKode").removeAttribute("data-manual");
+            document.getElementById("kpgAkunNamaBaru").value = "";
+            document.getElementById("kpgAkunKelompok").value = "operasional";
+            Kpg_aturAkunBaru();
+            document.getElementById("kpgNonaktif").checked = !!(k && k.nonaktif);
+            document.getElementById("kpgNonaktifBaris").style.display = k ? "flex" : "none";
+            document.getElementById("kpgError").style.display = "none";
+            const btn = document.getElementById("kpgSimpan");
+            btn.disabled = false; btn.textContent = "Simpan";
+            document.getElementById("modalKpg").classList.add("open");
+            if (!k) setTimeout(function () { inNama.focus(); }, 50);
+        }
+
+        function Kpg_tutup() { document.getElementById("modalKpg").classList.remove("open"); }
+
+        function Kpg_aturAkunBaru() {
+            const baru = document.getElementById("kpgAkun").value === "__baru";
+            document.getElementById("kpgAkunBaru").style.display = baru ? "block" : "none";
+            if (baru) Kpg_isiKodeBaru();
+        }
+
+        // Kode akun baru terisi otomatis dengan nomor berikutnya (boleh diganti)
+        function Kpg_isiKodeBaru() {
+            const el = document.getElementById("kpgAkunKode");
+            if (el.getAttribute("data-manual") === "1") return;
+            const kel = document.getElementById("kpgAkunKelompok").value;
+            el.value = keuKodeBerikutnya(kel, kel === "lain" ? "7 1 01" : "6 1 07");
+        }
+
+        function Kpg_simpan() {
+            const err = document.getElementById("kpgError");
+            const salah = function (p) { err.textContent = p; err.style.display = "block"; };
+            err.style.display = "none";
+            const nama = Kpg_editNama || document.getElementById("kpgNama").value.trim().replace(/\s+/g, " ");
+            if (!nama) return salah("Nama kategori wajib diisi.");
+            if (/[\/]/.test(nama) || nama === "." || nama === "..") return salah('Nama tidak boleh memakai tanda "/".');
+            if (!Kpg_editNama && KAS_KATEGORI_SEMUA.some(function (k) { return k.nama.toLowerCase() === nama.toLowerCase(); })) {
+                return salah('Kategori "' + nama + '" sudah ada.');
+            }
+
+            const batch = db.batch();
+            const oleh = { uid: currentUser.uid || "", nama: currentUser.nama || currentUser.username || "" };
+            let kodeAkun = document.getElementById("kpgAkun").value;
+            if (kodeAkun === "__baru") {
+                const kel = document.getElementById("kpgAkunKelompok").value;
+                const kode = document.getElementById("kpgAkunKode").value.trim().replace(/\s+/g, " ");
+                const namaAkun = document.getElementById("kpgAkunNamaBaru").value.trim();
+                if (!/^\d+( \d+)+$/.test(kode)) return salah("Kode akun berupa angka dipisah spasi, mis. 6 1 07 16.");
+                if (kel === "operasional" && kode.indexOf("6 1 ") !== 0) return salah("Kode akun beban operasional diawali 6 1.");
+                if (kel === "lain" && kode.indexOf("7 1 ") !== 0) return salah("Kode akun lain-lain diawali 7 1.");
+                if (cariAkunLR(kode)) return salah('Kode ' + kode + ' sudah dipakai akun "' + cariAkunLR(kode)[1] + '".');
+                if (!namaAkun) return salah("Nama akun wajib diisi.");
+                batch.set(db.collection("akun_lr").doc(kode), {
+                    kode: kode, nama: namaAkun, kelompok: kel,
+                    dibuatUid: oleh.uid, dibuatNama: oleh.nama,
+                    dibuatPada: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                kodeAkun = kode;
+            }
+            batch.set(db.collection("kategori_pengeluaran").doc(nama), {
+                ikon: Kpg_ikonDipilih, akun: kodeAkun,
+                nonaktif: !!(Kpg_editNama && document.getElementById("kpgNonaktif").checked),
+                diubahUid: oleh.uid, diubahNama: oleh.nama,
+                diubahPada: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+
+            const btn = document.getElementById("kpgSimpan");
+            btn.disabled = true; btn.textContent = "Menyimpan...";
+            batch.commit().then(Kpg_tutup).catch(function (e) {
+                btn.disabled = false; btn.textContent = "Simpan";
+                salah(e.code === "permission-denied" ? "Akun ini tidak punya izin mengubah kategori (aturan Firestore)." : "Gagal menyimpan: " + e.message);
+            });
         }
 
         /* =====================================================

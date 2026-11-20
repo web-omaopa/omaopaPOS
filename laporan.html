@@ -9,9 +9,9 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
     <script src="roles.js?v=20261117a"></script>
-    <script src="keuangan.js?v=20261110c"></script>
+    <script src="keuangan.js?v=20261120a"></script>
     <script src="stok-batch.js?v=20261116a"></script>
-    <script src="kas.js?v=20261027b"></script>
+    <script src="kas.js?v=20261120a"></script>
 
     <!-- Download Excel & PDF -->
     <!-- Kalender rentang tanggal (satu kolom: dari - sampai) -->
@@ -1322,7 +1322,9 @@
             const ms = function (t) { return t && t.toDate ? t.toDate() : null; };
             Promise.all([
                 db.collection("sesi_kas").where("tanggal", ">=", r.dariIso).where("tanggal", "<=", r.sampaiIso).get(),
-                db.collection("pengeluaran").where("tanggal", ">=", r.dariIso).where("tanggal", "<=", r.sampaiIso).get()
+                db.collection("pengeluaran").where("tanggal", ">=", r.dariIso).where("tanggal", "<=", r.sampaiIso).get(),
+                // kategori & akun tambahan dari Pengaturan > Kategori Pengeluaran
+                kasMuatKategori(db), keuMuatAkunLR(db)
             ]).then(function (h) {
                 if (token !== tokenTrx) return;
                 h[0].forEach(function (doc) {
@@ -1839,7 +1841,9 @@
                 return { gagal: true };
             });
 
-            Promise.all([Promise.all(kueri), kueriHpp, kueriBeban]).then(function (hasil) {
+            // Kategori pengeluaran & akun beban tambahan (Pengaturan > Kategori Pengeluaran)
+            const kueriAkunTambahan = Promise.all([kasMuatKategori(db), keuMuatAkunLR(db)]);
+            Promise.all([Promise.all(kueri), kueriHpp, kueriBeban, kueriAkunTambahan]).then(function (hasil) {
                 if (token !== tokenLR) return;
                 const sudah = {};
                 const docs = [];

@@ -31,6 +31,7 @@ products.hpp = HPP Rp per pcs (COGS & nilai waste di Laba Rugi; item transaksi m
 favorit_pos (ID = nama outlet: `produkIds` urutan tab Favorit di Kasir; kasir boleh ubah outletnya sendiri),
 rute_transfer (ID = dua nama outlet urut abjad digabung "__": rute transfer lintas area dua arah, diatur forecaster/admin di halaman Transfer; kasir boleh mengajukan permintaan ke outlet se-area atau ber-rute),
 transfer_stok.items[].mintaBaru (minta kue yang baru; pengirim memilih kue lama/baru saat Kirim, batchDikirim membawa masa berlaku),
+kategori_pengeluaran (ID = nama: ikon/akun/nonaktif untuk kategori pengeluaran tambahan atau ubahan; bawaan di `kas.js` KATEGORI_PENGELUARAN_BAWAAN, diatur di Pengaturan › Kategori Pengeluaran), akun_lr (ID = kode: akun beban tambahan Laba Rugi, kelompok operasional/lain, lihat `keuangan.js` keuTerapkanAkunLR),
 sesi_kas, pengeluaran (skema di komentar atas `kas.js`),
 waste_stok (skema di komentar atas `stok-batch.js`)
 

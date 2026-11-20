@@ -105,8 +105,50 @@ const AKUN_LR = {
 const AKUN_LR_BAWAAN = {
     penjualan: AKUN_LR.penjualan.slice(),
     diskon: AKUN_LR.diskon.slice(),
-    cogs: AKUN_LR.cogs.slice()
+    cogs: AKUN_LR.cogs.slice(),
+    operasional: AKUN_LR.operasional.slice(),
+    lain: AKUN_LR.lain.slice()
 };
+
+/* =====================================================================
+   AKUN BEBAN TAMBAHAN (Pengaturan > Kategori Pengeluaran > "+ Buat akun baru")
+   Koleksi akun_lr, Document ID = kode akun: { kode, nama, kelompok:
+   "operasional" | "lain", dibuatUid, dibuatNama, dibuatPada }.
+   Otomatis jadi baris baru di Laba Rugi (bagian kelompoknya, urut kode).
+========================================================================= */
+const KEU_AKUN_TAMBAHAN = [];   // [{ kode, nama, kelompok }]
+
+function keuTerapkanAkunLR(docs) {
+    KEU_AKUN_TAMBAHAN.length = 0;
+    if (docs && typeof docs.forEach === "function") {
+        docs.forEach(function (d) {
+            const x = (typeof d.data === "function" ? d.data() : d.data) || {};
+            const kode = String(x.kode || d.id || "").trim(), nama = String(x.nama || "").trim();
+            if (!kode || !nama || (x.kelompok !== "operasional" && x.kelompok !== "lain")) return;
+            KEU_AKUN_TAMBAHAN.push({ kode: kode, nama: nama, kelompok: x.kelompok });
+        });
+    }
+    ["operasional", "lain"].forEach(function (k) {
+        const peta = {};
+        AKUN_LR_BAWAAN[k].forEach(function (a) { peta[a[0]] = a[1]; });
+        KEU_AKUN_TAMBAHAN.forEach(function (a) { if (a.kelompok === k && !peta[a.kode]) peta[a.kode] = a.nama; });
+        const urut = Object.keys(peta).sort(keuBandingKode).map(function (kode) { return [kode, peta[kode]]; });
+        AKUN_LR[k].length = 0;
+        urut.forEach(function (a) { AKUN_LR[k].push(a); });
+    });
+}
+
+function keuDengarAkunLR(db, onUbah) {
+    return db.collection("akun_lr").onSnapshot(function (snap) {
+        keuTerapkanAkunLR(snap);
+        if (onUbah) onUbah();
+    }, function (e) { console.warn("Akun Laba Rugi tambahan belum bisa dibaca:", e.message); });
+}
+
+function keuMuatAkunLR(db) {
+    return db.collection("akun_lr").get().then(function (snap) { keuTerapkanAkunLR(snap); })
+        .catch(function (e) { console.warn("Akun Laba Rugi tambahan belum bisa dibaca:", e.message); });
+}
 
 /* Kategori pengeluaran outlet (kas.js KATEGORI_PENGELUARAN) -> kode akun beban */
 const AKUN_PENGELUARAN = {
@@ -131,6 +173,9 @@ const AKUN_PENGELUARAN = {
     "Biaya Backup Kasir": "6 1 02 06",
     "Reward Sniby": "6 1 02 07"
 };
+
+/* Salinan pemetaan bawaan (kas.js kasTerapkanKategori menimpa dari database) */
+const AKUN_PENGELUARAN_BAWAAN = Object.assign({}, AKUN_PENGELUARAN);
 
 /* Akun untuk data lain dari POS */
 const AKUN_WASTE = "6 1 01 05";          // waste_stok (stok-batch.js), dinilai HPP
