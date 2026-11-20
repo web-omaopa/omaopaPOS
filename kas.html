@@ -9,7 +9,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
     <script src="roles.js?v=20261117a"></script>
-    <script src="kas.js?v=20261027b"></script>
+    <script src="kas.js?v=20261120a"></script>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -386,13 +386,9 @@
 
         const KUNCI_OUTLET_KASIR = "omaopa_outlet_kasir";
         const WARNA_METODE = { "Tunai": "#1E9E5A", "QRIS": "#2F6FD6", "Debit/EDC": "#8B5CF6" };
-        const IKON_KATEGORI = {
-            "Salah Nota": "🧾", "Kompensasi Customer": "🤝", "Marketing": "📣", "Biaya Operasional": "⚙️",
-            "Biaya Kebersihan": "🧽", "Pengeluaran Reward": "🎁", "Bensin TVS": "⛽", "Upgrading": "⬆️",
-            "Biaya Listrik": "💡", "Biaya Air PAM": "🚰", "Pengiriman dari Pabrik": "🚚", "Biaya Transfer Kue": "📦",
-            "Perbaikan dan Pemeliharaan": "🔧", "Biaya Alat Tulis": "✏️", "Telekomunikasi": "📱", "Konsumsi Rapat": "☕",
-            "Utilitis": "🔌", "Pengiriman Kue ke Customer": "🛵", "Biaya Backup Kasir": "👥", "Reward Sniby": "⭐"
-        };
+        // Ikon kategori pengeluaran (bawaan + tambahan dari Pengaturan, lihat kas.js)
+        const IKON_KATEGORI = KAS_IKON_KATEGORI;
+        let pantauKategori = null;
 
         auth.onAuthStateChanged(function (user) {
             if (!user) { window.location.href = "index.html"; return; }
@@ -462,6 +458,12 @@
             document.getElementById("sidebarContainer").innerHTML = renderSidebar(currentUser, "kas");
             // Shift & Kas hanya untuk role kasir (lihat HALAMAN_HANYA_KASIR di roles.js)
             if (!jagaAksesHalaman(currentUser.role, "kas")) return;
+
+            // Kategori pengeluaran tambahan / nonaktif dari Pengaturan (real time)
+            if (!pantauKategori) pantauKategori = kasDengarKategori(db, function () {
+                if (KATEGORI_PENGELUARAN.indexOf(kategoriDipilih) === -1) kategoriDipilih = KATEGORI_PENGELUARAN[0];
+                if (document.getElementById("pgKategoriPilih")) renderPilihKategori();
+            });
 
             if (currentUser.role === "kasir") {
                 if (!currentUser.outlet) {

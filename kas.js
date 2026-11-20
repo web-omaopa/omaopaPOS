@@ -23,8 +23,14 @@
    (CDN Hostinger menyimpan file .js 7 hari).
 ========================================================================= */
 
-/* Sama dengan kategori pengeluaran outlet di ESB */
-const KATEGORI_PENGELUARAN = [
+/* Kategori pengeluaran outlet BAWAAN (sama dengan ESB). Admin bisa menambah,
+   mengubah ikon/akun, atau menonaktifkan kategori di Pengaturan > Kategori
+   Pengeluaran; disimpan di koleksi kategori_pengeluaran (Document ID = nama):
+     { ikon, akun (kode akun Laba Rugi, lihat keuangan.js), nonaktif,
+       diubahUid, diubahNama, diubahPada }
+   Halaman memanggil kasDengarKategori(db) / kasMuatKategori(db), lalu memakai
+   KATEGORI_PENGELUARAN (yang aktif) dan kasIkonKategori(nama). */
+const KATEGORI_PENGELUARAN_BAWAAN = [
     "Salah Nota",
     "Kompensasi Customer",
     "Marketing",
@@ -46,6 +52,71 @@ const KATEGORI_PENGELUARAN = [
     "Biaya Backup Kasir",
     "Reward Sniby"
 ];
+const KAS_IKON_BAWAAN = {
+    "Salah Nota": "\ud83e\uddfe", "Kompensasi Customer": "\ud83e\udd1d", "Marketing": "\ud83d\udce3", "Biaya Operasional": "\u2699\ufe0f",
+    "Biaya Kebersihan": "\ud83e\uddfd", "Pengeluaran Reward": "\ud83c\udf81", "Bensin TVS": "\u26fd", "Upgrading": "\u2b06\ufe0f",
+    "Biaya Listrik": "\ud83d\udca1", "Biaya Air PAM": "\ud83d\udeb0", "Pengiriman dari Pabrik": "\ud83d\ude9a", "Biaya Transfer Kue": "\ud83d\udce6",
+    "Perbaikan dan Pemeliharaan": "\ud83d\udd27", "Biaya Alat Tulis": "\u270f\ufe0f", "Telekomunikasi": "\ud83d\udcf1", "Konsumsi Rapat": "\u2615",
+    "Utilitis": "\ud83d\udd0c", "Pengiriman Kue ke Customer": "\ud83d\udef5", "Biaya Backup Kasir": "\ud83d\udc65", "Reward Sniby": "\u2b50"
+};
+
+/* Kategori yang AKTIF (dipilih kasir). Diganti di tempat oleh kasTerapkanKategori. */
+const KATEGORI_PENGELUARAN = KATEGORI_PENGELUARAN_BAWAAN.slice();
+/* Ikon per kategori (bawaan + tambahan) */
+const KAS_IKON_KATEGORI = Object.assign({}, KAS_IKON_BAWAAN);
+/* Semua kategori termasuk nonaktif: [{ nama, ikon, akun, bawaan, nonaktif }] */
+const KAS_KATEGORI_SEMUA = KATEGORI_PENGELUARAN_BAWAAN.map(function (n) {
+    return { nama: n, ikon: KAS_IKON_BAWAAN[n] || "\ud83d\udcb8", akun: null, bawaan: true, nonaktif: false };
+});
+
+function kasIkonKategori(nama) { return KAS_IKON_KATEGORI[nama] || "\ud83d\udcb8"; }
+
+/* Gabungkan dokumen kategori_pengeluaran ke daftar bawaan. Kalau keuangan.js
+   dimuat, AKUN_PENGELUARAN ikut diperbarui (akun Laba Rugi per kategori). */
+function kasTerapkanKategori(docs) {
+    const semua = KATEGORI_PENGELUARAN_BAWAAN.map(function (n) {
+        return { nama: n, ikon: KAS_IKON_BAWAAN[n] || "\ud83d\udcb8", akun: null, bawaan: true, nonaktif: false };
+    });
+    const tambahan = [];
+    if (docs && typeof docs.forEach === "function") {
+        docs.forEach(function (d) {
+            const x = (typeof d.data === "function" ? d.data() : d.data) || {};
+            const nama = String(d.id || "").trim();
+            if (!nama) return;
+            let k = semua.find(function (y) { return y.nama === nama; });
+            if (!k) { k = { nama: nama, ikon: "\ud83d\udcb8", akun: null, bawaan: false, nonaktif: false }; tambahan.push(k); }
+            if (x.ikon) k.ikon = String(x.ikon);
+            if (x.akun) k.akun = String(x.akun);
+            k.nonaktif = x.nonaktif === true;
+        });
+    }
+    tambahan.sort(function (a, b) { return a.nama.localeCompare(b.nama); });
+    const hasil = semua.concat(tambahan);
+    KAS_KATEGORI_SEMUA.length = 0;
+    hasil.forEach(function (k) { KAS_KATEGORI_SEMUA.push(k); });
+    KATEGORI_PENGELUARAN.length = 0;
+    hasil.forEach(function (k) { if (!k.nonaktif) KATEGORI_PENGELUARAN.push(k.nama); });
+    Object.keys(KAS_IKON_KATEGORI).forEach(function (n) { delete KAS_IKON_KATEGORI[n]; });
+    hasil.forEach(function (k) { KAS_IKON_KATEGORI[k.nama] = k.ikon; });
+    if (typeof AKUN_PENGELUARAN !== "undefined" && typeof AKUN_PENGELUARAN_BAWAAN !== "undefined") {
+        Object.keys(AKUN_PENGELUARAN).forEach(function (n) { delete AKUN_PENGELUARAN[n]; });
+        Object.assign(AKUN_PENGELUARAN, AKUN_PENGELUARAN_BAWAAN);
+        hasil.forEach(function (k) { if (k.akun) AKUN_PENGELUARAN[k.nama] = k.akun; });
+    }
+    return hasil;
+}
+
+function kasDengarKategori(db, onUbah) {
+    return db.collection("kategori_pengeluaran").onSnapshot(function (snap) {
+        kasTerapkanKategori(snap);
+        if (onUbah) onUbah();
+    }, function (e) { console.warn("Kategori pengeluaran belum bisa dibaca:", e.message); });
+}
+
+function kasMuatKategori(db) {
+    return db.collection("kategori_pengeluaran").get().then(function (snap) { kasTerapkanKategori(snap); })
+        .catch(function (e) { console.warn("Kategori pengeluaran belum bisa dibaca:", e.message); });
+}
 
 /* Nominal cepat di form kas awal / kas akhir */
 const NOMINAL_CEPAT_KAS = [100000, 200000, 300000, 500000];
