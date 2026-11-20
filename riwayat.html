@@ -77,6 +77,24 @@
         .trx .mt { font-size: 10.5px; color: #6b7280; margin-top: 3px; }
         .trx.dibatal .tot { color: #9aa5b1; text-decoration: line-through; }
 
+        /* Kotak per transaksi (keterangan lengkap seperti ESB) */
+        .daftar.kotak { background: none; border: 0; overflow: visible; display: grid; gap: 10px; }
+        .daftar.kotak .head { background: none; border: 0; padding: 0 2px; }
+        .kt { display: block; width: 100%; text-align: left; font-family: inherit; color: inherit; cursor: pointer;
+              background: #fff; border: 1px solid #e3e8ef; border-radius: 12px; padding: 12px 14px; }
+        .kt:hover { border-color: #b9c6d8; }
+        .kt.on { border-color: #12305C; box-shadow: inset 4px 0 0 #12305C, 0 2px 8px rgba(18,48,92,0.08); }
+        .kt:focus-visible { outline: 2px solid #12305C; outline-offset: 2px; }
+        .kt-atas { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px dashed #e3e8ef; }
+        .kt-atas .no { font-size: 13px; font-weight: 800; color: #12305C; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .kt-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 12px; }
+        @media (max-width: 1180px) { .kt-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        .kt-grid .lbl { display: block; font-size: 10px; font-weight: 700; color: #8A95A5; text-transform: uppercase; letter-spacing: .03em; }
+        .kt-grid .val { display: block; font-size: 12px; color: #1f2937; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+        .kt-grid .val.total { font-size: 14px; font-weight: 800; color: #12305C; }
+        .kt.dibatal .val.total { color: #9aa5b1; text-decoration: line-through; }
+        .kt.dibatal .kt-atas .no { color: #8A95A5; }
+
         .detail { background: #fff; border: 1px solid #e3e8ef; border-radius: 12px; padding: 16px 18px; position: sticky; top: 16px; }
         .detail .dh { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
         .detail .no { font-size: 15px; font-weight: 800; color: #12305C; word-break: break-all; }
@@ -231,7 +249,7 @@
             html += '<input type="text" class="f-in cari" id="fCari" placeholder="Cari no. nota atau nama member..." value="' + esc(f.cari) + '" oninput="ubahFilter(\'cari\', this.value)" autocomplete="off">' +
                 '<select class="f-sel" id="fMetode" onchange="ubahFilter(\'metode\', this.value)" aria-label="Metode bayar"><option value="">Semua metode</option></select>' +
                 '<select class="f-sel" id="fStatus" onchange="ubahFilter(\'status\', this.value)" aria-label="Status">' +
-                    '<option value="">Semua status</option><option value="berhasil"' + (f.status === "berhasil" ? ' selected' : '') + '>Berhasil</option><option value="batal"' + (f.status === "batal" ? ' selected' : '') + '>Dibatalkan</option></select>';
+                    '<option value="">Semua status</option><option value="berhasil"' + (f.status === "berhasil" ? ' selected' : '') + '>Berhasil</option><option value="batal"' + (f.status === "batal" ? ' selected' : '') + '>Void (dibatalkan)</option></select>';
             document.getElementById("barFilter").innerHTML = html;
 
             const s = sesiShift && f.lingkup === "shift" ? sesiShift.data : null;
@@ -351,7 +369,7 @@
                 '<div>Transaksi<b>' + angka(n) + '</b></div>' +
                 '<div class="tunai">💵 Tunai<b>' + rp(tunai) + '</b></div>' +
                 '<div class="non">💳 Non-tunai<b>' + rp(total - tunai) + '</b></div>' +
-                (batal ? '<div class="batal">Dibatalkan<b>' + angka(batal) + '</b></div>' : '');
+                (batal ? '<div class="batal">Void<b>' + angka(batal) + '</b></div>' : '');
 
             if (daftar.length === 0) {
                 dipilihId = null;
@@ -364,18 +382,26 @@
 
             const semuaOutlet = bolehSemuaOutlet() && !f.outlet && f.lingkup !== "shift";
             const tglHead = f.lingkup === "shift" ? "SHIFT INI" : new Date(rentang().dari).toLocaleDateString("id-ID", { weekday: "long", day: "2-digit", month: "short", year: "numeric" }).toUpperCase();
-            let html = '<div class="dua"><div class="daftar"><div class="head"><span>' + esc(tglHead) + '</span><span>' + daftar.length + ' TRANSAKSI</span></div>';
+            let html = '<div class="dua"><div class="daftar kotak"><div class="head"><span>' + esc(tglHead) + '</span><span>' + daftar.length + ' TRANSAKSI</span></div>';
             daftar.forEach(function (t) {
                 const batalT = dibatalkan(t);
-                html += '<button type="button" class="trx' + (t._id === dipilihId ? ' on' : '') + (batalT ? ' dibatal' : '') + '" onclick="pilihTrx(\'' + escJsAttr(t._id) + '\')">' +
-                    '<span class="jam">' + jam(t._waktu) + '</span>' +
-                    '<span style="min-width:0;"><span class="nota" style="display:block;">' + esc(t.noNota || t._id) + '</span>' +
-                        '<span class="meta"><span class="tag ' + kelasMode(t.modePenjualan) + '">' + esc(t.modePenjualan || "Offline") + '</span>' +
-                        (semuaOutlet ? '<span class="tag outlet">' + esc(t.outlet || "-") + '</span>' : '') +
-                        (t.member && t.member.nama ? '<span class="tag member">👤 ' + esc(t.member.nama) + '</span>' : '') +
-                        (batalT ? '<span class="tag batal">Dibatalkan</span>' : '') + '</span></span>' +
-                    '<span class="kanan"><span class="tot" style="display:block;">' + rp(t.total) + '</span><span class="mt" style="display:block;">' + esc(t.metodeBayar || "Tunai") + '</span></span>' +
-                    '</button>';
+                const d = t._waktu;
+                const tgl = ("0" + d.getDate()).slice(-2) + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + d.getFullYear();
+                const jamDetik = jam(d) + "." + ("0" + d.getSeconds()).slice(-2);
+                const kol = function (lbl, val, kelas) {
+                    return '<span><span class="lbl">' + lbl + '</span><span class="val' + (kelas ? ' ' + kelas : '') + '">' + val + '</span></span>';
+                };
+                html += '<button type="button" class="kt' + (t._id === dipilihId ? ' on' : '') + (batalT ? ' dibatal' : '') + '" onclick="pilihTrx(\'' + escJsAttr(t._id) + '\')">' +
+                    '<span class="kt-atas"><span class="no">' + esc(t.noNota || t._id) + '</span>' +
+                        '<span class="status' + (batalT ? ' batal' : '') + '">' + (batalT ? 'Void' : '✓ Berhasil') + '</span></span>' +
+                    '<span class="kt-grid">' +
+                        kol("Tanggal", tgl + " | " + jamDetik) +
+                        kol("Member", t.member && t.member.nama ? '👤 ' + esc(t.member.nama) : "-") +
+                        kol("Total penjualan", rp(t.total), "total") +
+                        kol("Mode", '<span class="tag ' + kelasMode(t.modePenjualan) + '">' + esc(t.modePenjualan || "Offline") + '</span>') +
+                        kol("Metode pembayaran", esc(t.metodeBayar || "Tunai")) +
+                        kol(semuaOutlet ? "Outlet · Kasir" : "Kasir", (semuaOutlet ? esc(t.outlet || "-") + " · " : "") + esc(t.kasirNama || "-")) +
+                    '</span></button>';
             });
             html += '</div>' + htmlDetail(daftar.find(function (t) { return t._id === dipilihId; })) + '</div>';
             document.getElementById("isi").innerHTML = html;
@@ -400,7 +426,7 @@
                 : "-";
             let html = '<div class="detail"><div class="dh"><div><div class="no">' + esc(t.noNota || t._id) + '</div>' +
                 '<div class="wkt">' + esc(tglPanjang(t._waktu)) + ' · ' + jam(t._waktu) + '</div></div>' +
-                '<span class="status' + (batalT ? ' batal' : '') + '">' + (batalT ? 'Dibatalkan' : '✓ Berhasil') + '</span></div>' +
+                '<span class="status' + (batalT ? ' batal' : '') + '">' + (batalT ? 'Void' : '✓ Berhasil') + '</span></div>' +
                 '<div class="kv">' +
                     '<div><span>KASIR</span><b>' + esc(t.kasirNama || "-") + '</b></div>' +
                     '<div><span>OUTLET · MODE</span><b>' + esc(t.outlet || "-") + ' · ' + esc(t.modePenjualan || "Offline") + '</b></div>' +
