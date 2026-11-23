@@ -11,7 +11,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
-    <script src="roles.js?v=20261123d"></script>
+    <script src="roles.js?v=20261123e"></script>
     <script src="keuangan.js?v=20261120a"></script>
     <script src="kas.js?v=20261120a"></script>
     <script src="member.js?v=20261117a"></script>
@@ -644,6 +644,12 @@
             muatUserAktif(db, user).then(function (dataUser) {
                 if (!dataUser) { window.location.href = "index.html"; return; }
                 currentUser = dataUser;
+                // Kasir: outlet sudah pasti, jadi cek kas outlet, produk, dan stok
+                // langsung diminta bersamaan (tidak menunggu satu per satu).
+                if (currentUser.role === "kasir" && currentUser.outlet && !sesiAwal) {
+                    sesiAwal = kasCariSesiAktif(db, currentUser.outlet);
+                    loadProducts();
+                }
                 siapkanRole(currentUser.role, mulaiHalaman);
             });
         });
@@ -721,6 +727,7 @@
            Tutup toko (kas akhir) dilakukan di halaman kas.html.
         ====================================================== */
         let sesiKasAktif = null;      // { id, data }
+        let sesiAwal = null;          // Promise cek kas yang sudah dimulai saat login siap (kasir)
         let sesiKasUnsubscribe = null;
         let posSudahDimulai = false;
 
@@ -737,7 +744,9 @@
         function cekSesiKas() {
             document.body.classList.add("layar-buka");
             document.getElementById("mainContent").innerHTML = '<div class="loading-state">Memeriksa kas outlet...</div>';
-            kasCariSesiAktif(db, currentUser.outlet).then(function (sesi) {
+            const cek = sesiAwal || kasCariSesiAktif(db, currentUser.outlet);
+            sesiAwal = null;   // "Coba lagi" memeriksa ulang ke server
+            cek.then(function (sesi) {
                 if (sesi) { pakaiSesiKas(sesi); return; }
                 tampilkanBukaToko();
             }).catch(function (error) {
@@ -870,7 +879,7 @@
             renderMainContent();
             loadModePenjualan();
             loadTopping();
-            loadProducts();
+            loadProducts();      // kalau sudah berjalan sejak login, cukup gambar data yang ada
             loadFavorit();
             loadPromo();
         }
@@ -881,6 +890,7 @@
             [stockUnsubscribe, produkUnsubscribe, toppingUnsubscribe, modeUnsubscribe, promoUnsubscribe, favoritUnsubscribe]
                 .forEach(function (stop) { if (stop) stop(); });
             stockUnsubscribe = produkUnsubscribe = toppingUnsubscribe = modeUnsubscribe = promoUnsubscribe = favoritUnsubscribe = null;
+            stokTermuat = produkTermuatSekali = false;
             ["layarBayar", "layarBerhasil"].forEach(function (id) { document.getElementById(id).classList.remove("open"); });
             document.querySelectorAll(".modal-overlay.open").forEach(function (m) { m.classList.remove("open"); });
             document.body.classList.add("layar-buka");
@@ -1474,35 +1484,52 @@
 
         let produkUnsubscribe = null;
 
+        /* Produk & stok didengarkan BERSAMAAN (dulu stok baru diminta setelah
+           produk datang). Bisa dimulai sebelum layar produk ada (kasir: sejak
+           login siap); layar digambar begitu produk, stok, dan layar siap. */
+        let stokTermuat = false;
+        let produkTermuatSekali = false;
+        let sapuDimulai = false;
+
         function loadProducts() {
-            const grid = document.getElementById("productGrid");
-            if (produkUnsubscribe) { produkUnsubscribe(); produkUnsubscribe = null; }
+            if (produkUnsubscribe) { gambarProdukJikaSiap(); return; }
 
             produkUnsubscribe = db.collection("products").where("status", "==", "aktif")
                 .onSnapshot(function (snapshot) {
                     allProducts = [];
                     snapshot.forEach(function (doc) { allProducts.push(Object.assign({ id: doc.id }, doc.data())); });
+                    produkTermuatSekali = true;
+                    gambarProdukJikaSiap();
+                }, function (error) {
+                    const grid = document.getElementById("productGrid");
+                    if (grid) grid.innerHTML = '<div class="empty-state">Gagal memuat: ' + escapeHtmlAman(error.message) + '</div>';
+                });
+            if (!stockUnsubscribe) dengarkanStok();
+        }
 
-                    if (allProducts.length === 0) {
-                        grid.innerHTML = '<div class="empty-state">Belum ada produk aktif.</div>';
-                        return;
-                    }
-                    // Stok cukup didengarkan sekali; update produk berikutnya hanya render ulang
-                    if (!stockUnsubscribe) {
-                        dengarkanStok();
-                        sapuStokKedaluwarsa();
-                        // Tiap menit: cek masa berlaku stok & catat yang kedaluwarsa sebagai waste
-                        if (!pengaturSapu) pengaturSapu = setInterval(function () {
-                            if (!stockUnsubscribe) return;
-                            hitungStockMap();
-                            renderProdukTampil();
-                            sapuStokKedaluwarsa();
-                        }, 60000);
-                    } else {
-                        renderKategoriTabs();
-                        renderProdukTampil();
-                    }
-                }, function (error) { grid.innerHTML = '<div class="empty-state">Gagal memuat: ' + error.message + '</div>'; });
+        function gambarProdukJikaSiap() {
+            const grid = document.getElementById("productGrid");
+            if (!grid || !produkUnsubscribe) return;
+            if (allProducts.length === 0) {
+                // Tunggu data pertama; kalau memang kosong, snapshot produk memanggil lagi
+                if (produkTermuatSekali) grid.innerHTML = '<div class="empty-state">Belum ada produk aktif.</div>';
+                return;
+            }
+            if (!stokTermuat) return;
+            hitungStockMap();
+            renderKategoriTabs();
+            renderProdukTampil();
+            if (!sapuDimulai) {
+                sapuDimulai = true;
+                sapuStokKedaluwarsa();
+                // Tiap menit: cek masa berlaku stok & catat yang kedaluwarsa sebagai waste
+                if (!pengaturSapu) pengaturSapu = setInterval(function () {
+                    if (!stockUnsubscribe || !document.getElementById("productGrid")) return;
+                    hitungStockMap();
+                    renderProdukTampil();
+                    sapuStokKedaluwarsa();
+                }, 60000);
+            }
         }
 
         /* =====================================================
@@ -1547,12 +1574,11 @@
                 .onSnapshot(function (snapshot) {
                     stokDataMap = {};
                     snapshot.forEach(function (doc) { stokDataMap[doc.id] = doc.data(); });
-                    hitungStockMap();
-                    renderKategoriTabs();
-                    renderProdukTampil();
+                    stokTermuat = true;
+                    gambarProdukJikaSiap();
                 }, function (error) {
-                    document.getElementById("productGrid").innerHTML =
-                        '<div class="empty-state">Gagal memuat stok: ' + error.message + '</div>';
+                    const grid = document.getElementById("productGrid");
+                    if (grid) grid.innerHTML = '<div class="empty-state">Gagal memuat stok: ' + escapeHtmlAman(error.message) + '</div>';
                 });
         }
 
