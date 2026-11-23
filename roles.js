@@ -89,22 +89,19 @@ function siapkanRole(role, lanjut) {
         .then(function () { lanjut(); });
 }
 
-/* Firestore untuk semua halaman, dengan cache di perangkat (IndexedDB):
-   data yang pernah dibuka (produk, stok, dll) langsung tampil dari cache
-   saat halaman dibuka lagi, lalu diperbarui otomatis dari server.
-   Panggil SEKALI per halaman, sebelum Firestore dipakai. Kalau browser
-   tidak mendukung (mis. mode penyamaran), tetap jalan tanpa cache. */
+/* Firestore untuk semua halaman (panggil sekali per halaman).
+   Cache IndexedDB (enablePersistence) sengaja TIDAK dipakai: di HP kasir
+   membuka cache justru memperlambat buka halaman 0,3-0,5 detik. Sisa cache
+   dari versi sebelumnya dihapus sekali supaya data tidak tertinggal di perangkat. */
 function siapkanFirestore() {
-    const db = firebase.firestore();
-    if (!window.__omaopaCache) {
-        window.__omaopaCache = true;
-        try {
-            db.enablePersistence({ synchronizeTabs: true }).catch(function (e) {
-                console.info("Cache Firestore tidak aktif:", e.code || e.message);
-            });
-        } catch (e) { /* abaikan */ }
-    }
-    return db;
+    try {
+        if (window.indexedDB && !localStorage.getItem("omaopa_cache_dihapus")) {
+            const app = firebase.app().options;
+            indexedDB.deleteDatabase("firestore/[DEFAULT]/" + app.projectId + "/main");
+            localStorage.setItem("omaopa_cache_dihapus", "1");
+        }
+    } catch (e) { /* abaikan */ }
+    return firebase.firestore();
 }
 
 /* Helper keamanan: escape data dari Firestore sebelum disisipkan ke HTML.
