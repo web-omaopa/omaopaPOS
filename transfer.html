@@ -144,19 +144,12 @@
         .rute-daftar .rute-item:last-child { margin-bottom: 0; }
         .tag-rute { display: inline-block; font-size: 9.5px; font-weight: 800; color: #9A6B1C; background: #FFF1D6; border-radius: 8px; padding: 1px 6px; margin-top: 2px; }
 
-        /* ===== Masa berlaku & pilihan kue lama/baru ===== */
+        /* ===== Masa berlaku & kue yang diambil saat kirim (FIFO) ===== */
         .exp { display: block; font-size: 10.5px; font-weight: 700; color: #52606d; margin-top: 2px; }
         .exp.segera { color: #b06d09; }
-        .minta-baru { display: inline-block; font-size: 10px; font-weight: 800; color: #9A6B1C; background: #FFF1D6; border-radius: 8px; padding: 1px 7px; margin-left: 6px; }
-        .pilih-batch { margin: 6px 0 2px; padding: 8px 10px; background: #F7F9FC; border: 1px solid #e3e9f1; border-radius: 9px; font-size: 11.5px; }
-        .pilih-batch .jdl { font-weight: 700; color: #52606d; margin-bottom: 4px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .03em; }
-        .pilih-batch label { display: flex; align-items: center; gap: 8px; padding: 3px 0; color: #1f2937; cursor: pointer; }
-        .pilih-batch input { accent-color: #12305C; }
-        .pilih-batch .n { color: #6b7280; }
         .rincian-kirim { margin-top: 6px; padding-top: 6px; border-top: 1px dashed #d7dee8; color: #1e7d32; font-size: 11.5px; }
         .rincian-kirim.campur { color: #9A6B1C; }
         .li .kiri { display: block; min-width: 0; }
-        .cb-baru { display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 10.5px; color: #52606d; margin-top: 4px; white-space: nowrap; cursor: pointer; }
 
         /* ===== Modal permintaan transfer (kasir) ===== */
         .modal-backdrop {
@@ -342,9 +335,8 @@
         let langgananOutletFc = null; // fungsi berhenti memantau daftar outlet (area) di tampilan forecaster
         let ruteTransfer = [];       // [{ id, a, b }] rute lintas area (koleksi rute_transfer)
         let langgananRute = null;    // fungsi berhenti memantau rute_transfer
-        let stokSendiri = {};        // kasir: { productId: data stok outlet sendiri } untuk pilihan kue lama/baru
+        let stokSendiri = {};        // kasir: { productId: data stok outlet sendiri } untuk rincian kue yang diambil saat kirim
         let langgananStokSendiri = null;
-        let pilihBatch = {};         // { transferId: { productId: "lama" | "baru" } }
 
         function esc(t) {
             return String(t == null ? "" : t).replace(/[&<>"']/g, function (c) {
@@ -541,10 +533,11 @@
         }
 
         /* =====================================================================
-           MASA BERLAKU (stok-batch.js) & PILIHAN KUE LAMA / BARU SAAT KIRIM
-           Kasir pengirim memilih kue yang lama dulu (bawaan) atau yang baru
-           kalau stoknya punya lebih dari satu masa berlaku. Item permintaan
-           bisa membawa mintaBaru: true (pilihan "yang baru" otomatis terpilih).
+           MASA BERLAKU (stok-batch.js) & KUE YANG DIKIRIM
+           Kirim selalu FIFO: kue paling lama dulu (sama seperti penjualan di
+           Kasir). Kartu Kirim menampilkan rincian kue yang diambil supaya
+           kasir mengambil kue fisik yang sama dari rak. Field lama
+           items[].mintaBaru (transfer sebelumnya) diabaikan.
         ========================================================================= */
         function pantauStokSendiri() {
             if (langgananStokSendiri) { langgananStokSendiri(); langgananStokSendiri = null; }
@@ -552,7 +545,7 @@
                 stokSendiri = {};
                 snap.forEach(function (d) { stokSendiri[d.id] = d.data(); });
                 if (transferSiap && tabAktif === "kirim") renderTetap();
-            }, function () { /* pilihan kue lama/baru tidak tampil */ });
+            }, function () { /* rincian kue yang diambil tidak tampil */ });
         }
 
         function teksBerlaku(ms) {
@@ -583,29 +576,6 @@
         function htmlBerlaku(ms) {
             const segera = ms !== null && ms !== undefined && new Date(ms).toDateString() === new Date().toDateString();
             return '<span class="exp' + (segera ? ' segera' : '') + '">⏱ berlaku s/d ' + esc(teksBerlaku(ms)) + '</span>';
-        }
-
-        /* Ambil batch untuk dikirim. "lama" = paling lama dulu (bawaan);
-           "baru" = yang paling lama masa berlakunya dulu (kue baru). */
-        function ambilUntukKirim(aktif, qty, pilihan) {
-            if (pilihan !== "baru") return sbAmbil(aktif, qty);
-            const urut = aktif.slice().sort(function (a, b) {
-                return (nilaiKedaluwarsa(b) - nilaiKedaluwarsa(a)) || (b.masukMs - a.masukMs);
-            });
-            const hasil = sbAmbil(urut, qty);
-            hasil.sisa.sort(function (a, b) { return a.masukMs - b.masukMs; });
-            return hasil;
-        }
-
-        function pilihanKirim(tid, it) {
-            const p = pilihBatch[tid] && pilihBatch[tid][it.productId];
-            return p || (it.mintaBaru ? "baru" : "lama");
-        }
-
-        function ubahPilihBatch(tid, pid, nilai) {
-            if (!pilihBatch[tid]) pilihBatch[tid] = {};
-            pilihBatch[tid][pid] = nilai;
-            renderTetap();   // perbarui rincian kue yang diambil
         }
 
         // Pantau daftar outlet; panggil lanjut() sekali setelah termuat pertama (atau gagal)
@@ -1105,7 +1075,6 @@
         let pmSemua = false;         // tampilkan semua outlet walau asal & tujuan sudah dipilih
         let pmArea = {};             // { outlet: area } untuk label rute khusus
         let pmMitra = [];            // outlet rute khusus (beda area) milik outlet kasir
-        let pmBaru = {};             // { productId: true } minta kue yang baru
         let pmDasarOlah = null;      // panggil ulang saat rute berubah selama form terbuka
 
         function labelOutletPm(o) {
@@ -1241,7 +1210,6 @@
 
         function bukaPermintaan() {
             pmQty = {};
-            pmBaru = {};
             pmSemua = false;
             document.getElementById("pmAlasan").value = "";
             document.getElementById("pmError").style.display = "none";
@@ -1352,9 +1320,7 @@
                 html += '<td class="col-jml"><input class="pm-qty' + (nilai ? " terisi" : "") + '" type="number" min="0" max="' + maks + '" ' +
                         'placeholder="0" value="' + nilai + '" data-pid="' + esc(p.id) + '" oninput="ubahPmQty(this)"' +
                         (maks <= 0 ? ' disabled title="Stok ' + esc(dari) + ' kosong"' : '') + '>' +
-                        '<div class="pm-catatan-qty" data-catatan="' + esc(p.id) + '" style="display:none;"></div>' +
-                        '<label class="cb-baru"><input type="checkbox"' + (pmBaru[p.id] ? ' checked' : '') + ' onchange="pmBaru[\'' + esc(p.id) + '\'] = this.checked"' +
-                        (maks <= 0 ? ' disabled' : '') + '> minta yang baru</label></td></tr>';
+                        '<div class="pm-catatan-qty" data-catatan="' + esc(p.id) + '" style="display:none;"></div></td></tr>';
             });
 
             wadah.innerHTML = html + '</tbody></table>';
@@ -1424,7 +1390,6 @@
                 const s = stokPm(dari, p.id);
                 if (!s || v > s.jumlah) lebih = p.nama;
                 const item = { productId: p.id, nama: p.nama, jumlah: v };
-                if (pmBaru[p.id]) item.mintaBaru = true;
                 items.push(item);
             });
             if (lebih) return salah("Jumlah " + lebih + " melebihi stok " + dari + ".");
@@ -1642,33 +1607,17 @@
             let html = '<div class="card aktif"><div class="card-title">Kirim ke ' + esc(t.ke) + ' <span class="badge s-perlu">PERLU DIKIRIM</span></div>' +
                        '<div class="card-meta">' + asalPerintah(t) + '</div>';
             (t.items || []).forEach(function (it) {
-                // Masa berlaku stok outlet sendiri; kalau lebih dari satu, kasir memilih kue lama / baru
+                // Kue yang diambil (FIFO, paling lama dulu) dari stok outlet sendiri
                 const aktif = sbPisah(sbBatch(stokSendiri[it.productId], Date.now()), Date.now()).aktif;
-                const grup = kelompokBerlaku(aktif);
-                let info = it.mintaBaru ? '<span class="minta-baru">\u2b50 diminta yang baru</span>' : '';
-                if (grup.length > 1) {
-                    const pilih = pilihanKirim(t.id, it);
-                    const lama = grup[0], baru = grup[grup.length - 1];
-                    const nama = "pb_" + t.id + "_" + it.productId;
-                    const opsi = function (nilai, label, g) {
-                        return '<label><input type="radio" name="' + esc(nama) + '"' + (pilih === nilai ? ' checked' : '') +
-                            ' onchange="ubahPilihBatch(\'' + t.id + '\', \'' + esc(it.productId) + '\', \'' + nilai + '\')"> ' +
-                            label + ' <span class="n">\u00b7 s/d ' + esc(teksBerlaku(g.ms)) + ' \u00b7 ada ' + g.qty + '</span></label>';
-                    };
-                    // Rincian yang akan diambil (bisa campuran lama + baru kalau satu kelompok tidak cukup)
-                    let rincian = "";
+                let info = "";
+                if (aktif.length) {
                     try {
-                        const ambil = kelompokBerlaku(ambilUntukKirim(aktif, it.jumlah, pilih).diambil);
+                        const ambil = kelompokBerlaku(sbAmbil(aktif, it.jumlah).diambil);
                         const teks = ambil.map(function (g) { return '<b>' + g.qty + ' pcs</b> s/d ' + esc(teksBerlaku(g.ms)); }).join(" + ");
-                        rincian = '<div class="rincian-kirim' + (ambil.length > 1 ? ' campur' : '') + '">' +
-                            (ambil.length > 1 ? 'Campuran: ambil ' : 'Ambil ') + teks + '</div>';
+                        info = '<div class="rincian-kirim' + (ambil.length > 1 ? ' campur' : '') + '">Ambil yang lama dulu: ' + teks + '</div>';
                     } catch (e) {
-                        rincian = '<div class="rincian-kirim campur">Stok tidak cukup untuk ' + it.jumlah + ' pcs.</div>';
+                        info = '<div class="rincian-kirim campur">Stok tidak cukup untuk ' + it.jumlah + ' pcs.</div>';
                     }
-                    info += '<div class="pilih-batch"><div class="jdl">Kue mana yang dikirim?</div>' +
-                        opsi("lama", "Yang lama dulu", lama) + opsi("baru", "Yang baru", baru) + rincian + '</div>';
-                } else if (grup.length === 1) {
-                    info += htmlBerlaku(grup[0].ms);
                 }
                 html += '<div class="li"><span class="kiri">' + esc(it.nama) + info + '</span><b>' + it.jumlah + '</b></div>';
             });
@@ -1778,8 +1727,8 @@
                     if (sisa < it.jumlah) {
                         throw new Error("Stok " + it.nama + " tidak cukup (tersisa " + sisa + ", dikirim " + it.jumlah + "). Hubungi Forecaster.");
                     }
-                    // Kue lama dulu (bawaan) atau kue baru, sesuai pilihan kasir pengirim
-                    const hasil = ambilUntukKirim(pisah.aktif, it.jumlah, pilihanKirim(id, it));
+                    // Selalu kue paling lama dulu (FIFO)
+                    const hasil = sbAmbil(pisah.aktif, it.jumlah);
                     tx.set(refs[i], sbDataStok(hasil.sisa.concat(pisah.basi), nowMs), { merge: true });
                     return Object.assign({}, it, { batchDikirim: hasil.diambil });
                 });
@@ -1792,7 +1741,6 @@
                 });
             }).then(function () {
                 delete sedangProses[id];
-                delete pilihBatch[id];
                 muatTransfer();
                 muatBadgeTransfer(currentUser);
             }).catch(function (e) {
