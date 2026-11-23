@@ -424,6 +424,40 @@
             appId: "1:101370933916:web:129ebea30dd9e59508f359"
         };
 
+        /* Baca dokumen users/<uid> lewat Firestore REST API dengan token login
+           (Rules tetap berlaku). Hasil: data dokumen (objek biasa), null kalau
+           dokumen tidak ada; melempar error kalau gagal (pemanggil memakai SDK). */
+        function nilaiRest(v) {
+            if (!v || typeof v !== "object") return null;
+            if ("stringValue" in v) return v.stringValue;
+            if ("integerValue" in v) return Number(v.integerValue);
+            if ("doubleValue" in v) return Number(v.doubleValue);
+            if ("booleanValue" in v) return v.booleanValue;
+            if ("timestampValue" in v) return v.timestampValue;
+            if ("nullValue" in v) return null;
+            if ("mapValue" in v) return fieldsRest((v.mapValue || {}).fields);
+            if ("arrayValue" in v) return ((v.arrayValue || {}).values || []).map(nilaiRest);
+            return null;
+        }
+        function fieldsRest(f) {
+            const hasil = {};
+            Object.keys(f || {}).forEach(function (k) { hasil[k] = nilaiRest(f[k]); });
+            return hasil;
+        }
+        function bacaUserCepat(user) {
+            if (!window.fetch) return Promise.reject(new Error("fetch tidak ada"));
+            const host = window.FS_REST_HOST || "https://firestore.googleapis.com";
+            return user.getIdToken().then(function (token) {
+                const url = host + "/v1/projects/" + firebaseConfig.projectId +
+                    "/databases/(default)/documents/users/" + encodeURIComponent(user.uid);
+                return fetch(url, { headers: { Authorization: "Bearer " + token } });
+            }).then(function (res) {
+                if (res.status === 404) return null;
+                if (!res.ok) throw new Error("REST " + res.status);
+                return res.json().then(function (j) { return fieldsRest(j.fields); });
+            });
+        }
+
         firebase.initializeApp(firebaseConfig);
 
         const auth = firebase.auth();
@@ -535,16 +569,21 @@
                     uidUser = userCredential.user.uid;
 
                     // Setelah login berhasil, ambil data tambahan
-                    // dari Firestore: role (kasir/admin) & outlet mana
-                    return db.collection("users").doc(uidUser).get();
+                    // dari Firestore: role (kasir/admin) & outlet mana.
+                    // Lewat satu permintaan REST (lebih cepat daripada membuka
+                    // sambungan Firestore dulu); kalau gagal, pakai cara biasa.
+                    return bacaUserCepat(userCredential.user).catch(function () {
+                        return db.collection("users").doc(uidUser).get().then(function (doc) {
+                            return doc.exists ? doc.data() : null;
+                        });
+                    });
 
                 })
 
-                .then((userDoc) => {
+                .then((userData) => {
 
-                    if (userDoc.exists) {
+                    if (userData) {
 
-                        const userData = userDoc.data();
                         userData.uid = uidUser;
 
                         // Simpan data user supaya bisa dipakai di halaman lain
