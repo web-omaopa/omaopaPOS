@@ -309,9 +309,28 @@ function renderSidebar(currentUser, activeKey) {
 
     // Badge angka di menu Transfer (tugas yang menunggu aksi).
     // Dijalankan setelah sidebar dipasang ke halaman.
-    setTimeout(function () { muatBadgeTransfer(currentUser); }, 50);
+    setTimeout(function () { muatBadgeTransfer(currentUser); pasangPrerenderMenu(); }, 50);
 
     return html;
+}
+
+/* Pindah menu lebih cepat (Chrome / Edge): begitu menu disentuh atau
+   kursor diarahkan ke menu, browser menyiapkan halaman tujuan di belakang
+   layar (prerender), termasuk login Firebase & pengambilan datanya. Saat
+   menu diklik, halaman yang sudah siap langsung ditampilkan. Browser yang
+   tidak mendukung tetap pindah halaman seperti biasa. */
+function pasangPrerenderMenu() {
+    try {
+        if (document.getElementById("aturanPrerender")) return;
+        if (!(HTMLScriptElement.supports && HTMLScriptElement.supports("speculationrules"))) return;
+        const el = document.createElement("script");
+        el.type = "speculationrules";
+        el.id = "aturanPrerender";
+        el.textContent = JSON.stringify({
+            prerender: [{ where: { selector_matches: ".sidebar a.nav-item" }, eagerness: "moderate" }]
+        });
+        document.head.appendChild(el);
+    } catch (e) { /* abaikan: pindah halaman biasa */ }
 }
 
 /* Hitung transfer yang menunggu aksi user ini lalu tampilkan di badge menu:
