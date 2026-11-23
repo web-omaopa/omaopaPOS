@@ -3,12 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://www.gstatic.com">
+    <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+    <link rel="preconnect" href="https://securetoken.googleapis.com" crossorigin>
     <title>Oma Opa POS - Riwayat Penjualan</title>
 
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
-    <script src="roles.js?v=20261117a"></script>
+    <script src="roles.js?v=20261120b"></script>
     <script src="kas.js?v=20261120a"></script>
     <script src="keuangan.js?v=20261120a"></script>
     <script src="stok-batch.js?v=20261116a"></script>
@@ -216,7 +219,7 @@
 
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
-        const db = firebase.firestore();
+        const db = siapkanFirestore();
 
         /* =====================================================================
            RIWAYAT PENJUALAN (koleksi transactions, hanya membaca)
@@ -282,9 +285,9 @@
                 ? db.collection("sesi_kas").doc(idShift).get().then(function (doc) { return doc.exists ? { id: doc.id, data: doc.data({ serverTimestamps: "estimate" }) } : null; })
                 : (currentUser.role === "kasir" ? kasCariSesiAktif(db, currentUser.outlet) : Promise.resolve(null));
 
-            const muatSesiKasir = currentUser.role === "kasir"
-                ? kasCariSesiAktif(db, currentUser.outlet).catch(function () { return null; })
-                : Promise.resolve(null);
+            // Kasir tanpa ?shift: muatShift sudah = shift berjalan, tidak perlu dibaca dua kali
+            const muatSesiKasir = currentUser.role !== "kasir" ? Promise.resolve(null)
+                : (idShift ? kasCariSesiAktif(db, currentUser.outlet) : muatShift).catch(function () { return null; });
             keuMuatDetailKategori(db);
             pantauPermintaanVoid();
 
